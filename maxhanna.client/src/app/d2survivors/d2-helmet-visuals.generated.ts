@@ -104,12 +104,19 @@ export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
  * y 1.0, which drags the mesh bounds centre up to y 0.39: the mount seats the
  * *bounds* centre, so at the shared lift the bowl landed half a head below the
  * skull, centred on the chin. The lift below adds back that offset
- * (0.39 - 0.04 bowl centre = 0.35 units * 0.0061 * 1.03 necromancer scale) to
- * put the bowl back on the skull. Its crest also inflates the mesh bounds, so
- * the piece opts out of the skull-envelope clamp, which would otherwise shrink
- * it straight back down.
+ * (0.39 - 0.04 bowl centre = 0.35 units * 0.0061 = 0.0021) plus the head bone's
+ * own skull offset. Its crest also inflates the mesh bounds, so the piece opts
+ * out of the skull-envelope clamp, which would otherwise shrink it straight
+ * back down.
+ *
+ * Lifts are authored at a head fit of 1 and the mount now scales them by each
+ * class's own fit (see helmetSeatOffset), because a bare head-local lift moved
+ * this bowl by 3104 units of head on the druid and 4181 on the sorceress: it
+ * rode ~30% high on the sorceress while sitting right on the druid.  At 0.003
+ * the druid, amazon and paladin seats stay where they looked right and the
+ * sorceress and assassin drop back onto the skull with them.
  */
-D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, lift: 0.0031, noFit: true };
+D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, lift: 0.003, noFit: true };
 
 /**
  * The Avenger Guard's rip carries tall wings that drag both the mesh bounds and
@@ -122,7 +129,9 @@ D2_HELMET_VISUALS.great = { ...D2_HELMET_VISUALS.great, scale: 0.0061, lift: 0.0
 D2_HELMET_VISUALS.avenger = {
   ...D2_HELMET_VISUALS.avenger,
   scale: 0.00335,
-  lift: 0.0018,
+  // 0.0018 at the barbarian's 0.887 * 1.05 = 0.931 head fit, divided back out
+  // like the great helm so the mount can scale it per class.
+  lift: 0.00193,
   noFit: true,
 };
 

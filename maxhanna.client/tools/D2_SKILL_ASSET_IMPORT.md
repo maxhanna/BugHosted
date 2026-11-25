@@ -80,7 +80,7 @@ same direction/frame logic as enemies:
 
 | Summon | Art |
 |---|---|
-| Raven, Poison Creeper, Carrion Vine, Solar Creeper | `models/druid/animations/raven.png` and `poison-creeper.png` (the three vines are one model recoloured, as in D2) |
+| Raven, Poison Creeper, Carrion Vine, Solar Creeper | `models/druid/animations/raven.png` and `poison-creeper.png` (the three vines are one model recoloured, as in D2). The vine sheet is eight facing rows of the `vines.dcc` sprawl in columns 0-7 and of the vine beast's `pod_attack_1.dcc` raising strike in columns 8-11, so an attacking vine rears up and lashes instead of curling in place; `tools/import_d2_creeper_atlas.py` builds it |
 | Raise Skeleton, Skeletal Mage | `enemies/animated/skeleton-warrior.png`, built from the original Diablo II skeleton rip in `review/z-Skelet.jpg`; the mage is the same bones lit blue. (The game's `skeleton` sheet is a 16-frame skeleton *archer* strip, so it is not used for summons.) |
 | Revive | the replicated monster's own sheet, i.e. `goatman` |
 | Clay/Blood/Iron/Fire Golem | `enemies/animated/golem.png`: the hulking weaponless Diablo II golem body from the LoD monster group `d2exp/File00007956`..`965`, recoloured per golem |

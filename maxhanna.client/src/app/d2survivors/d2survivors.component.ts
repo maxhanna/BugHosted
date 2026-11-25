@@ -32,7 +32,7 @@ import { HYDRA_ART } from "./d2-hydra.generated";
 import { INFERNO_ART } from "./d2-inferno.generated";
 import { POISON_CLOUD_ART } from "./d2-poison-cloud.generated";
 import { getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
-import { helmetMountQuaternion, helmetSeatOffset } from "./d2-helmet-mount";
+import { helmetHeadFit, helmetMountQuaternion, helmetSeatOffset, helmetSeatScale } from "./d2-helmet-mount";
 import { getWeaponVisualForItem } from "./d2-weapon-visuals.generated";
 import type { D2WeaponVisual } from "./d2-weapon-visuals.generated";
 import { ASSASSIN_AURA_ART } from "./d2-assassin-auras.generated";
@@ -2329,19 +2329,12 @@ const SUMMON_DAMAGE_TYPES: Partial<Record<string, SummonDamageType>> = {
   "Solar Creeper": "fire",
 };
 
-/** The three druid vines burrow as they move and churn the soil while idle. */
-const CREEPER_SUMMON_SKILLS = new Set(["Poison Creeper", "Carrion Vine", "Solar Creeper"]);
 /** Druid spirits that support the party and never join combat. */
 const SUPPORT_SPIRIT_SKILLS = new Set(["Oak Sage", "Heart of Wolverine", "Spirit of Barbs"]);
 // Diablo II allows exactly one spirit at a time, and the automatic caster keeps
 // the strongest one the druid has points in: Spirit of Barbs outranks Heart of
 // Wolverine, which outranks Oak Sage.
 const AUTO_SPIRIT_PRIORITY = ["Spirit of Barbs", "Heart of Wolverine", "Oak Sage"] as const;
-// Trails are cheap procedural smears, but the buffer is still strictly bounded
-// and every mark expires so a long run cannot accumulate floor decals.
-const CREEPER_TRAIL_LIMIT = 120;
-const CREEPER_TRAIL_LIFETIME_SECONDS = 2.4;
-
 function sanitizeEnemySpecies(value: unknown, kind: EnemyKind): EnemySpecies {
   return ENEMY_SPECIES.includes(value as EnemySpecies)
     ? value as EnemySpecies
@@ -2679,7 +2672,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private readonly leapDustEffects: LeapDustEffect[] = [];
   private readonly summonAttackEffects: SummonAttackEffect[] = [];
   private skeletalMageElementIndex = 0;
-  private readonly creeperTrailMarks: CreeperTrailMark[] = [];
   private readonly skillVisualEffects: SkillVisualEffect[] = [];
   private readonly activePaladinAuras: Record<string, { remaining: number; tick: number }> = {};
   private hydraGroupSequence = 0;
@@ -16110,7 +16102,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.poisonClouds.length = 0;
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
-    this.creeperTrailMarks.length = 0;
     for (let index = 0; index < 5; index += 1) this.enemies.push(this.makeEnemy("normal"));
     this.chests = [];
     this.potionDrops = [];
@@ -19727,7 +19718,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.druidFormAnimationTime += elapsedSeconds;
     this.druidFormAttackTime = Math.max(0, this.druidFormAttackTime - elapsedSeconds);
     this.rebuildEnemyGrid();
-    this.updateCreeperTrails(elapsedSeconds);
     const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0);
     for (const summon of summons) {
       const maxHp = this.effectiveSummonMaxHp(summon);
@@ -19811,13 +19801,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           summon.x += headingX * Math.min(step, distance);
           summon.y += headingY * Math.min(step, distance);
           summon.animationState = "move";
-        }
-      }
-      if (CREEPER_SUMMON_SKILLS.has(summon.summonSkill ?? "")) {
-        summon.summonTrailCooldown = Math.max(0, (summon.summonTrailCooldown ?? 0) - elapsedSeconds);
-        if (summon.summonTrailCooldown <= 0) {
-          summon.summonTrailCooldown = summon.animationState === "move" ? 0.1 : 0.17;
-          this.addCreeperTrailMark(summon);
         }
       }
     }
@@ -25411,7 +25394,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.heldBeltPotionSlot = null;
     this.clearMobileBeltPress();
     this.clearPlayerPoison();
-    this.creeperTrailMarks.length = 0;
     this.thunderStormRemaining = 0;
     this.thunderStormStrikeTimer = 0;
     this.thunderStormStrikes.length = 0;
@@ -26805,10 +26787,18 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         texture?.dispose();
         return;
       }
-      const head = model.getObjectByName("head_bind_jnt")
-        ?? model.getObjectByName("head")
-        ?? model.getObjectByName("Head")
-        ?? model.getObjectByName("neck");
+      // The rig already picked the head joint the animation drives, and its
+      // bind basis is what the seat and the upright mount are expressed in.
+      // Some rips (the assassin's head_M_JNT) name that joint differently from
+      // the plain "head" helper node, and attaching to the helper left the
+      // helmet un-rotated and half its apparent size.
+      const rigHead = rig?.head?.bone;
+      const head = rigHead && rigHead.parent
+        ? rigHead
+        : model.getObjectByName("head_bind_jnt")
+          ?? model.getObjectByName("head")
+          ?? model.getObjectByName("Head")
+          ?? model.getObjectByName("neck");
       if (!head) {
         this.disposeHelmetObject(gltf.scene);
         texture?.dispose();
@@ -26844,10 +26834,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // Normalizing to it makes the same meshes fit every class's head size.
       // The height is the body the model was normalized to, never the bounding
       // box of the moment: gear that loads before the helmet would inflate it.
-      const modelHeight = characterBodyHeight(model);
+      // Body height is kept in the model's own units while the head bone scale
+      // is world units, so bring the height into the same space before the
+      // ratio: a scaled preview or the arena's world scale would otherwise
+      // multiply straight into every helmet.
+      const modelHeight = characterBodyHeight(model) * (model.getWorldScale(new THREE.Vector3()).x || 1);
       const headScale = head.getWorldScale(new THREE.Vector3()).x;
-      const referenceHeadScale = 3182 * (modelHeight / 72);
-      const headFit = modelHeight > 0 && headScale > 0 ? referenceHeadScale / headScale : 1;
+      const headFit = helmetHeadFit(modelHeight, headScale);
       const group = new THREE.Group();
       group.name = "d2s_equipped_helmet";
       group.add(helmetScene);
@@ -26874,7 +26867,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const headBindQuat = rig?.head?.bone === head ? rig.head.bindQuat : new THREE.Quaternion();
       // The head bone sits at the rear of the skull; move the hat center forward
       // onto the head mesh rather than letting the back of the hat overhang.
-      group.position.copy(helmetSeatOffset(visual, headBindQuat));
+      // The seat lift is authored against the reference head that the helmet
+      // scale is normalised to, so it has to follow the same class fit: a bare
+      // head-local lift rode the great helm ~30% high on the sorceress.
+      group.position.copy(helmetSeatOffset(visual, headBindQuat, helmetSeatScale(headFit, classScale[classId] ?? 1)));
       group.quaternion.copy(helmetMountQuaternion(headBindQuat, visual.rotation));
       head.add(group);
     }).catch((error: unknown) => {
@@ -27621,6 +27617,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     model.scale.setScalar(targetHeight / size.y);
     model.position.set(-center.x * model.scale.x, -bounds.min.y * model.scale.y, -center.z * model.scale.z);
+    // The bounds above were measured before this scale reached the world
+    // matrices, so re-measure with it: expandByObject only refreshes each mesh's
+    // own matrix, not the parents it inherits. Recording the pre-scale height
+    // (0.02 for an 88-unit hero) handed the helmet fit a number 4000x smaller
+    // than the head bone's world scale and blew the fit up.
+    model.updateMatrixWorld(true);
     // Gear can stand taller than the hero (a pike, a shield over the shoulder)
     // and the preview screens attach it before this point, so the scale above
     // fitted the gear rather than the body. Record the height of the *body* that
@@ -27633,7 +27635,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       bodyBounds.expandByObject(mesh);
     });
     const bodyHeight = bodyBounds.getSize(new THREE.Vector3()).y;
-    model.userData["d2sBodyHeight"] = bodyHeight > 0 && Number.isFinite(bodyHeight) ? bodyHeight : targetHeight;
+    // Stored in the model's own units: the arena, a preview zoom and the menu
+    // portrait all scale the model group, and the head's world scale moves with
+    // it, so a world-space height would drift out of step with the head again.
+    const worldScale = model.getWorldScale(new THREE.Vector3()).x || 1;
+    model.userData["d2sBodyHeight"] = bodyHeight > 0 && Number.isFinite(bodyHeight)
+      ? bodyHeight / worldScale
+      : targetHeight / worldScale;
   }
 
   private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
@@ -28514,35 +28522,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     ctx.shadowBlur = 3;
     ctx.fillText(skill, ground.x, barY - 3);
     ctx.shadowBlur = 0;
-  }
-
-  /** Expire stale soil marks; the array is capped, so trail memory stays flat. */
-  private updateCreeperTrails(seconds: number): void {
-    for (let index = this.creeperTrailMarks.length - 1; index >= 0; index -= 1) {
-      this.creeperTrailMarks[index].life -= seconds;
-      if (this.creeperTrailMarks[index].life <= 0) this.creeperTrailMarks.splice(index, 1);
-    }
-  }
-
-  private addCreeperTrailMark(summon: Enemy): void {
-    const skill = summon.summonSkill ?? "";
-    if (!CREEPER_SUMMON_SKILLS.has(skill)) return;
-    const churning = summon.animationState !== "move";
-    const phase = this.runTime * (churning ? 2.2 : 3.6)
-      + (summon.summonSlot ?? 0) * 1.7 + summon.x * 0.011 + summon.y * 0.007;
-    const swirlRadius = summon.r * (churning ? 0.62 : 0.3);
-    this.creeperTrailMarks.push({
-      x: summon.x + Math.cos(phase) * swirlRadius,
-      y: summon.y + Math.sin(phase) * swirlRadius * 0.5,
-      radius: summon.r * (0.3 + Math.random() * 0.16),
-      angle: Math.random() * Math.PI,
-      color: skill === "Solar Creeper" ? "#7d5a24" : skill === "Carrion Vine" ? "#665d36" : "#4e612f",
-      life: CREEPER_TRAIL_LIFETIME_SECONDS,
-      maxLife: CREEPER_TRAIL_LIFETIME_SECONDS,
-    });
-    if (this.creeperTrailMarks.length > CREEPER_TRAIL_LIMIT) {
-      this.creeperTrailMarks.splice(0, this.creeperTrailMarks.length - CREEPER_TRAIL_LIMIT);
-    }
   }
 
   private druidFormAnimationName(): DruidAnimationName | undefined {
@@ -29925,10 +29904,16 @@ export function enemyD2PixelHeight(species: EnemySpecies): number {
  * screens attach gear before the helmet resolves, the arena after it, which is
  * why the same helm looked right in the arena and huge in the character preview.
  */
+/**
+ * Body height in the model's own units. Gear that stands over the hero's head
+ * must not inflate it, and a recorded value is preferred over the live bounds
+ * for exactly that reason.
+ */
 export function characterBodyHeight(model: THREE.Object3D): number {
   const recorded = model.userData["d2sBodyHeight"];
   if (typeof recorded === "number" && Number.isFinite(recorded) && recorded > 0) return recorded;
-  return new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+  const worldScale = model.getWorldScale(new THREE.Vector3()).x || 1;
+  return new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y / worldScale;
 }
 
 /** World-unit height the hero's 3D model is normalized to before arena scaling. */
@@ -30727,16 +30712,6 @@ interface AttackProjectile {
   thrownWeapon?: ThrownWeaponKind;
 }
 
-interface CreeperTrailMark {
-  x: number;
-  y: number;
-  radius: number;
-  angle: number;
-  color: string;
-  life: number;
-  maxLife: number;
-}
-
 interface BlazeFirePatch {
   x: number;
   y: number;
@@ -30923,8 +30898,6 @@ interface Enemy {
   /** The elemental palette and damage of a raised Skeletal Mage. */
   summonElement?: SkeletalMageElement;
   summonAttackCooldown?: number;
-  /** Seconds until this vine marks the floor again while it burrows. */
-  summonTrailCooldown?: number;
   /** Stable spot in the pack, so a death does not shuffle everyone's target. */
   summonSlot?: number;
   spriteFrame: number;

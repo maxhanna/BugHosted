@@ -8,7 +8,7 @@ import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.gen
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
 import { D2_HELMET_VISUALS, getHelmetVisualForItem } from "./d2-helmet-visuals.generated";
 import { getWeaponVisualForItem } from "./d2-weapon-visuals.generated";
-import { helmetMountQuaternion, helmetSeatOffset } from "./d2-helmet-mount";
+import { helmetHeadFit, helmetMountQuaternion, helmetSeatOffset, helmetSeatScale } from "./d2-helmet-mount";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
 import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
 import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
@@ -6391,6 +6391,80 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(standardSeat.z).toBeCloseTo(0.0003);
   });
 
+  it("seats a helmet by each class's own head fit, not by a fixed head-local lift", () => {
+    // The rigs bind the head between 3104 (druid) and 4181 (sorceress) at a
+    // 72-unit body, and every lift in the table is authored against the
+    // paladin's 3182. A bare head-local lift therefore moved the same hat by a
+    // different distance on each class: the great helm's bowl rode ~35% higher
+    // on the sorceress than on the druid, which read as the helmet floating
+    // above her head while it sat right on his.
+    const upright = new THREE.Quaternion();
+    const seat = (headScaleAt72: number, classScale: number) =>
+      helmetSeatOffset(D2_HELMET_VISUALS.great, upright, helmetSeatScale(3182 / headScaleAt72, classScale)).y;
+    // Model-space travel of the seat, which is what the eye compares against a
+    // helmet whose own size is normalised to the head bone.
+    const travel = (headScaleAt72: number, classScale: number) => seat(headScaleAt72, classScale) * headScaleAt72;
+
+    const unscaled = (headScaleAt72: number) => D2_HELMET_VISUALS.great.lift * headScaleAt72;
+    expect(unscaled(4181) / unscaled(3103.9)).toBeCloseTo(1.347, 3);
+
+    expect(travel(4181, 0.95) / travel(3103.9, 1)).toBeGreaterThan(0.9);
+    expect(travel(4181, 0.95) / travel(3103.9, 1)).toBeLessThan(1.05);
+    expect(travel(3495.6, 1.03) / travel(3103.9, 1)).toBeGreaterThan(0.9);
+    expect(travel(3495.6, 1.03) / travel(3103.9, 1)).toBeLessThan(1.15);
+
+    // Relative to the helmet's own scale the seat is the authored lift on every
+    // class, so the fit both sizes the mesh and places it.
+    for (const [headScaleAt72, classScale] of [[3103.9, 1], [4181, 0.95], [3495.6, 1.03], [3231.9, 0.93]] as const) {
+      const fit = helmetSeatScale(3182 / headScaleAt72, classScale);
+      expect(seat(headScaleAt72, classScale) / fit).toBeCloseTo(D2_HELMET_VISUALS.great.lift, 6);
+    }
+
+    // A quarter-turned bind still receives a vertical lift of the same size.
+    const turned = new THREE.Quaternion(0.5, 0.5, 0.5, 0.5);
+    expect(helmetSeatOffset(D2_HELMET_VISUALS.great, turned, 0.8).x).toBeCloseTo(D2_HELMET_VISUALS.great.lift * 0.8, 6);
+  });
+
+  it("sizes a helmet from the head it sits on, at whatever scale the hero is drawn", () => {
+    // The rips normalize to an 88-unit menu portrait and a 72-unit arena hero,
+    // and the model group is scaled again for the arena. The body height is
+    // stored in the model's own units while the head bone scale is world units,
+    // so the ratio may only be taken after both are in the same space: mixing
+    // them took the model's whole scale into the fit and made every helmet in
+    // the previews thousands of times too large or too small.
+    const worldScale = 3950.07;
+    const localBodyHeight = 88 / worldScale;
+    const headScale = 3182 * (88 / 72);
+    expect(helmetHeadFit(localBodyHeight * worldScale, headScale)).toBeCloseTo(1, 6);
+    // A hero drawn twice as large wears the same helmet.
+    expect(helmetHeadFit(localBodyHeight * worldScale * 2, headScale * 2)).toBeCloseTo(1, 6);
+    // Each class's own head scale is normalised to the reference.
+    expect(helmetHeadFit(88, (3182 * 88) / 72 * 1.31)).toBeCloseTo(1 / 1.31, 6);
+    // Never hand it a model-local height against a world head scale.
+    expect(helmetHeadFit(localBodyHeight, headScale)).toBeLessThan(0.001);
+    // A degenerate rig keeps the shared scale instead of dividing by zero.
+    expect(helmetHeadFit(0, headScale)).toBe(1);
+    expect(helmetHeadFit(88, 0)).toBe(1);
+  });
+
+  it("records the hero's body height in the model's own units", () => {
+    // Box3.expandByObject only refreshes each mesh's own matrix, so measuring
+    // the body straight after setting model.scale recorded the pre-scale height
+    // (0.022 for an 88-unit hero) and the helmet fit divided by it.
+    const model = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.022, 1));
+    model.add(body);
+    (component as any).normalizeCharacterModel(model, 88);
+    const recorded = characterBodyHeight(model);
+    expect(recorded).toBeCloseTo(88 / model.getWorldScale(new THREE.Vector3()).x, 5);
+    expect(recorded * model.getWorldScale(new THREE.Vector3()).x).toBeCloseTo(88, 3);
+
+    // Re-scaling the model (the arena's world scale) keeps the stored height.
+    model.scale.multiplyScalar(1.16);
+    expect(characterBodyHeight(model)).toBeCloseTo(recorded, 6);
+    expect(characterBodyHeight(model) * model.getWorldScale(new THREE.Vector3()).x).toBeCloseTo(88 * 1.16, 3);
+  });
+
   it("drops large and grand charms with their D2R art and inventory footprints", () => {
     const random = spyOn(Math, "random");
     const found = new Map<string, any>();
@@ -10433,36 +10507,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const moving = (component as any).tintedEnemyFrame.calls.mostRecent().args;
     expect(moving[1]).toBeGreaterThanOrEqual(8);
     expect(moving[1]).toBeLessThan(16);
-  });
-
-  it("leaves capped, expiring burrow trails for the corpse vines", () => {
-    component.selectedClass = "druid";
-    component.runTime = 4;
-    component.playerX = 250;
-    component.playerY = 250;
-    const creeper = {
-      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 250, y: 250,
-      hp: 100, maxHp: 100, speed: 90, r: 15, dmg: 10, cd: 1,
-      summonType: "druid", summonSkill: "Poison Creeper", summonSlot: 0,
-      animationState: "move", facingX: 1, facingY: 0,
-    } as any;
-    component.enemies = [creeper];
-    const marks = (component as any).creeperTrailMarks;
-    marks.length = 0;
-
-    component.updateEnemies(16);
-    expect(marks.length).toBeGreaterThan(0);
-
-    // Idle vines keep churning the floor instead of standing still above it.
-    creeper.animationState = "idle";
-    (component as any).addCreeperTrailMark(creeper);
-    expect(marks.length).toBeGreaterThan(1);
-
-    // The ring buffer cannot grow without bound, and every mark eventually goes.
-    for (let index = 0; index < 200; index += 1) (component as any).addCreeperTrailMark(creeper);
-    expect(marks.length).toBeLessThanOrEqual(120);
-    (component as any).updateCreeperTrails(10);
-    expect(marks.length).toBe(0);
   });
 
   it("gives Sand Maggots a poison goo spit and a melee bite", () => {
