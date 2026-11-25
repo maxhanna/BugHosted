@@ -7,8 +7,9 @@ the real ``tri_town4.ds1`` preset and the DT1 sets it names, including
 palette and renders a cropped region of the town for use as the Act 8 backdrop.
 It also writes a 4x4 fallback atlas from the same map's most common floors and
 a packed upper-wall atlas plus backdrop-relative placements so the runtime can
-depth-sort the town walls over actors, and a wall-footprint collision mask so
-the hero cannot walk through the buildings.
+depth-sort the town walls over actors, and a collision mask taken from the
+pixels those wall sprites actually draw, so the hero cannot walk through a
+visible wall and is never stopped by an empty patch of pavement.
 
 The renderer follows the layer order used by the game's editor: lower walls,
 floors, shadows, upper walls/objects, and roofs.  It also composites the
@@ -553,46 +554,25 @@ def crop_scene(image: Image.Image, scene: Scene) -> Image.Image:
     return image.crop((left, top, left + width, top + height))
 
 
-def build_wall_collision_mask(scene: Scene,
-                              catalogue: dict[tuple[int, int, int], Tile]) -> Image.Image:
-    """White iso diamonds over every wall cell, in backdrop pixel space.
+def build_wall_collision_mask(wall_atlas: Image.Image, wall_layout: dict) -> Image.Image:
+    """Solid pixels of the exported wall sprites, in backdrop pixel space.
 
-    A DS1 wall cell fills its whole tile diamond, so the buildings' footprints
-    (including the cells under their roofs) become solid while the streets the
-    preset leaves empty stay walkable.  This is the same grid the backdrop and
-    the depth-sorted wall sprites use, so the runtime can sample the mask with
-    the backdrop geometry.
+    Marking every DS1 wall *cell* blocked the whole tile diamond under each
+    piece, so the roof shadows, the burnt ground and the half-empty corner
+    pieces the preset paints with wall cells became barriers over pavement the
+    backdrop draws as open town: the player hit walls they could not see.  The
+    mask now follows the sprites the runtime actually draws, so the town only
+    blocks where something visible stands, and the same pixels the depth-sorted
+    wall pass paints are the ones the hero cannot walk into.
     """
-    left, top = crop_pixel_origin(scene)
-    width = (CROP_COLUMNS + CROP_ROWS) * TILE_WIDTH // 2
-    height = (CROP_COLUMNS + CROP_ROWS) * TILE_HEIGHT // 2 + CROP_TOP_MARGIN
-    mask = Image.new("L", (width, height), 0)
-    draw = ImageDraw.Draw(mask)
-    origin_x = scene.height * TILE_WIDTH // 2
-    origin_y = 512
-    for layer in scene.layers:
-        if layer.kind != "wall" or not layer.orientations:
+    mask = Image.new("L", (wall_layout["backdropWidth"], wall_layout["backdropHeight"]), 0)
+    for instance in wall_layout["instances"]:
+        sprite = wall_atlas.crop((instance["sx"], instance["sy"],
+                                  instance["sx"] + instance["w"], instance["sy"] + instance["h"]))
+        alpha = sprite.getchannel("A").point(lambda value: 255 if value >= 128 else 0)
+        if alpha.getbbox() is None:
             continue
-        for index, cell in enumerate(layer.cells):
-            if cell & 0x80000000 or cell & 0xFF == 0:
-                continue
-            column, row = index % scene.width, index // scene.width
-            if not (CROP_COLUMN <= column < CROP_COLUMN + CROP_COLUMNS
-                    and CROP_ROW <= row < CROP_ROW + CROP_ROWS):
-                continue
-            orientation = layer.orientations[index] & 0xFF
-            if orientation >= 16:
-                continue
-            if catalogue.get(cell_key(cell, orientation)) is None:
-                continue
-            tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
-            tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
-            draw.polygon([
-                (tile_x + TILE_WIDTH // 2, tile_y),
-                (tile_x + TILE_WIDTH, tile_y + TILE_HEIGHT // 2),
-                (tile_x + TILE_WIDTH // 2, tile_y + TILE_HEIGHT),
-                (tile_x, tile_y + TILE_HEIGHT // 2),
-            ], fill=255)
+        mask.paste(255, (instance["x"], instance["y"]), alpha)
     return mask
 
 
@@ -777,7 +757,7 @@ def main(argv: list[str]) -> int:
     wall_atlas.save(ASSET_ROOT / "a8-tristram-walls.png", optimize=True)
     with (ASSET_ROOT / "a8-tristram-walls.json").open("w", encoding="utf-8") as handle:
         json.dump(wall_layout, handle, separators=(",", ":"))
-    collision = build_wall_collision_mask(scene, catalogue)
+    collision = build_wall_collision_mask(wall_atlas, wall_layout)
     collision.save(ASSET_ROOT / "a8-tristram-walls-collision.png", optimize=True)
     print(f"backdrop {backdrop.width}x{backdrop.height} -> {ASSET_ROOT / 'a8-tristram-backdrop.png'}")
     print(f"atlas {atlas.width}x{atlas.height} -> {TILE_ROOT / 'a8-uber-tristram-floor-tiles.png'}")

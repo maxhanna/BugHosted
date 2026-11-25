@@ -12,7 +12,8 @@ Diablo II neutral animation and appends it as a third block below them:
 The runtime's ENEMY_SPRITE_LAYOUTS rows, enemySpriteDirectionRow() and
 ENEMY_IDLE_TAIL_FRAMES mirror this layout (`idle` is block 2 for these species),
 and each appended cel is scaled to the walk band so a monster does not draw
-larger standing still than walking.
+larger standing still than walking (see normalize_enemy_atlas_blocks.py, which
+does that final pass on the written sheet).
 
 The sheet's palette is detected per species by rendering the walk clip with each
 palette the importer uses and keeping the one that matches the cels already on
@@ -33,6 +34,7 @@ import numpy as np
 from PIL import Image
 
 import import_d2r_enemy_atlases as tool
+import normalize_enemy_atlas_blocks as normalizer
 
 ASSET_ROOT = tool.ASSET_ROOT
 DEFAULT_SOURCE = tool.DEFAULT_SOURCE
@@ -297,6 +299,22 @@ def main(argv: list[str]) -> int:
         print(message)
         if message.startswith("skip"):
             failures += 1
+    # The idle cels are packed from the raw `nu` frame boxes, which do not share
+    # the walk band's scale (a cel with wide margins was blown up to fill its
+    # cell). Re-scale the appended block onto the walk band's own median height
+    # and foot line, otherwise a waiting monster draws visibly larger than the
+    # same monster walking.
+    for species in wanted:
+        code, out_name, columns, rows, cell_height = SPECIES[species]
+        path = ASSET_ROOT / out_name
+        if not path.is_file():
+            continue
+        sheet = Image.open(path)
+        cell_width = sheet.width // columns
+        if sheet.height < (rows + DIRECTIONS) * cell_height:
+            continue
+        print(normalizer.normalise(path, cell_width, cell_height, DIRECTIONS, (IDLE_BLOCK,)))
+
     print(f"added idle blocks to {len(wanted) - failures}/{len(wanted)} atlases")
     return 1 if failures else 0
 

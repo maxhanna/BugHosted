@@ -147,7 +147,7 @@
               <div class="d2s-derived-stats"><span>Life <b>{{ selectedClassStats.life }}</b></span><span>Mana <b>{{ selectedClassStats.mana }}</b></span><span>Stamina <b>{{ selectedClassStats.stamina }}</b></span></div>
             </div>
             <button type="button" class="d2s-menu-button primary d2s-begin-button" (click)="startRun()"><span>{{ canResumeSelectedRun ? 'Start Fresh Journey' : 'Begin Journey' }}</span><small>{{ canResumeSelectedRun ? 'Start over as the ' + selectedClassName : 'Enter Sanctuary as the ' + selectedClassName }}</small></button>
-            <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeRunFromCharacterSelect" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue the saved character where they left off</small></button>
+            <button type="button" class="d2s-menu-button d2s-begin-button" *ngIf="canResumeRunFromCharacterSelect" (click)="resumeRun()"><span>Resume Saved Journey</span><small>{{ savedRunSummary }} · Continue the {{ selectedClassName }} where they left off</small></button>
           </div>
           <div class="d2s-class-preview" [class.loading]="!previewModel && !previewLoadError">
             <canvas #classPreviewCanvas class="d2s-class-preview-canvas" [class.dragging]="previewDragging" [attr.aria-label]="selectedClassName + ' 3D hero preview. Drag to rotate, click to replay the attack, or use the zoom buttons and mouse wheel to change zoom.'" (pointerdown)="onClassPreviewPointerDown($event)" (pointermove)="onClassPreviewPointerMove($event)" (pointerup)="onClassPreviewPointerUp($event)" (pointercancel)="onClassPreviewPointerUp($event)" (wheel)="onClassPreviewWheel($event)" role="img"></canvas>
@@ -198,6 +198,83 @@
                 </article>
               </div>
               <ng-template #shopEmpty><div class="d2s-shop-empty">{{ selectedClassName }}'s pack is empty. Gear found on a journey will appear here.</div></ng-template>
+            </section>
+            <section class="d2s-shop-section d2s-shop-socket" aria-labelledby="d2s-shop-socket-title">
+              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-socket-title">Quest rewards</h2><small>{{ socketQuestItem ? 'ONE ITEM CHOSEN' : 'SOCKETS · IMBUE' }}</small></div>
+              <p class="d2s-shop-lock-hint">Two quest rewards, without the quests. Larzuk: a white base gets its full allowance, a magic base one or two at random, anything rarer exactly one. Charsi: a white weapon or armour without sockets becomes rare at item level {{ imbueItemLevel }}.</p>
+              <div class="d2s-shop-wardrobe">
+                <div class="d2s-shop-wardrobe-row" *ngIf="shopEquippedGear.length">
+                  <small class="d2s-shop-wardrobe-label">Worn</small>
+                  <button type="button" class="d2s-shop-slot" *ngFor="let gear of shopEquippedGear"
+                    [class.selected]="socketQuestItemId === gear.item.id"
+                    [class.magic]="gear.item.rarity === 'magic'"
+                    [class.rare]="gear.item.rarity === 'rare'"
+                    [class.unique]="gear.item.rarity === 'unique'"
+                    [class.set]="gear.item.rarity === 'set'"
+                    [attr.aria-label]="gear.label + ': ' + gear.item.name"
+                    [attr.title]="gear.item.name"
+                    (click)="selectSocketQuestItem(gear.item)"
+                    (mouseenter)="onShopItemHover(gear.item, $event)"
+                    (mousemove)="onItemPreviewMove($event)"
+                    (mouseleave)="onItemPreviewLeave()">
+                    <img [src]="inventoryItemImage(gear.item)" alt="" />
+                    <span>{{ gear.label }}</span>
+                  </button>
+                </div>
+                <div class="d2s-shop-wardrobe-row">
+                  <small class="d2s-shop-wardrobe-label">Pack</small>
+                  <button type="button" class="d2s-shop-slot" *ngFor="let item of shopPackItems; trackBy: trackPackSlotItem"
+                    [class.selected]="socketQuestItemId === item.id"
+                    [class.magic]="item.rarity === 'magic'"
+                    [class.rare]="item.rarity === 'rare'"
+                    [class.unique]="item.rarity === 'unique'"
+                    [class.set]="item.rarity === 'set'"
+                    [attr.aria-label]="item.name"
+                    [attr.title]="item.name"
+                    (click)="selectSocketQuestItem(item)"
+                    (mouseenter)="onShopItemHover(item, $event)"
+                    (mousemove)="onItemPreviewMove($event)"
+                    (mouseleave)="onItemPreviewLeave()">
+                    <img [src]="inventoryItemImage(item)" alt="" />
+                  </button>
+                  <span class="d2s-shop-wardrobe-empty" *ngIf="!shopPackItems.length">Nothing in the pack</span>
+                </div>
+                <div class="d2s-shop-wardrobe-row" *ngIf="sanctuaryStash.length">
+                  <small class="d2s-shop-wardrobe-label">Stash</small>
+                  <button type="button" class="d2s-shop-slot" *ngFor="let item of sanctuaryStash; trackBy: trackPackSlotItem"
+                    [class.selected]="socketQuestItemId === item.id"
+                    [class.magic]="item.rarity === 'magic'"
+                    [class.rare]="item.rarity === 'rare'"
+                    [class.unique]="item.rarity === 'unique'"
+                    [class.set]="item.rarity === 'set'"
+                    [attr.aria-label]="item.name"
+                    [attr.title]="item.name"
+                    (click)="selectSocketQuestItem(item)"
+                    (mouseenter)="onShopItemHover(item, $event)"
+                    (mousemove)="onItemPreviewMove($event)"
+                    (mouseleave)="onItemPreviewLeave()">
+                    <img [src]="inventoryItemImage(item)" alt="" />
+                  </button>
+                </div>
+              </div>
+              <div class="d2s-shop-socket-checkout" *ngIf="socketQuestItem as chosen">
+                <div>
+                  <strong>{{ chosen.name }}</strong>
+                  <small>{{ socketQuestSummary(chosen) }}</small>
+                  <small *ngIf="imbueEligible(chosen)">Charsi's quest: becomes rare at item level {{ imbueItemLevel }}.</small>
+                </div>
+                <div class="d2s-shop-socket-actions">
+                  <button type="button"
+                    [disabled]="!socketQuestCapacity(chosen) || sanctuaryGold < socketQuestCost(chosen)"
+                    (click)="buySocketQuest(chosen)">{{ socketQuestCapacity(chosen) ? 'Drill · ✦ ' + socketQuestCost(chosen) : 'No sockets' }}</button>
+                  <button type="button" class="d2s-shop-imbue"
+                    [disabled]="!imbueEligible(chosen) || sanctuaryGold < imbueCost"
+                    (click)="imbueItem(chosen)">{{ imbueEligible(chosen) ? 'Imbue · ✦ ' + imbueCost : 'Cannot imbue' }}</button>
+                </div>
+              </div>
+              <div class="d2s-shop-socket-checkout" *ngIf="!socketQuestItem">
+                <div><strong>One item at a time</strong><small>Pick a piece above; Gheed checks the item, then charges for the holes.</small></div>
+              </div>
             </section>
           </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
@@ -587,7 +664,7 @@
           <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" draggable="false" />
           <ng-container *ngIf="slot.slotIndex === hoveredSlotIndex">
             <i *ngFor="let hole of socketHoles(slot.item)" class="d2s-socket-hole"
-              [style.left.%]="hole.left" [style.top.%]="hole.top" [style.width.%]="hole.size" aria-hidden="true"></i>
+              [style.left.%]="hole.left" [style.top.%]="hole.top" aria-hidden="true"></i>
           </ng-container>
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>

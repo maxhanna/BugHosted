@@ -606,4 +606,19 @@ export const D2_WORLDS_BY_AREA: Readonly<Record<string, D2WorldEntry>> = {
     tileWidth: 160,
     tileHeight: 80,
   },
+  "Forgotten Sands": {
+    area: "Forgotten Sands",
+    slug: "a6-forgotten-sands",
+    columns: 27,
+    rows: 27,
+    ground: "assets/d2survivors/maps/worlds/a6-forgotten-sands-ground.png",
+    walls: "assets/d2survivors/maps/worlds/a6-forgotten-sands-walls.png",
+    layout: "assets/d2survivors/maps/worlds/a6-forgotten-sands-walls.json",
+    collision: "assets/d2survivors/maps/worlds/a6-forgotten-sands-walls-collision.png",
+    imageWidth: 4320,
+    imageHeight: 2416,
+    tileWidth: 160,
+    tileHeight: 80,
+  },
+
 };

@@ -549,7 +549,7 @@
 .d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
 .d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
 .d2s-shop-intro { margin: 0; color: #a99572; text-align: center; font: italic 12px Georgia, serif; }
-.d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 12px; min-height: 325px; }
+.d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(236px, .8fr) minmax(214px, .72fr); gap: 12px; min-height: 325px; }
 .d2s-shop-section { display: flex; flex-direction: column; min-width: 0; padding: 11px; border: 1px solid #57452e; background: linear-gradient(150deg, #151214ed, #09090cf5); box-shadow: inset 0 0 0 2px #090809, 0 5px 14px #0009; }
 .d2s-shop-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid #4b3925; }
 .d2s-shop-section-heading h2 { margin: 0; color: #e0c99b; font: 17px Georgia, serif; }
@@ -572,6 +572,26 @@
 .d2s-shop-upgrades small { color: #8c7a5e; font: 9px Georgia, serif; }
 .d2s-shop-empty { display: grid; flex: 1; place-items: center; padding: 20px; color: #8d8068; text-align: center; font: italic 12px/1.5 Georgia, serif; }
 .d2s-shop-lock-hint { margin: 6px 0 0; color: #b49a6b; text-align: center; font: 10px Georgia, serif; }
+.d2s-shop-wardrobe { display: grid; gap: 7px; max-height: 235px; overflow-y: auto; padding: 7px 2px; scrollbar-color: #655034 #100e0e; scrollbar-width: thin; }
+.d2s-shop-wardrobe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.d2s-shop-wardrobe-label { flex: 0 0 100%; color: #98764d; font: 8px Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
+.d2s-shop-wardrobe-empty { color: #7d6a52; font: italic 9px Georgia, serif; }
+.d2s-shop-slot { position: relative; display: grid; width: 34px; height: 38px; place-items: center; padding: 1px; border: 1px solid #4b3925; background: radial-gradient(ellipse, #3a2b1a, #100d0c); cursor: pointer; }
+.d2s-shop-slot img { display: block; width: 26px; height: 30px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 1px 2px #000); }
+.d2s-shop-slot span { position: absolute; right: 0; bottom: -2px; left: 0; overflow: hidden; color: #b9a582; text-overflow: ellipsis; white-space: nowrap; font: 6px Georgia, serif; text-align: center; }
+.d2s-shop-slot.magic { border-color: #3d77e8; }
+.d2s-shop-slot.rare { border-color: #d6c14b; }
+.d2s-shop-slot.unique { border-color: #c08a3e; }
+.d2s-shop-slot.set { border-color: #4bd66f; }
+.d2s-shop-slot.selected, .d2s-shop-slot:hover, .d2s-shop-slot:focus-visible { border-color: #e0c99b; box-shadow: 0 0 8px #ffb34755; outline: none; }
+.d2s-shop-socket-checkout { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid #4b3925; }
+.d2s-shop-socket-checkout > div { display: grid; min-width: 0; gap: 2px; }
+.d2s-shop-socket-checkout strong { overflow: hidden; color: #e5d09d; text-overflow: ellipsis; white-space: nowrap; font: 12px Georgia, serif; }
+.d2s-shop-socket-checkout small { color: #988970; font: 9px Georgia, serif; }
+.d2s-shop-socket-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
+.d2s-shop-socket-actions > button { padding: 6px 8px; color: #f0d7a2; border: 1px solid #80643c; background: linear-gradient(#49351e, #1c140f); cursor: pointer; font: 10px ui-monospace, monospace; white-space: nowrap; }
+.d2s-shop-socket-actions > button:disabled { opacity: .48; cursor: default; }
+.d2s-shop-socket-actions > button.d2s-shop-imbue:not(:disabled) { color: #e2d3ff; border-color: #7a5fa8; background: linear-gradient(#3f2f5c, #16101f); }
 .d2s-shop-message { min-height: 15px; margin: 0; color: #d4b777; text-align: center; font: 11px Georgia, serif; }
 
 .d2s-lobby { width: 100%; min-width: 0; gap: 10px; }
@@ -2951,6 +2971,10 @@
   pointer-events: auto;
   user-select: none;
   -webkit-user-select: none;
+  /* One socket size for every item in the bag. The holes do not scale with an
+     item's footprint, so a dirk's socket is as big as a body armour's. */
+  --d2s-socket-width: 14px;
+  --d2s-socket-height: 12px;
 }
 
 .d2s-inv-slot {
@@ -3047,14 +3071,19 @@
 
 .d2s-socket-hole {
   position: absolute;
+  width: var(--d2s-socket-width, 14px);
+  height: var(--d2s-socket-height, 12px);
   transform: translate(-50%, -50%);
-  aspect-ratio: 1 / 0.82;
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 38%,
     #000 0%, #030407 50%, #0a0b10 72%, #33353d 86%, #12131a 94%, transparent 97%);
   box-shadow: inset 0 1px 1px #ffffff26, inset 0 -1px 2px #000000e6, 0 1px 2px #000000d9;
   pointer-events: none;
   z-index: 2;
+}
+
+@media (max-width: 620px) {
+  .d2s-inv { --d2s-socket-width: 11px; --d2s-socket-height: 9px; }
 }
 
 .d2s-inv-name { display: none; }

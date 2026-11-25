@@ -2,7 +2,7 @@
 import { Subject } from "rxjs";
 import * as THREE from "three";
 import { type D2LeaderboardEntry, D2SurvivorsService } from "../../services/d2survivors.service";
-import { D2SurvivorsComponent, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow, wereformAttackRowScale, wereformRow } from "./d2survivors.component";
+import { D2SurvivorsComponent, characterBodyHeight, enemyD2PixelHeight, enemySpriteDirectionRow, enemySpriteRow, wereformAttackRowScale, wereformRow } from "./d2survivors.component";
 
 import { D2_ITEM_ART, D2_SET_ITEMS, D2_UNIQUE_ITEMS } from "./d2-item-assets.generated";
 import { getD2BaseItemFootprint } from "./d2-item-footprints";
@@ -24,6 +24,7 @@ import { D2_CLASS_SKILL_TREES } from "./d2survivors-skill-tree.data";
 import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, heldItemShare, heldMeshLength, poseCharacterRig } from "./character-animation";
 import { D2_AFFIXES, eligibleAffixes, itemAffixTypes, rollAffix } from "./d2-item-affixes";
 import { D2_RUNE_BY_NAME } from "./d2-runes";
+import { socketCapacityForBase } from "./d2-socket-caps";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
   let fixture: ComponentFixture<D2SurvivorsComponent>;
@@ -256,6 +257,184 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const bought = component.inventory.find((item) => !!item && item.baseName === offer.item.baseName && (item.sockets ?? 0) > 0);
     expect(bought).toBeTruthy();
     expect(component.sanctuaryGold).toBe(5000 - offer.cost);
+  });
+
+  const socketQuestPack = (item: any, itemLevel = 60): void => {
+    component.sanctuaryGold = 40_000;
+    component.playerGold = 40_000;
+    (component as any).characterProfiles = {};
+    component.hasSavedRun = false;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.inventory[0] = item;
+    spyOnProperty(component, "currentArea", "get").and.returnValue({ level: itemLevel } as any);
+  };
+
+  it("drills a white base to its item-level maximum at Gheed's socket work", () => {
+    const sword = { id: "socket-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
+    socketQuestPack(sword);
+
+    component.selectSocketQuestItem(sword);
+    expect(component.socketQuestItem).toBe(sword);
+    // A Broad Sword is 3/4/4 on the master socket table.
+    expect(component.socketQuestCapacity(sword)).toBe(4);
+    expect(component.socketQuestSummary(sword)).toContain("4 sockets");
+    const cost = component.socketQuestCost(sword);
+
+    component.buySocketQuest(sword);
+
+    expect(sword.sockets).toBe(4);
+    expect(component.sanctuaryGold).toBe(40_000 - cost);
+    expect(component.shopMessage).toContain("Gheed drills 4 sockets");
+  });
+
+  it("limits sockets by the master table's item-level brackets", () => {
+    const staff = { id: "socket-staff", name: "War Staff", baseName: "War Staff", rarity: "normal", slot: "weapon", desc: "A staff." } as any;
+    const dagger = { id: "socket-dagger", name: "Dagger", baseName: "Dagger", rarity: "normal", slot: "weapon", desc: "A dagger." } as any;
+    const monarch = { id: "socket-monarch", name: "Monarch", baseName: "Monarch", rarity: "normal", slot: "armor", equipmentType: "shield", desc: "A shield." } as any;
+    socketQuestPack(staff, 20);
+    const itemLevel = spyOn(component as any, "socketQuestItemLevel").and.returnValue(25);
+    // War Staff is 5/6/6: five sockets until item level 26, six from there on.
+    expect(component.socketQuestCapacity(staff)).toBe(5);
+    itemLevel.and.returnValue(26);
+    expect(component.socketQuestCapacity(staff)).toBe(6);
+    // A Dagger is 1/1/1 and a Monarch 3/3/4.
+    expect(component.socketQuestCapacity(dagger)).toBe(1);
+    itemLevel.and.returnValue(40);
+    expect(component.socketQuestCapacity(monarch)).toBe(3);
+    itemLevel.and.returnValue(41);
+    expect(component.socketQuestCapacity(dagger)).toBe(1);
+    expect(component.socketQuestCapacity(monarch)).toBe(4);
+  });
+
+  it("gives a low item level base the sockets the table allows it", () => {
+    const sword = { id: "socket-low", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
+    socketQuestPack(sword, 5);
+
+    expect(component.socketQuestCapacity(sword)).toBe(3);
+    component.selectSocketQuestItem(sword);
+    component.buySocketQuest(sword);
+    expect(sword.sockets).toBe(3);
+  });
+
+  it("reads the master socket table's column for the item level", () => {
+    // The table's three brackets are 1-25, 26-40 and 41+.
+    expect(socketCapacityForBase("War Staff", 20)).toBe(5);
+    expect(socketCapacityForBase("War Staff", 25)).toBe(5);
+    expect(socketCapacityForBase("War Staff", 26)).toBe(6);
+    expect(socketCapacityForBase("War Staff", 41)).toBe(6);
+    expect(socketCapacityForBase("Dagger", 41)).toBe(1);
+    expect(socketCapacityForBase("Monarch", 30)).toBe(3);
+    expect(socketCapacityForBase("Monarch", 41)).toBe(4);
+    expect(socketCapacityForBase("Chain Mail", 60)).toBe(2);
+    expect(socketCapacityForBase("Aegis", 60)).toBe(4);
+    expect(socketCapacityForBase("Wand", 60)).toBe(1);
+    expect(socketCapacityForBase("Circlet", 41)).toBe(2);
+    expect(socketCapacityForBase("Diadem", 30)).toBe(2);
+    expect(socketCapacityForBase("Diadem", 41)).toBe(3);
+    // Spelling variants in this game's catalogue find the same row, and bases
+    // the table does not list fall back to their family allowance.
+    expect(socketCapacityForBase("Kris", 41)).toBe(3);
+    expect(socketCapacityForBase("Succubus Skull", 41)).toBe(2);
+    expect(socketCapacityForBase("Mithral Point", 41)).toBe(1);
+    expect(socketCapacityForBase("Blasphemous Grimoire", 41)).toBeUndefined();
+  });
+
+  it("rolls one or two sockets into a magic base", () => {
+    const first = { id: "socket-magic-1", name: "Cruel Broad Sword", baseName: "Broad Sword", rarity: "magic", slot: "weapon", desc: "A blade." } as any;
+    const second = { id: "socket-magic-2", name: "Cruel Broad Sword", baseName: "Broad Sword", rarity: "magic", slot: "weapon", desc: "A blade." } as any;
+    socketQuestPack(first);
+    component.selectSocketQuestItem(first);
+    (spyOn(Math, "random") as jasmine.Spy).and.returnValue(0.2);
+    component.buySocketQuest(first);
+    expect(first.sockets).toBe(2);
+
+    component.inventory[0] = second;
+    component.selectSocketQuestItem(first);
+    component.selectSocketQuestItem(second);
+    (Math.random as jasmine.Spy).and.returnValue(0.9);
+    component.buySocketQuest(second);
+    expect(second.sockets).toBe(1);
+  });
+
+  it("gives rarer items exactly one socket and refuses unusable ones", () => {
+    const rare = { id: "socket-rare", name: "Rare Broad Sword", baseName: "Broad Sword", rarity: "rare", slot: "weapon", desc: "A blade." } as any;
+    const ring = { id: "socket-ring", name: "Soulstone Ring", baseName: "Ring", rarity: "unique", slot: "charm", equipmentType: "ring", desc: "A ring." } as any;
+    const already = { id: "socket-already", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", sockets: 2, desc: "Mail." } as any;
+    socketQuestPack(rare);
+
+    expect(component.socketQuestCapacity(rare)).toBe(4);
+    component.selectSocketQuestItem(rare);
+    component.buySocketQuest(rare);
+    expect(rare.sockets).toBe(1);
+
+    expect(component.socketQuestCapacity(ring)).toBe(0);
+    expect(component.socketQuestCapacity(already)).toBe(0);
+    expect(component.socketQuestSummary(already)).toContain("already has 2 sockets");
+
+    component.inventory[0] = already;
+    component.selectSocketQuestItem(rare);
+    component.selectSocketQuestItem(already);
+    const gold = component.sanctuaryGold;
+    component.buySocketQuest(already);
+    expect(already.sockets).toBe(2);
+    expect(component.sanctuaryGold).toBe(gold);
+    expect(component.shopMessage).toContain("cannot take sockets");
+  });
+
+  it("imbues a white base into a rare rolled at character level plus four", () => {
+    const plate = {
+      id: "imbue-plate", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal",
+      slot: "armor", equipmentType: "body", desc: "Mail.", stats: { defense: 60 },
+    } as any;
+    socketQuestPack(plate);
+    component.playerLevel = 22;
+
+    expect(component.imbueItemLevel).toBe(26);
+    expect(component.imbueEligible(plate)).toBeTrue();
+    component.selectSocketQuestItem(plate);
+    const cost = component.imbueCost;
+    component.imbueItem(plate);
+
+    expect(plate.rarity).toBe("rare");
+    expect(plate.affixes.length).toBeGreaterThan(0);
+    expect(plate.name).not.toBe("Chain Mail");
+    expect(plate.stats.defense).toBeTruthy();
+    expect(component.sanctuaryGold).toBe(40_000 - cost);
+    expect(component.shopMessage).toContain("now rare");
+  });
+
+  it("refuses to imbue anything but an unsocketed white weapon or armour", () => {
+    const magic = { id: "imbue-magic", name: "Cruel Chain Mail", baseName: "Chain Mail", rarity: "magic", slot: "armor", equipmentType: "body", desc: "Mail." } as any;
+    const socketed = { id: "imbue-socketed", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", sockets: 2, desc: "Mail." } as any;
+    const ring = { id: "imbue-ring", name: "Ring", baseName: "Ring", rarity: "normal", slot: "charm", equipmentType: "ring", desc: "A ring." } as any;
+    const charm = { id: "imbue-charm", name: "Grand Charm", baseName: "Grand Charm", rarity: "normal", slot: "charm", equipmentType: "charm", desc: "A charm." } as any;
+    const jewel = { id: "imbue-jewel", name: "Jewel", baseName: "Jewel", rarity: "normal", slot: "charm", equipmentType: "jewel", desc: "A jewel." } as any;
+    socketQuestPack(ring);
+
+    expect(component.imbueEligible(magic)).toBeFalse();
+    expect(component.imbueEligible(socketed)).toBeFalse();
+    expect(component.imbueEligible(ring)).toBeFalse();
+    expect(component.imbueEligible(charm)).toBeFalse();
+    expect(component.imbueEligible(jewel)).toBeFalse();
+
+    component.selectSocketQuestItem(ring);
+    const gold = component.sanctuaryGold;
+    component.imbueItem(ring);
+    expect(ring.rarity).toBe("normal");
+    expect(component.sanctuaryGold).toBe(gold);
+    expect(component.shopMessage).toContain("cannot be imbued");
+  });
+
+  it("will not imbue an item the purse cannot pay for", () => {
+    const plate = { id: "imbue-broke", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", desc: "Mail." } as any;
+    socketQuestPack(plate);
+    component.sanctuaryGold = component.imbueCost - 1;
+    component.selectSocketQuestItem(plate);
+
+    component.imbueItem(plate);
+
+    expect(plate.rarity).toBe("normal");
+    expect(component.shopMessage).toContain("more gold for the imbue");
   });
 
   it("lists owned castable spells and clears the assignment back to the weapon attack", () => {
@@ -1248,6 +1427,68 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryStatus).toContain("no open sockets");
   });
 
+  it("sets a jewel into a socketed druid pelt, in the pack and worn", () => {
+    const pelt = {
+      id: "pelt-1", name: "Wolf Head", baseName: "Wolf Head", rarity: "rare",
+      slot: "armor", equipmentType: "druidPelt", restrictedClass: "druid",
+      sockets: 1, desc: "", stats: { armor: 20 },
+    } as any;
+    const jewel = {
+      id: "jewel-rare", name: "Jewel of Fervor", baseName: "Jewel", rarity: "rare",
+      slot: "charm", equipmentType: "jewel", desc: "",
+      stats: { increasedAttackSpeedPercent: 15 }, affixes: ["+15% Increased Attack Speed"],
+    } as any;
+    component.inventory[0] = pelt;
+    component.inventory[1] = jewel;
+    expect(component.socketInventoryItem(1, pelt)).toBeTrue();
+    expect(component.socketedCount(pelt)).toBe(1);
+    expect(pelt.socketed[0].name).toBe("Jewel of Fervor");
+    expect(component.inventory[1]).toBeNull();
+
+    // Dropping on the pelt's body, not its top-left cell, still finds the host.
+    const dropped = { ...pelt, id: "pelt-drop", socketed: undefined, stats: { armor: 20 } } as any;
+    const dropJewel = { ...jewel, id: "jewel-drop" } as any;
+    (component as any).rebuildInventoryGrid();
+    component.inventory[10] = dropped;
+    component.inventory[0] = dropJewel;
+    (component as any).dragState = { source: "inventory", slotIndex: 0, item: dropJewel };
+    component.onInventoryDragOver(11, { preventDefault: () => undefined } as DragEvent);
+    component.onInventoryDrop(11, { preventDefault: () => undefined } as DragEvent);
+    expect(component.socketedCount(dropped)).toBe(1);
+    expect(component.inventory[0]).toBeNull();
+
+    // A worn pelt takes the same jewel through the paperdoll drop.
+    const worn = { ...pelt, id: "pelt-2", socketed: undefined, stats: { armor: 20 } } as any;
+    const second = { ...jewel, id: "jewel-rare-2" } as any;
+    component.inventory[2] = worn;
+    component.inventory[3] = second;
+    (component as any).equipment.helmet = worn;
+    (component as any).dragState = { source: "inventory", slotIndex: 3, item: second };
+    component.onEquipmentDrop("helmet", { preventDefault: () => undefined } as DragEvent);
+    expect(component.socketedCount(worn)).toBe(1);
+    expect(component.inventory[3]).toBeNull();
+
+    // The generated named jewels carry `equipmentType: "charm"`; they are
+    // jewels all the same and must set into a socket.
+    const namedJewel = {
+      id: "defenders-bile", name: "Defender's Bile", baseName: "Colossal Jewel",
+      rarity: "unique", slot: "charm", equipmentType: "charm", desc: "",
+      stats: { magicFindPercent: 35 }, affixes: ["35% Better Chance of Getting Magic Items"],
+    } as any;
+    expect(component.isSocketable(namedJewel)).toBeTrue();
+    expect((component as any).getEquipmentType(namedJewel)).toBe("jewel");
+    // The "Jeweler's" armour prefix is not a jewel.
+    expect((component as any).getEquipmentType({
+      id: "jewelers-sword", name: "Jeweler's Short Sword", baseName: "Short Sword",
+      rarity: "magic", slot: "weapon", desc: "",
+    } as any)).toBe("weapon");
+    const thirdPelt = { ...pelt, id: "pelt-3", socketed: undefined, stats: { armor: 20 } } as any;
+    component.inventory[4] = thirdPelt;
+    component.inventory[5] = namedJewel;
+    expect(component.socketInventoryItem(5, thirdPelt)).toBeTrue();
+    expect(thirdPelt.socketed[0].name).toBe("Defender's Bile");
+  });
+
   it("uses the helm row for armor and refuses gear with no sockets", () => {
     const armor = { id: "a", name: "Artisan's Quilted Armor", baseName: "Quilted Armor", rarity: "magic", slot: "armor", equipmentType: "body", sockets: 1, desc: "", stats: {} } as any;
     const gem = { id: "g", name: "Chipped Amethyst", baseName: "Chipped Amethyst", rarity: "normal", slot: "charm", equipmentType: "gem", desc: "", stats: {} } as any;
@@ -1365,33 +1606,43 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).socketHoles({ sockets: 0 } as any)).toEqual([]);
     // A wide base (a shield, a body armour) takes the two-column layout.
     for (const sockets of [1, 2, 3, 4, 5, 6]) {
-      const holes = (component as any).socketHoles({ sockets, baseName: "Kite Shield" } as any) as Array<{ left: number; top: number; size: number }>;
+      const holes = (component as any).socketHoles({ sockets, baseName: "Kite Shield" } as any) as Array<{ left: number; top: number }>;
       expect(holes.length).toBe(sockets);
       for (const hole of holes) {
         expect(hole.left).toBeGreaterThan(10);
         expect(hole.left).toBeLessThan(90);
         expect(hole.top).toBeGreaterThan(10);
         expect(hole.top).toBeLessThan(90);
-        expect(hole.size).toBeLessThan(40);
+        // Only the centres are laid out here: every hole is one fixed size in
+        // CSS, so a socket no longer shrinks with the item it was punched into.
+        expect(Object.keys(hole).sort()).toEqual(["left", "top"]);
       }
+      expect(new Set(holes.map((hole) => `${hole.left},${hole.top}`)).size).toBe(sockets);
     }
   });
 
   it("runs the sockets down the art of a one-cell-wide weapon", () => {
     // A staff is one cell wide, so a row of holes was squeezed into that single
     // column and the slot box clipped it. The holes run down its length instead,
-    // centred on its width and big enough to fill it.
-    const staff = (component as any).socketHoles({ sockets: 3, baseName: "Battle Staff" } as any) as Array<{ left: number; top: number; size: number }>;
+    // centred on its width and spread over the whole box.
+    const staff = (component as any).socketHoles({ sockets: 3, baseName: "Battle Staff" } as any) as Array<{ left: number; top: number }>;
     expect(staff.length).toBe(3);
     expect(staff.every((hole) => hole.left === 50)).toBeTrue();
     expect(staff[0].top).toBeLessThan(staff[1].top);
     expect(staff[1].top).toBeLessThan(staff[2].top);
-    expect(staff[0].size).toBeGreaterThan(40);
+    expect(staff[0].top).toBeLessThanOrEqual(25);
+    expect(staff[2].top).toBeGreaterThanOrEqual(75);
 
     const axe = (component as any).socketHoles({ sockets: 2, baseName: "Hand Axe" } as any) as Array<{ left: number; top: number }>;
     expect(axe).toHaveSize(2);
     expect(axe.every((hole) => hole.left === 50)).toBeTrue();
     expect(axe[0].top).toBeLessThan(axe[1].top);
+
+    // A dirk is two cells tall and one wide: its two holes stack well apart.
+    const dirk = (component as any).socketHoles({ sockets: 2, baseName: "Dirk" } as any) as Array<{ left: number; top: number }>;
+    expect(dirk).toHaveSize(2);
+    expect(dirk.every((hole) => hole.left === 50)).toBeTrue();
+    expect(dirk[1].top - dirk[0].top).toBeGreaterThanOrEqual(30);
   });
 
   it("drops runes as their own socketable and labels them as runes", () => {
@@ -3895,6 +4146,37 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.currentAreaIndex).toBe(0);
   });
 
+  it("keeps the blue area portal standing on its patch as the hero walks", () => {
+    spyOn(component as any, "persistRunProgress");
+    spyOn(component as any, "campaignWorldReady").and.returnValue(true);
+    component.currentAct = 1;
+    component.currentAreaIndex = 0;
+    component.actTime = 45;
+
+    (component as any).updateCampaignArea();
+    expect(component.zonePortalOpen).toBeTrue();
+
+    const portalX = (component as any).zonePortalX as number;
+    const portalY = (component as any).zonePortalY as number;
+    const playerX = component.playerX;
+    const playerY = component.playerY;
+    const chest = { x: portalX + 140, y: portalY + 90, open: false } as any;
+    component.chests = [chest];
+
+    // A step keeps the hero's anchor and scrolls the map under them, so every
+    // ground anchor shifts with the world. The blue door used to be left out,
+    // which pinned it to the screen and made it travel beside the hero.
+    (component as any).translateWorldEntities(-12, -7);
+
+    expect((component as any).zonePortalX).toBeCloseTo(portalX - 12, 5);
+    expect((component as any).zonePortalY).toBeCloseTo(portalY - 7, 5);
+    // It moves with the rest of the map's ground anchors, so it keeps its patch.
+    expect(chest.x).toBeCloseTo(portalX + 140 - 12, 5);
+    expect(chest.y).toBeCloseTo(portalY + 90 - 7, 5);
+    expect(component.playerX).toBe(playerX);
+    expect(component.playerY).toBe(playerY);
+  });
+
   it("freezes the zone order once the act boss arrives", () => {
     spyOn(component as any, "persistRunProgress");
     component.currentAct = 1;
@@ -4986,28 +5268,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(trails[1].angle).toBeCloseTo(0, 6);
   });
 
-  it("does not let Molten Boulder bulldoze act bosses", () => {
+  it("breaks a Molten Boulder on an act boss instead of shoving it", () => {
     (component as any).arenaW = 1000;
     (component as any).arenaH = 1000;
+    component.playerX = 100;
+    component.playerY = 250;
     const boss = {
       kind: "boss", species: "andariel", campaignBoss: true, spriteFrame: 0,
       x: 350, y: 250, hp: 1000, maxHp: 1000, speed: 90, r: 34, dmg: 20, cd: 0,
     } as any;
-    const monster = {
-      kind: "normal", species: "fallen", campaignBoss: false, spriteFrame: 0,
-      x: 350, y: 250, hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 2, cd: 0,
-    } as any;
-    component.enemies = [boss, monster];
+    component.enemies = [boss];
     const projectile = {
       x: 300, y: 250, targetX: 600, targetY: 250,
-      speed: 300, radius: 24, life: 10, age: 0, boulder: true,
+      speed: 300, radius: 24, damage: 30, life: 10, age: 0, color: "#ff9c50", kind: "fire",
+      boulder: true,
     } as any;
 
     (component as any).updateMoltenBoulder(projectile, 0.1);
 
     expect(boss.x).toBe(350);
     expect(boss.y).toBe(250);
-    expect(monster.x).toBeGreaterThan(350);
+    expect(projectile.boulder).toBeFalse();
 
     (component as any).applyEnemyStun(boss, 1);
     expect(boss.stunRemaining).toBeUndefined();
@@ -5889,6 +6170,49 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(D2_HELMET_VISUALS.avenger.lift).toBeGreaterThan(D2_HELMET_VISUALS.full.lift);
     expect(D2_HELMET_VISUALS.avenger.scale).toBeGreaterThan(D2_HELMET_VISUALS.full.scale);
     expect(D2_HELMET_VISUALS.avenger.noFit).toBeTrue();
+  });
+
+  it("fits a helmet to the body the hero was normalized to, not to later gear", () => {
+    // The character preview attaches the weapon before the helmet's mesh
+    // resolves, and a pike stands over the hero's head. Measuring the model's
+    // bounding box at that point reported the pike, so the helmet fit scaled
+    // itself up by that ratio; only the great helm, exempt from the skull
+    // envelope clamp, was visibly huge. The normalized body height wins.
+    const model = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(20, 72, 10));
+    body.position.y = 36;
+    model.add(body);
+    (component as any).normalizeCharacterModel(model, 72);
+    expect(characterBodyHeight(model)).toBe(72);
+
+    // The character preview attaches the weapon before normalizing, so the fit
+    // above was measured against a bounding box that included this pike: the
+    // recorded height has to be the body that was actually scaled.
+    const armed = new THREE.Group();
+    const armedBody = new THREE.Mesh(new THREE.BoxGeometry(20, 72, 10));
+    armedBody.position.y = 36;
+    armedBody.name = "torso";
+    const pike = new THREE.Mesh(new THREE.BoxGeometry(2, 140, 2));
+    pike.name = "pikeShape_0";
+    pike.position.y = 70;
+    armed.add(armedBody, pike);
+    (component as any).normalizeCharacterModel(armed, 88);
+    const armedHeight = characterBodyHeight(armed);
+    expect(armedHeight).toBeLessThan(88);
+    expect(armedHeight).toBeGreaterThan(40);
+
+    // A pike that arrives later cannot change it back.
+    const latePike = new THREE.Mesh(new THREE.BoxGeometry(2, 140, 2));
+    latePike.name = "pikeShape_0";
+    latePike.position.y = 70;
+    model.add(latePike);
+    expect(new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y).toBeGreaterThan(100);
+    expect(characterBodyHeight(model)).toBe(72);
+
+    // A model that was never normalized still falls back to its own bounds.
+    const bare = new THREE.Group();
+    bare.add(new THREE.Mesh(new THREE.BoxGeometry(4, 30, 4)));
+    expect(characterBodyHeight(bare)).toBeCloseTo(30, 5);
   });
 
   it("keeps a cap upright and its lift vertical on a quarter-turned head bind", () => {
@@ -10237,9 +10561,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).laySandMaggotEgg(maggot);
     const egg = component.maggotEggs[0];
-    expect(egg.proxy.hp).toBe(8);
+    expect(egg.proxy.hp).toBe(30);
+    expect(egg.proxy.maxHp).toBe(30);
 
-    (component as any).queueEnemyDamage(egg.proxy, 8, "#ffffff");
+    (component as any).queueEnemyDamage(egg.proxy, 30, "#ffffff");
     (component as any).flushPendingDamage();
     expect(egg.proxy.hp).toBeLessThanOrEqual(0);
 
@@ -10247,6 +10572,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.maggotEggs).toHaveSize(0);
     expect(component.enemies).not.toContain(egg.proxy);
     expect(component.enemies.some((enemy) => enemy.species === "sandMaggotYoung")).toBeFalse();
+    // Laying and cracking an egg stay silent in the combat log.
+    expect(component.floatingTexts.some((text) => /EGG (LAID|DESTROYED)/i.test(text.text))).toBeFalse();
+  });
+
+  it("leaves a Sand Maggot egg untouched when the hero merely walks past it", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    component.maggotEggs = [];
+    const maggot = {
+      kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 430, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 0,
+      burrowCooldown: 99, eggCooldown: 0, animationState: "idle", facingX: -1, facingY: 0,
+    } as any;
+
+    (component as any).laySandMaggotEgg(maggot);
+    const egg = component.maggotEggs[0];
+    const fullHp = egg.proxy.hp;
+    expect(fullHp).toBeGreaterThan(0);
+
+    // Standing on top of the egg never swings at it: eggs are not auto-attack
+    // targets, so stepping over one leaves it brooding.
+    egg.proxy.x = component.playerX + 8;
+    egg.proxy.y = component.playerY;
+    (component as any).clickMoveTarget = null;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+    expect(egg.proxy.hp).toBe(fullHp);
+    expect(component.maggotEggs).toHaveSize(1);
+
+    // Clicking the egg is a deliberate attack, and that is what cracks it.
+    (component as any).clickMoveTarget = egg.proxy;
+    (component as any).attackCooldown = 0;
+    (component as any).updateBasicAttack();
+    expect(egg.proxy.hp).toBeLessThan(fullHp);
   });
 
   it("keeps laid Sand Maggot eggs planted when the camera moves", () => {
@@ -11554,9 +11915,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemySpriteDirectionRow("goatman", "attack", 24, 3)).toBe(11);
     expect(enemySpriteDirectionRow("goatman", "idle", 24, 3)).toBe(19);
 
-    // Sheets without an idle block walk on their walk row and attack one band down.
-    expect(enemySpriteDirectionRow("skeleton", "move", 16, 5)).toBe(5);
-    expect(enemySpriteDirectionRow("skeleton", "attack", 16, 5)).toBe(13);
+    // The skeleton draws the same 16x24 atlas as the skeleton warrior: walk on
+    // the direction row, attack one band down, and the appended idle block below.
+    expect(enemySpriteDirectionRow("skeleton", "move", 24, 5)).toBe(5);
+    expect(enemySpriteDirectionRow("skeleton", "attack", 24, 5)).toBe(13);
+    expect(enemySpriteDirectionRow("skeleton", "idle", 24, 5)).toBe(21);
 
     // The pets, golems and Duriel carry an appended idle block too, so waiting
     // reads the block below the attack band instead of a frozen walk cel.
@@ -12229,12 +12592,24 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(effect.duration).toBeCloseTo(13 * 0.06, 5);
   });
 
-  it("tiles the imported LightningBolt cel down the full screen with forks", () => {
+  it("draws Lightning as one jagged arc from the caster, not a bundle of branches", () => {
+    // The reference bolt is a single thin white core with a soft blue halo and a
+    // couple of finger-length spurs. Stamping the LightningBolt cel over itself
+    // drew parallel streaks that read as branches, so the rail is now one
+    // midpoint-displaced polyline stroked halo-first.
+    const paths: Array<Array<{ x: number; y: number }>> = [];
+    const widths: number[] = [];
+    let current: Array<{ x: number; y: number }> = [];
     const drawImage = jasmine.createSpy("drawImage");
     const ctx = {
       save: () => undefined, restore: () => undefined,
-      translate: () => undefined, rotate: () => undefined,
+      beginPath: () => { current = []; },
+      moveTo: (x: number, y: number) => { current.push({ x, y }); },
+      lineTo: (x: number, y: number) => { current.push({ x, y }); },
+      stroke: () => { paths.push(current); widths.push(ctx.lineWidth); },
       drawImage,
+      lineWidth: 1, strokeStyle: "", globalAlpha: 1, lineJoin: "", lineCap: "",
+      globalCompositeOperation: "", imageSmoothingEnabled: false,
     } as any;
     (component as any).skillEffectsCanvasRef = {
       nativeElement: {
@@ -12242,7 +12617,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
         getContext: () => ({ clearRect: () => undefined }),
       },
     };
-    (component as any).missileOverlayImages.set("d2-lightningbolt", [{ width: 43, height: 98 }]);
     spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
     const effect = {
       lightningRail: true, x: 100, y: 300, targetX: 5000, targetY: 300,
@@ -12251,24 +12625,69 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     (component as any).drawLightningRail(ctx, effect);
 
-    const calls = drawImage.calls.allArgs() as any[][];
-    const widthOf = (call: any[]) => call[3] as number;
-    const heightOf = (call: any[]) => call[4] as number;
-    // Each stamp keeps the cel's authored 43x98 proportions; the arc covers the
-    // screen by repeating the cel, not by stretching one copy over it.
-    for (const call of calls) {
-      expect(heightOf(call) / widthOf(call)).toBeCloseTo(98 / 43, 5);
+    expect(drawImage).not.toHaveBeenCalled();
+    // Four halo-to-core passes over the arc, then two spurs at two passes each.
+    expect(paths.length).toBe(8);
+    expect(widths.slice(0, 4)).toEqual([14, 7, 3.4, 1.6]);
+
+    const boltLength = 984;
+    const arc = paths[0];
+    expect(arc[0].x).toBeCloseTo(80, 5);
+    expect(arc[0].y).toBeCloseTo(300, 5);
+    expect(arc[arc.length - 1].x).toBeCloseTo(80 + boltLength, 5);
+    expect(arc[arc.length - 1].y).toBeCloseTo(300, 5);
+    expect(arc.length).toBe(15);
+    // Every vertex is a bend of the one arc: the walk stays inside the allowed
+    // spread, so nothing strays far off the aim line, and every glow pass reuses
+    // the same vertices.
+    for (const point of arc) expect(Math.abs(point.y - 300)).toBeLessThanOrEqual(80);
+    for (const pass of paths.slice(1, 4)) expect(pass).toEqual(arc);
+
+    // The spurs are finger-length offshoots, not long forks.
+    for (const spur of paths.slice(4)) {
+      const reach = Math.hypot(spur[spur.length - 1].x - spur[0].x, spur[spur.length - 1].y - spur[0].y);
+      expect(reach).toBeGreaterThan(12);
+      expect(reach).toBeLessThan(0.13 * boltLength);
     }
-    const mainWidth = 48;
-    const main = calls.filter((call) => Math.abs(widthOf(call) - mainWidth) < 0.01);
-    const forks = calls.filter((call) => widthOf(call) < mainWidth - 1);
-    const tileLength = mainWidth * (98 / 43);
-    expect(main.length).toBeGreaterThanOrEqual(10);
-    // The tiles start behind the caster and step 80% of their own length, so the
-    // last one still starts inside the canvas and reaches the screen edge.
-    expect((main.length - 1) * tileLength * 0.8).toBeGreaterThan(900);
-    expect((main.length - 1) * tileLength * 0.8).toBeLessThan(1000 + 48);
-    expect(forks.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("arcs Chain Lightning hops as the same jagged bolt, thinned for a jump", () => {
+    const paths: Array<Array<{ x: number; y: number }>> = [];
+    const widths: number[] = [];
+    let current: Array<{ x: number; y: number }> = [];
+    const drawImage = jasmine.createSpy("drawImage");
+    const ctx = {
+      save: () => undefined, restore: () => undefined,
+      beginPath: () => { current = []; },
+      moveTo: (x: number, y: number) => { current.push({ x, y }); },
+      lineTo: (x: number, y: number) => { current.push({ x, y }); },
+      stroke: () => { paths.push(current); widths.push(ctx.lineWidth); },
+      drawImage,
+      lineWidth: 1, strokeStyle: "", globalAlpha: 1, lineJoin: "", lineCap: "",
+      globalCompositeOperation: "",
+    } as any;
+
+    (component as any).drawChainLightningHopArc(ctx, { x: 200, y: 300 }, { x: 420, y: 340 }, 0.25);
+
+    // The hop is no longer a stamped cel: it is the Lightning skill's own arc
+    // from the monster just struck to the bolt's current position.
+    expect(drawImage).not.toHaveBeenCalled();
+    expect(paths.length).toBe(6);
+    const arc = paths[0];
+    expect(arc[0]).toEqual({ x: 200, y: 300 });
+    expect(arc[arc.length - 1]).toEqual({ x: 420, y: 340 });
+    expect(arc.length).toBeGreaterThan(4);
+    expect(widths[0]).toBeCloseTo(8.4, 5);
+    expect(widths[1]).toBeCloseTo(4.2, 5);
+    expect(widths[2]).toBeCloseTo(2.04, 5);
+    expect(widths[3]).toBeCloseTo(0.96, 5);
+    for (const pass of paths.slice(1, 4)) expect(pass).toEqual(arc);
+
+    // One short spur, not branches.
+    const spur = paths[4];
+    const spurReach = Math.hypot(spur[spur.length - 1].x - spur[0].x, spur[spur.length - 1].y - spur[0].y);
+    expect(spurReach).toBeGreaterThan(10);
+    expect(spurReach).toBeLessThan(0.15 * Math.hypot(220, 40));
   });
 
   it("draws Nova as one animated ring that expands to the field radius", () => {
@@ -12793,6 +13212,28 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(stopAmbientAudio).not.toHaveBeenCalled();
   });
 
+  it("offers the saved journey only to the character on the select screen", () => {
+    // One journey is saved at a time, so the select screen may only offer it for
+    // the hero that owns it: picking another class must leave just the fresh
+    // Act I button instead of resuming a stranger's run.
+    const saved = {
+      hasSavedRun: true, selectedClass: "barbarian", runId: "run-1",
+      playerHp: 120, deathRecovery: false, runTime: 143,
+    };
+    spyOnProperty(component as any, "savedRun", "get").and.returnValue(saved);
+
+    component.selectedClass = "barbarian";
+    expect(component.canResumeSavedRun).toBeTrue();
+    expect(component.canResumeSelectedRun).toBeTrue();
+    expect(component.canResumeRunFromCharacterSelect).toBeTrue();
+    expect(component.savedRunSummary).toContain("Barbarian");
+
+    component.selectedClass = "amazon";
+    expect(component.canResumeSavedRun).toBeTrue();
+    expect(component.canResumeSelectedRun).toBeFalse();
+    expect(component.canResumeRunFromCharacterSelect).toBeFalse();
+  });
+
   it("brings the title theme back by itself when a run returns to a menu screen", () => {
     const startAmbientAudio = spyOn(component as any, "startAmbientAudio").and.resolveTo();
     spyOn(component as any, "stopAmbientAudio").and.callFake(() => {
@@ -13244,10 +13685,21 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(lowerResist).toBeTruthy();
     expect(lowerResistStats).toEqual([lowerResist!]);
 
-    // Passives already used their own text; keep that contract covered too.
+    // Warmth states its own running total instead of its flat spell text, so the
+    // upgrade card cannot print "15% faster" at every rank.
     component.selectedClass = "sorceress";
-    const warmth = component.getSkillDescription("Warmth");
-    expect((component as any).getSkillRankStats("Warmth", "passive", 4)).toEqual([warmth!]);
+    const rankFour = (component as any).getSkillRankStats("Warmth", "passive", 4) as string[];
+    const rankFive = (component as any).getSkillRankStats("Warmth", "passive", 5) as string[];
+    expect(rankFour).toContain("All equipped skills recharge 60% faster");
+    expect(rankFive).toContain("All equipped skills recharge 75% faster");
+    expect(rankFive).not.toEqual(rankFour);
+
+    // And the number is real: five ranks of Warmth shorten the cast interval.
+    component.skillLevels = {};
+    const plain = (component as any).getSkillCastIntervalForRank("Fire Bolt", 1) as number;
+    component.skillLevels = { Warmth: 5 };
+    const warmed = (component as any).getSkillCastIntervalForRank("Fire Bolt", 1) as number;
+    expect(warmed).toBeCloseTo(plain / 1.75, 3);
   });
 
   it("uses actual spell text for paladin auras whose effects do not scale", () => {
@@ -13948,7 +14400,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const boulders = component.attackProjectiles.filter((projectile) => projectile.boulder);
     expect(boulders).toHaveSize(1);
-    expect(boulders.every((projectile) => projectile.missileId === "d2-rock_large")).toBeTrue();
+    // The real MoltenBoulderRoll cel from the extract, not a re-used rock.
+    expect(boulders.every((projectile) => projectile.missileId === "d2-moltenboulderroll")).toBeTrue();
     expect(boulders.every((projectile) => projectile.radius === 24)).toBeTrue();
     expect(boulders.every((projectile) => projectile.target === undefined)).toBeTrue();
     const startX = boulders[0].x;
@@ -13959,53 +14412,177 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(Math.abs(boulders[0].y - startY)).toBeLessThan(5);
   });
 
-  it("bulldozes monsters ahead of a Molten Boulder and bursts where it stops", () => {
+  it("rolls a Molten Boulder along its line and lays a Blaze trail behind it", () => {
     component.runActive = true;
     component.playerX = 100;
     component.playerY = 250;
-    component.floatingTexts = [];
-    const makeEnemy = (x: number, y: number) => ({
-      kind: "normal", species: "fallen", spriteFrame: 0, x, y, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
-    }) as any;
-    const front = makeEnemy(180, 250);
-    const side = makeEnemy(200, 292);
-    const rear = makeEnemy(70, 250);
-    component.enemies = [front, side, rear];
+    (component as any).arenaW = 2000;
+    (component as any).arenaH = 2000;
+    component.enemies = [];
     component.attackProjectiles = [{
-      x: 100, y: 250, startX: 100, startY: 250, targetX: 400, targetY: 250,
+      x: 100, y: 250, startX: 100, startY: 250, targetX: 900, targetY: 250,
       speed: 300, damage: 95, life: 10, age: 0, radius: 24, color: "#ff9c50", kind: "fire",
-      missileId: "d2-rock_large", boulder: true,
+      missileId: "d2-moltenboulderroll", boulder: true,
     } as any];
+    (component as any).blazeFirePatches.length = 0;
 
-    const sideStartY = side.y;
-    for (let frame = 0; frame < 20; frame += 1) {
-      (component as any).rebuildEnemyGrid();
-      (component as any).updateAttackProjectiles(16);
+    for (let frame = 0; frame < 30; frame += 1) (component as any).updateAttackProjectiles(16);
+
+    const patches = (component as any).blazeFirePatches;
+    expect(patches.length).toBeGreaterThan(2);
+    // The fire stays on the line the rock has already rolled over.
+    expect(patches.every((patch: any) => Math.abs(patch.y - 250) < 30)).toBeTrue();
+    expect(patches.every((patch: any) => patch.x >= 100)).toBeTrue();
+    expect(patches.every((patch: any) => patch.x <= component.attackProjectiles[0].x + 1)).toBeTrue();
+    expect(patches.every((patch: any) => patch.damagePerTick > 0)).toBeTrue();
+  });
+
+  it("throws a monster away from the druid rather than along the boulder's path", () => {
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).arenaW = 2000;
+    (component as any).arenaH = 2000;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 330, y: 270, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [monster];
+    const projectile = {
+      x: 300, y: 250, targetX: 900, targetY: 250,
+      speed: 300, damage: 40, life: 10, age: 0, radius: 24, color: "#ff9c50", kind: "fire",
+      boulder: true,
+    } as any;
+
+    (component as any).updateMoltenBoulder(projectile, 0.016);
+
+    // D2 shoves along the line from the caster, not off the rock's flank, and a
+    // monster too small to stop it does not end the roll.
+    expect(monster.x).toBeGreaterThan(360);
+    expect(monster.y).toBeGreaterThan(252);
+    expect(monster.y).toBeLessThan(290);
+    expect(projectile.boulder).toBeTrue();
+  });
+
+  it("hits the same small monster again once its NextDelay expires", () => {
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).arenaW = 2000;
+    (component as any).arenaH = 2000;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 330, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [monster];
+    const projectile = {
+      x: 300, y: 250, targetX: 900, targetY: 250,
+      speed: 300, damage: 10, life: 10, age: 0, radius: 24, color: "#ff9c50", kind: "fire",
+      boulder: true,
+    } as any;
+    const strikes = spyOn(component as any, "queueEnemyDamage").and.callThrough();
+
+    for (let frame = 0; frame < 90; frame += 1) {
+      // The monster runs back into the rock every time it is thrown clear.
+      monster.x = projectile.x + 30;
+      monster.y = projectile.y;
+      (component as any).updateMoltenBoulder(projectile, 0.016);
     }
-    const pinnedEarly = front.x;
-    expect(pinnedEarly).toBeGreaterThan(180);
 
-    // The flank monster is thrown clear the first time the rock clips it, and
-    // the boulder never shoves it a second time.
-    let sidePushed = false;
-    let pushedSideY = sideStartY;
-    for (let frame = 0; frame < 180; frame += 1) {
-      (component as any).rebuildEnemyGrid();
-      (component as any).updateAttackProjectiles(16);
-      if (!sidePushed && side.y > sideStartY) {
-        sidePushed = true;
-        pushedSideY = side.y;
-      }
-    }
-    expect(sidePushed).toBeTrue();
-    expect(side.y).toBe(pushedSideY);
-    expect(front.x).toBeGreaterThan(pinnedEarly);
+    const hits = strikes.calls.allArgs().filter((args: any[]) => args[0] === monster);
+    expect(hits.length).toBeGreaterThan(1);
+    expect(projectile.boulder).toBeTrue();
+  });
 
+  it("breaks a Molten Boulder on a monster bigger than the druid", () => {
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).arenaW = 2000;
+    (component as any).arenaH = 2000;
+    const brute = {
+      kind: "normal", species: "blunderbore", spriteFrame: 0,
+      x: 330, y: 250, hp: 100, maxHp: 100, speed: 0, r: 20, dmg: 2,
+    } as any;
+    const small = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 380, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [brute, small];
+    const projectile = {
+      x: 300, y: 250, targetX: 900, targetY: 250,
+      speed: 300, damage: 40, life: 10, age: 0, radius: 24, color: "#ff9c50", kind: "fire",
+      boulder: true,
+    } as any;
+
+    (component as any).updateMoltenBoulder(projectile, 0.016);
+
+    expect(projectile.boulder).toBeFalse();
+    expect(small.x).toBe(380);
     (component as any).flushPendingDamage();
-    expect(front.hp).toBeLessThan(100);
-    expect(side.hp).toBe(100);
-    expect(rear.hp).toBe(100);
-    expect(rear.x).toBe(70);
+    expect(brute.hp).toBeLessThan(100);
+  });
+
+  it("stops a Molten Boulder at scenery it cannot cross", () => {
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 250;
+    (component as any).arenaW = 2000;
+    (component as any).arenaH = 2000;
+    component.enemies = [];
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({ clearance: 12, blocksSight: true } as any);
+    spyOn(component as any, "campaignLineBlocked").and.returnValue(true);
+    const projectile = {
+      x: 300, y: 250, targetX: 900, targetY: 250,
+      speed: 300, damage: 40, life: 10, age: 0, radius: 24, color: "#ff9c50", kind: "fire",
+      boulder: true,
+    } as any;
+
+    (component as any).updateMoltenBoulder(projectile, 0.016);
+
+    expect(projectile.boulder).toBeFalse();
+    expect(projectile.x).toBe(300);
+  });
+
+  it("takes Volcano and Firestorm ranks into Molten Boulder's damage", () => {
+    component.selectedClass = "druid";
+    component.skillLevels = { "Molten Boulder": 1 };
+    const plain = (component as any).skillCastDamage("Molten Boulder");
+    component.skillLevels = { "Molten Boulder": 1, Volcano: 2, Firestorm: 3 };
+
+    expect((component as any).skillCastDamage("Molten Boulder") / plain).toBeCloseTo(1 + 0.24 + 0.24, 5);
+
+    // The synergy is the druid's own: those ranks mean nothing to a sorceress.
+    component.selectedClass = "sorceress";
+    expect((component as any).skillCastDamage("Molten Boulder")).toBeCloseTo(plain, 5);
+  });
+
+  it("pays Molten Boulder ranks back into the other druid fire skills", () => {
+    component.selectedClass = "druid";
+    component.skillLevels = { Volcano: 1, Armageddon: 1, "Fire Claws": 1 };
+    const volcano = (component as any).skillCastDamage("Volcano");
+    const armageddon = (component as any).skillCastDamage("Armageddon");
+    const claws = (component as any).skillCastDamage("Fire Claws");
+    component.skillLevels = { Volcano: 1, Armageddon: 1, "Fire Claws": 1, "Molten Boulder": 5 };
+
+    expect((component as any).skillCastDamage("Volcano") / volcano).toBeCloseTo(1 + 5 * 0.16, 5);
+    expect((component as any).skillCastDamage("Armageddon") / armageddon).toBeCloseTo(1 + 5 * 0.14, 5);
+    expect((component as any).skillCastDamage("Fire Claws") / claws).toBeCloseTo(1 + 5 * 0.22, 5);
+  });
+
+  it("adds Molten Boulder ranks to Firestorm's burn", () => {
+    component.selectedClass = "druid";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.skillLevels = { Firestorm: 1 };
+    (component as any).firestormTrails.length = 0;
+    (component as any).castFirestorm(1);
+    const plain = (component as any).firestormTrails[0].damagePerTick;
+    (component as any).firestormTrails.length = 0;
+    component.skillLevels = { Firestorm: 1, "Molten Boulder": 5 };
+    (component as any).castFirestorm(1);
+
+    expect((component as any).firestormTrails[0].damagePerTick / plain).toBeCloseTo(1 + 5 * 0.08, 3);
   });
 
   it("ships a reachable affix catalogue for every supported base category", () => {

@@ -63,6 +63,7 @@ import type { D2ItemStats } from "./d2-item-stats";
 import { D2_GEMS, D2_GEM_BY_NAME } from "./d2-gems.generated";
 import { d2Rune, rollRuneForLevel, runeRollFor } from "./d2-runes";
 import { findRuneword, runewordBaseKind, runewordSocketCapacity } from "./d2-runewords";
+import { socketCapacityForBase } from "./d2-socket-caps";
 import type { D2RunewordTableEntry } from "./d2-runeword-table";
 import { getD2BaseItemFootprint, getD2EquipmentTypeFootprint } from "./d2-item-footprints";
 import { eligibleAffixes, itemAffixTypes, rollAffix, type D2Affix, type D2ItemProc, type D2ItemProcTrigger } from "./d2-item-affixes";
@@ -677,7 +678,9 @@ const SAND_MAGGOT_BURROW_COOLDOWN = 12;
 const SAND_MAGGOT_EGG_COOLDOWN = 15;
 const SAND_MAGGOT_EGG_HATCH_SECONDS = 5;
 const SAND_MAGGOT_EGG_LIMIT = 12;
-const SAND_MAGGOT_EGG_HEALTH = 8;
+// Eggs are objects, not scenery: they hold a real life pool and crack only to
+// attacks aimed at them, so brushing past one leaves it brooding.
+const SAND_MAGGOT_EGG_HEALTH = 30;
 // Sand Maggot Young spit the original animated SandMaggotGooSpit acid at range,
 // but that range is an attack window, not a parking spot: they keep crawling in.
 const SAND_MAGGOT_YOUNG_RANGED_RANGE = 130;
@@ -783,6 +786,10 @@ const HOWL_MAX_FEAR_SECONDS = 6;
 // stuns the nearest enemy. The stun is a setup tool, not a second control build.
 const TELEKINESIS_STUN_SECONDS = 1.2;
 const TELEKINESIS_PICKUP_MULTIPLIER = 1.4;
+// Warmth is the sorceress's recharge passive: every rank speeds up all of her
+// equipped skills. Its total is read from the rank being shown, so the upgrade
+// card reports a different number for the current and the next rank.
+const WARMTH_RECHARGE_PER_RANK = 0.15;
 // Teleport is a passive escape: a hit can blink the Sorceress to a visible
 // spot away from the attacker. The chance rises with rank, capped at 50%.
 const PASSIVE_TELEPORT_BASE_CHANCE = 0.1;
@@ -982,7 +989,7 @@ const MISSILE_ELEMENTS: Record<string, AttackProjectile["kind"]> = {
   "d2-firearrowexplode2": "fire", "d2-fsexplode": "fire", "d2-firestormemitter": "fire",
   "d2-flamethrower": "fire", "d2-flamethrower2": "fire",
   "d2-groundfirebig": "fire", "d2-groundfiresmall": "fire", "d2-firespikes": "fire",
-  "d2-meteor": "fire", "d2-meteortail": "fire", "d2-rock_large": "fire",
+  "d2-meteor": "fire", "d2-meteortail": "fire", "d2-moltenboulderroll": "fire",
   "d2-firearrowexplode": "fire",
   "d2-lightningbolt": "lightning", "d2-lightningstrike": "lightning",
   "d2-lightningjavelin": "lightning", "d2-chargedbolt": "lightning",
@@ -1335,7 +1342,7 @@ const D2_SPELL_MISSILE_OVERLAYS: Record<string, string> = {
   "Frozen Orb": "d2-iceorb", Blizzard: "d2-blizzard",
   "Frozen Armor": "d2-hardenarmor", "Shiver Armor": "d2-hardenarmor", "Chilling Armor": "d2-hardenarmor",
   "Arctic Blast": "d2-arcticblastice", Firestorm: "d2-firestormemitter",
-  "Molten Boulder": "d2-rock_large", Meteor: "d2-meteortail",
+  "Molten Boulder": "d2-moltenboulderroll", Meteor: "d2-meteortail",
   Lightning: "d2-lightningbolt", "Lightning Bolt": "d2-lightningjavelin",   "Chain Lightning": "d2-lightningstrike",
   "Charged Bolt": "d2-chargedbolt", "Charged Bolt Sentry": "d2-chargedbolt", "Shock Web": "d2-chargedbolt",
   "Lightning Sentry": "d2-lightningbolt", "Death Sentry": "d2-lightningbolt",
@@ -1409,7 +1416,7 @@ const AMAZON_JAVELIN_SKILLS = new Set([
 // Ground-anchored effects stay upright instead of following the projectile's
 // travel vector, and are sized independently from bolt-sized missiles.
 const UPRIGHT_MISSILES = new Set(["d2-twister"]);
-const BOULDER_MISSILE_ID = "d2-rock_large";
+const BOULDER_MISSILE_ID = "d2-moltenboulderroll";
 const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = {
   "d2-twister": { width: 44, height: 82 },
   // Keep the Amazon missiles at their authored proportions instead of letting
@@ -1429,9 +1436,9 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   "d2-chargedbolt": { width: 56, height: 56 },
   // The 27x38 hammer cels were capped at 28px and nearly vanished in a crowd.
   "d2-blessedhammer": { width: 32, height: 45 },
-  // The imported rock_large cels are 58x53 and were capped at 28px by the
+  // The original MoltenBoulderRoll cels are 52x50 and were capped at 28px by the
   // generic missile path, so the druid's boulders read as pebbles.
-  "d2-rock_large": { width: 64, height: 59 },
+  "d2-moltenboulderroll": { width: 64, height: 62 },
   // Fire Bolt uses its own narrower bolt cel; Fire Ball keeps the larger,
   // rounder fireball so the two Sorceress spells remain distinct.
   "d2-firebolt": { width: 18, height: 13 },
@@ -1453,15 +1460,19 @@ const MISSILE_SPRITE_SIZES: Record<string, { width: number; height: number }> = 
   // imported 45x19 cel until the spine read as a small speck.
   "d2-spikefiendmissle": { width: 44, height: 19 },
 };
-// rock_large is a cool blue-grey D2 cel. Remap its luminance to muted earth
-// tones once when the five frames load instead of filtering every boulder draw.
-const CLAY_BOULDER_PALETTE: readonly (readonly [number, number, number, number])[] = [
-  [0.00, 34, 22, 16],
-  [0.22, 72, 45, 30],
-  [0.45, 122, 75, 48],
-  [0.68, 165, 108, 72],
-  [0.86, 196, 143, 101],
-  [1.00, 222, 180, 138],
+// Diablo II's MoltenBoulderRoll cels are a cool blue-grey rock: the spell reads
+// molten in the game because the rock is wrapped in fire and its light is
+// orange (missiles.txt Red 255 / Green 178 / Blue 64). Remap the cel's own
+// brightness onto a lava ramp once as the frames load, so the round original
+// art reads as a charred rock with glowing cracks instead of a blue stone.
+const MOLTEN_BOULDER_PALETTE: readonly (readonly [number, number, number, number])[] = [
+  [0.00, 14, 9, 8],
+  [0.24, 48, 19, 12],
+  [0.44, 104, 37, 14],
+  [0.62, 168, 62, 18],
+  [0.78, 226, 112, 30],
+  [0.90, 255, 176, 66],
+  [1.00, 255, 242, 196],
 ];
 // Molten Boulder rolls a fixed line and shoves monsters rather than tracking a
 // single target. The front corridor is bulldozed for the whole roll, flank
@@ -1473,7 +1484,20 @@ const BOULDER_SPEED = 300;
 const BOULDER_MIN_RANGE = 380;
 const BOULDER_MAX_RANGE = 760;
 const BOULDER_LINE_SPREAD = 0.07;
-const BOULDER_SIDE_KNOCKBACK = 56;
+// D2 throws a small monster away from the caster, not along the roll, and may
+// hit it again once its NextDelay is up: one rock bounces the same target, and
+// burns it, over and over.
+const BOULDER_KNOCKBACK = 72;
+const BOULDER_HIT_INTERVAL = 0.35;
+// The roll drags a Blaze behind it, so the path stays on fire after the rock has
+// gone by.
+const BOULDER_TRAIL_INTERVAL = 0.1;
+const BOULDER_TRAIL_LIFETIME = 1.8;
+const BOULDER_TRAIL_RADIUS = 30;
+const BOULDER_TRAIL_DAMAGE_FRACTION = 0.25;
+// Anything bulkier than the druid stops the rock. ENEMY_D2_PIX_HEIGHTS is in
+// the hero's own 90px unit, so this is "taller than the character".
+const BOULDER_HERO_HEIGHT = 90;
 const BOULDER_EXPLOSION_RADIUS = 88;
 const BOULDER_EXPLOSION_DURATION = 0.55;
 // D2 missile cels are drawn toward isometric north-east, roughly 22.5 degrees
@@ -1498,6 +1522,12 @@ const MISSILE_SPRITE_ORIENTATIONS: Record<string, number> = {
   "d2-spikefiendmissle": ISOMETRIC_MISSILE_ROTATION,
   "d2-firebolt": FIRE_MISSILE_ROTATION,
   "d2-fireball": FIRE_MISSILE_ROTATION,
+  // The cold cels are composed like the fire ones: the bright icy head leads at
+  // the lower left and the frozen spray trails up-right. Without the same turn
+  // the bolt flew tail-first and the blast's core dragged behind it.
+  "d2-icebolt": FIRE_MISSILE_ROTATION,
+  "d2-glacialspike": FIRE_MISSILE_ROTATION,
+  "d2-iceblast": FIRE_MISSILE_ROTATION,
   "d2-glaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missileglaive": ISOMETRIC_MISSILE_ROTATION,
   "d2-missilehandaxe": ISOMETRIC_MISSILE_ROTATION,
@@ -1624,6 +1654,8 @@ const A4_CHAOS_TILES = "assets/d2survivors/maps/tiles/a4-chaos-sanctuary-floor-t
 const A5_BLOODY_TILES = "assets/d2survivors/maps/tiles/a5-bloody-foothills-floor-tiles.png";
 const A5_CRYSTALLINE_TILES = "assets/d2survivors/maps/tiles/a5-crystalline-passage-floor-tiles.png";
 const A6_FORGOTTEN_TILES = "assets/d2survivors/maps/tiles/a6-forgotten-sands-floor-tiles.png";
+// Matron's Den stands in the Catacombs, so its atlas is cut from the exported
+// Catacombs ground (tools/build_matrons_den_tiles.py), not from an outdoor sheet.
 const A7_MATRONS_TILES = "assets/d2survivors/maps/tiles/a7-matrons-den-floor-tiles.png";
 // Act 8 is a render of the original tri_town4.ds1 preset using the D2R
 // classic DT1 tiles.  The atlas is the fallback while the backdrop decodes.
@@ -1641,6 +1673,9 @@ const CAMPAIGN_TERRAIN_PROFILES: Record<string, CampaignTerrainProfile> = {
   // black elevation band (0, 2, 6, 11, 15) stay out of the floor pools.
   [A1_TILES]: { ground: [5, 7, 12], path: [1, 10], edge: [12], accents: [3, 4, 8, 9, 13, 14], style: "trail" },
   [A1_CATACOMBS_TILES]: { ground: [8, 7, 14, 5], path: [10, 12, 14], edge: [13, 9, 15], accents: [11, 4, 2, 3], style: "cavern" },
+  // Every cell of the Matron's Den atlas is the same Catacombs flagstone, so the
+  // groups only decide where the renderer repeats ground and where it thins out.
+  [A7_MATRONS_TILES]: { ground: [1, 2, 5, 6, 10, 14], path: [4, 8, 12], edge: [0, 9, 11], accents: [3, 7, 13, 15], style: "cavern" },
   [A2_SEWERS_TILES]: { ground: [7, 8, 5, 0, 1], path: [10, 5, 8], edge: [9, 6, 2], accents: [11, 3, 15, 4], style: "cavern" },
   [A2_TAL_RASHAS_TILES]: { ground: [0, 2, 4, 6, 10, 14], path: [1, 15, 7], edge: [10, 11, 12], accents: [3, 9, 13, 8, 11], style: "tomb" },
   [A2_TAL_RASHAS_TOMB_TILES]: { ground: [0, 1, 2, 3, 4, 5, 6, 7], path: [8, 9, 10, 11], edge: [12, 13], accents: [14, 15], style: "tomb" },
@@ -1656,7 +1691,6 @@ const CAMPAIGN_TERRAIN_PROFILES: Record<string, CampaignTerrainProfile> = {
   [A5_CRYSTALLINE_TILES]: { ground: [0, 3, 7, 9, 14, 15], path: [11, 13], edge: [2, 4, 6, 10, 12], accents: [1, 5, 8], style: "cavern" },
   [A5_TILES]: { ground: [13, 5], path: [1, 12, 3], edge: [0, 7, 15], accents: [2, 4, 6, 8, 9, 10, 11, 14], style: "road" },
   [A6_FORGOTTEN_TILES]: { ground: [2, 4, 8, 11, 12, 15], path: [0, 1, 6], edge: [3, 7, 10, 14], accents: [5, 9, 13], style: "trail" },
-  [A7_MATRONS_TILES]: { ground: [1, 2, 5, 6, 10, 14], path: [4, 8, 12], edge: [0, 9, 11], accents: [3, 7, 13, 15], style: "cavern" },
   [A8_TILES]: { ground: [0, 2, 5, 7, 9, 13, 15], path: [4, 6, 8, 10, 11, 12], edge: [1, 3], accents: [], style: "road" },
 };
 
@@ -1865,7 +1899,7 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   golem: "assets/d2survivors/enemies/animated/golem.png",
   sandRaider: "assets/d2survivors/enemies/animated/raider.png",
   sandMaggot: "assets/d2survivors/enemies/animated/maggot.png?v=2",
-  sandMaggotYoung: "assets/d2survivors/enemies/animated/sand-maggot-young.png",
+  sandMaggotYoung: "assets/d2survivors/enemies/animated/sand-maggot-young.png?v=2",
   // The supplied Queen page is a single-direction strip, so the Queen reuses the
   // eight-direction maggot atlas at her own colour and size.
   sandMaggotQueen: "assets/d2survivors/enemies/animated/maggot.png?v=2",
@@ -1877,14 +1911,19 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   // Versioned: the old sheet was packed with neighbouring walk cels bleeding
   // through each cell, so extra spider legs and bodies appeared while walking.
   spiderDemon: "assets/d2survivors/enemies/animated/spider-demon.png?v=2",
-  spikeFiend: "assets/d2survivors/enemies/animated/spike-fiend.png",
-  scarab: "assets/d2survivors/enemies/animated/scarab.png",
-  leaper: "assets/d2survivors/enemies/animated/leaper.png",
+  // Versioned: the appended idle block drew these larger than their own walk
+  // cycles, so the sheets were re-scaled onto the walk band (see
+  // tools/normalize_enemy_atlas_blocks.py).
+  spikeFiend: "assets/d2survivors/enemies/animated/spike-fiend.png?v=2",
+  scarab: "assets/d2survivors/enemies/animated/scarab.png?v=2",
+  leaper: "assets/d2survivors/enemies/animated/leaper.png?v=2",
   blunderbore: "assets/d2survivors/enemies/animated/blunderbore.png",
   fetish: "assets/d2survivors/enemies/animated/fetish.png",
   boneFetish: "assets/d2survivors/enemies/animated/bone-fetish.png",
   fetishShaman: "assets/d2survivors/enemies/animated/fetish-shaman.png",
-  council: "assets/d2survivors/enemies/animated/council.png",
+  // Versioned: rebuilt from the native HP DCCs with the real walk clip, so the
+  // browser cannot keep serving the old magnified sheet.
+  council: "assets/d2survivors/enemies/animated/council.png?v=2",
   balrog: "assets/d2survivors/enemies/animated/balrog.png",
   // The two Act 4 flesh beasts were flat 49x50 and 42x48 rips. Their VC and VM
   // eight-direction walk and attack DCCs are rebuilt into the standard
@@ -1896,9 +1935,9 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
   nihlathak: "assets/d2survivors/enemies/animated/nihlathak.png",
   // Versioned so the rematted atlas replaces the cached sheet whose frames had
   // an opaque black silhouette baked around them.
-  painWorm: "assets/d2survivors/enemies/animated/pain-worm.png?v=2",
+  painWorm: "assets/d2survivors/enemies/animated/pain-worm.png?v=3",
   regurgitator: "assets/d2survivors/enemies/animated/regurgitator.png",
-  salamander: "assets/d2survivors/enemies/animated/salamander.png",
+  salamander: "assets/d2survivors/enemies/animated/salamander.png?v=2",
   // Versioned because the old OX sheet had only eight walk cels filled across
   // an eighteen-column atlas; the browser would otherwise keep the broken copy.
   siegeBeast: "assets/d2survivors/enemies/animated/siege-beast.png?v=2",
@@ -1935,9 +1974,11 @@ const ENEMY_SPRITE_PATHS: Record<EnemySpecies, string> = {
 
 const ENEMY_SPRITE_LAYOUTS: Record<EnemySpecies, { columns: number; rows: number; animated: boolean }> = {
   fallen: { columns: 13, rows: 1, animated: true }, goatman: { columns: 14, rows: 24, animated: true },
-  // The old flat skeleton rip keeps its original entry; skeletonWarrior below is
-  // the atlas the arena draws.
-  skeleton: { columns: 16, rows: 16, animated: true },
+  // Skeleton and skeletonWarrior draw the same 16x24 atlas: eight walk rows, eight
+  // attack rows and the idle block tools/add_enemy_idle_blocks.py appends below
+  // them. A sixteen-row layout sliced cels 157.5px tall, so every frame caught a
+  // row and a half and the arena showed two shrunken skeletons per cel.
+  skeleton: { columns: 16, rows: 24, animated: true },
   skeletonWarrior: { columns: 16, rows: 24, animated: true },
   // The mage sheets stack three blocks of eight rows: the neutral idle (its
   // glowing hands breathe), the walk and the attack.
@@ -2033,7 +2074,7 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   skeletalMageCold: { width: 158, height: 109 }, skeletalMageFire: { width: 158, height: 109 },
   skeletalMageLightning: { width: 158, height: 109 }, skeletalMagePoison: { width: 158, height: 109 },
   golem: { width: 91, height: 102 },
-  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 120, height: 120 }, scarab: { width: 224, height: 180 }, leaper: { width: 120, height: 120 },
+  sandRaider: { width: 114, height: 180 }, sandMaggot: { width: 120, height: 120 }, scarab: { width: 128, height: 128 }, leaper: { width: 120, height: 120 },
   sandMaggotQueen: { width: 120, height: 120 },
   // The rebuilt egg atlas is 12x8 frames at the same 120px cell as the maggot.
   maggotEgg: { width: 120, height: 120 },
@@ -2041,7 +2082,7 @@ const ENEMY_SPRITE_CELLS: Record<EnemySpecies, { width: number; height: number }
   spikeFiend: { width: 96, height: 80 },
   sandMaggotYoung: { width: 128, height: 128 },
   fetish: { width: 91, height: 101 }, boneFetish: { width: 91, height: 101 },
-  fetishShaman: { width: 112, height: 96 }, council: { width: 107, height: 108 },
+  fetishShaman: { width: 112, height: 96 }, council: { width: 104, height: 105 },
   balrog: { width: 224, height: 152 }, vileChild: { width: 120, height: 80 }, vileMother: { width: 152, height: 112 },
   bloodLord: { width: 64, height: 64 }, minotaur: { width: 128, height: 128 }, deathMauler: { width: 112, height: 100 },
   blunderbore: { width: 85, height: 117 }, nihlathak: { width: 128, height: 128 },
@@ -2189,17 +2230,21 @@ const DRUID_SUMMON_LOOKS: Record<string, DruidSummonLook> = {
     tint: "sepia(1) saturate(3.8) hue-rotate(-16deg) brightness(1.16)",
     glow: [255, 174, 66], glowAlpha: 0.46, sizeScale: 1, floating: true, shadowScale: 0.5,
   },
+  // The vine art is the original golden-brown sprawl with red seed pods, so the
+  // tints only separate the three vine skills now instead of inventing colour
+  // for a black silhouette: green for poison, the source colours for carrion
+  // and a warm gold for solar.
   "Poison Creeper": {
-    tint: "sepia(0.95) saturate(3.4) hue-rotate(52deg) brightness(1.08)",
-    glow: [102, 197, 83], glowAlpha: 0.24, sizeScale: 0.94, floating: false, shadowScale: 1,
+    tint: "saturate(1.2) hue-rotate(24deg) brightness(1.02)",
+    glow: [102, 197, 83], glowAlpha: 0.18, sizeScale: 0.94, floating: false, shadowScale: 1,
   },
   "Carrion Vine": {
-    tint: "sepia(1) saturate(2.3) hue-rotate(24deg) brightness(1.02)",
-    glow: [172, 151, 82], glowAlpha: 0.2, sizeScale: 0.94, floating: false, shadowScale: 1,
+    tint: "saturate(1.08) brightness(1.02)",
+    glow: [172, 151, 82], glowAlpha: 0.16, sizeScale: 0.94, floating: false, shadowScale: 1,
   },
   "Solar Creeper": {
-    tint: "sepia(1) saturate(3.6) hue-rotate(-12deg) brightness(1.2)",
-    glow: [255, 191, 76], glowAlpha: 0.28, sizeScale: 0.94, floating: false, shadowScale: 1,
+    tint: "sepia(0.5) saturate(1.9) hue-rotate(-18deg) brightness(1.1)",
+    glow: [255, 191, 76], glowAlpha: 0.22, sizeScale: 0.94, floating: false, shadowScale: 1,
   },
 };
 
@@ -2998,7 +3043,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     { name: "Fire Mastery", desc: "+10% fire damage" },
     { name: "Cold Mastery", desc: "+10% cold damage" },
     { name: "Lightning Mastery", desc: "+10% lightning damage" },
-    { name: "Warmth", desc: "skills recharge 15% faster" },
+    { name: "Warmth", desc: "skills recharge 15% faster per rank" },
     { name: "Enchant", desc: "your fire skills burn 10% harder" },
     {
       name: "Bone Spear",
@@ -3241,7 +3286,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     },
     {
       name: "Molten Boulder",
-      desc: "2 molten boulders roll through the pack, shoving monsters aside and bursting for 95 damage where they stop",
+      desc: "one boulder rolls straight, throwing monsters back and leaving a burning trail until scenery or a big monster stops it",
     },
     {
       name: "Volcano",
@@ -5236,8 +5281,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return this.canResumeSavedRun && this.savedRunClass === this.selectedClass;
   }
 
+  /**
+   * The character-select screen resumes the hero standing on it, never whoever
+   * happened to be saved last: switching from the saved class to another one
+   * must offer only a fresh Act I journey, not someone else's run. The saved
+   * journey itself is still offered from the main menu and the lobby, where it
+   * names its own class.
+   */
   get canResumeRunFromCharacterSelect(): boolean {
-    return this.canResumeSavedRun;
+    return this.canResumeSelectedRun;
   }
 
   get isLobbySignedIn(): boolean {
@@ -8209,6 +8261,201 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.persistRunProgress(true);
   }
 
+  /**
+   * Gheed's stand-in for Larzuk's socket quest: the shop shows the hero's worn
+   * gear and whole pack, and drills the sockets the quest reward would have
+   * added into one chosen item for gold.
+   */
+  socketQuestItemId: string | null = null;
+
+  get shopEquippedGear(): Array<{ slot: PaperdollSlot; label: string; item: D2InventoryItem }> {
+    const gear: Array<{ slot: PaperdollSlot; label: string; item: D2InventoryItem }> = [];
+    for (const entry of this.paperdollLayout) {
+      const item = this.equipment[entry.slot];
+      if (item) gear.push({ slot: entry.slot, label: entry.label, item });
+    }
+    return gear;
+  }
+
+  get shopPackItems(): D2InventoryItem[] {
+    return this.inventory.filter((item): item is D2InventoryItem => !!item);
+  }
+
+  get socketQuestItem(): D2InventoryItem | null {
+    const id = this.socketQuestItemId;
+    if (!id) return null;
+    const owned = [
+      ...this.shopPackItems,
+      ...this.sanctuaryStash,
+      ...this.shopEquippedGear.map((gear) => gear.item),
+    ];
+    return owned.find((item) => item.id === id) ?? null;
+  }
+
+  selectSocketQuestItem(item: D2InventoryItem): void {
+    this.socketQuestItemId = this.socketQuestItemId === item.id ? null : item.id;
+    const chosen = this.socketQuestItem;
+    this.shopMessage = chosen
+      ? `${chosen.name}: ${this.socketQuestSummary(chosen)}`
+      : "Gheed puts his drill away.";
+  }
+
+  /** The item level the socket work is judged at: the area being played. */
+  private socketQuestItemLevel(): number {
+    return this.currentArea?.level ?? this.playerLevel;
+  }
+
+  /**
+   * Bases the master socket table does not list (the game's own made-up bases)
+   * keep the family allowance trimmed by item level: 1-29 can take two, 30-59
+   * four, and from 60 the family's own maximum.
+   */
+  private socketQuestLevelCap(capacity: number): number {
+    const itemLevel = this.socketQuestItemLevel();
+    return itemLevel >= 60 ? capacity : itemLevel >= 30 ? Math.min(capacity, 4) : Math.min(capacity, 2);
+  }
+
+  /** Sockets the quest reward would give, or 0 when the item cannot take any. */
+  socketQuestCapacity(item: D2InventoryItem | null): number {
+    if (!item || (item.sockets ?? 0) > 0 || this.isSocketable(item)) return 0;
+    // The master table is authoritative: it already carries each base's
+    // allowance for item levels 1-25, 26-40 and 41+.
+    const tableCapacity = socketCapacityForBase(item.baseName ?? item.name, this.socketQuestItemLevel());
+    if (tableCapacity) return tableCapacity;
+    const kind = runewordBaseKind(item);
+    return kind ? this.socketQuestLevelCap(runewordSocketCapacity(kind)) : 0;
+  }
+
+  /** Larzuk's rarity rule, spelled out for the shop panel. */
+  socketQuestSummary(item: D2InventoryItem | null): string {
+    if (!item) return "Choose an item from your pack, stash or worn gear.";
+    if ((item.sockets ?? 0) > 0) return `It already has ${item.sockets} socket${item.sockets === 1 ? "" : "s"}.`;
+    const capacity = this.socketQuestCapacity(item);
+    if (!capacity) return "This base cannot take sockets.";
+    if (item.rarity === "magic") {
+      return capacity >= 2
+        ? "Magic base: 1 or 2 sockets, even odds."
+        : "Magic base: 1 socket.";
+    }
+    if (item.rarity === "normal") {
+      return `White base: ${capacity} socket${capacity === 1 ? "" : "s"} — its maximum at this item level.`;
+    }
+    return `1 socket — ${item.rarity} items always get exactly one.`;
+  }
+
+  socketQuestCost(item: D2InventoryItem | null): number {
+    const capacity = this.socketQuestCapacity(item);
+    return item && capacity ? 2000 + capacity * 1000 : 0;
+  }
+
+  private rollSocketQuestSockets(item: D2InventoryItem): number {
+    const capacity = this.socketQuestCapacity(item);
+    if (!capacity) return 0;
+    if (item.rarity === "normal") return capacity;
+    if (item.rarity === "magic") return capacity >= 2 && Math.random() < 0.5 ? 2 : 1;
+    return 1;
+  }
+
+  /** What Gheed charges for Charsi's one-per-difficulty favour. */
+  get imbueCost(): number {
+    return 7000;
+  }
+
+  /**
+   * Charsi's quest reward: a low-quality, normal or superior weapon or armour
+   * with no sockets becomes a rare of the same base. Magic, rare, set, unique
+   * and crafted items, socketed gear, jewellery and charms are all ineligible.
+   */
+  imbueEligible(item: D2InventoryItem | null): boolean {
+    if (!item || item.rarity !== "normal" || (item.sockets ?? 0) > 0) return false;
+    if (this.isSocketable(item)) return false;
+    return IMBUE_ELIGIBLE_TYPES.includes(getEquipmentType(item));
+  }
+
+  /** D2 always rolls an imbued item at character level + 4, wherever it dropped. */
+  get imbueItemLevel(): number {
+    return Math.max(1, this.playerLevel) + 4;
+  }
+
+  imbueItem(item: D2InventoryItem): void {
+    if (this.socketQuestItem?.id !== item.id) {
+      this.shopMessage = "Choose the item in your pack first.";
+      return;
+    }
+    if (!this.imbueEligible(item)) {
+      this.shopMessage = `${item.name} cannot be imbued: Charsi only works white weapons and armour without sockets.`;
+      return;
+    }
+    const cost = this.imbueCost;
+    if (this.sanctuaryGold < cost) {
+      this.shopMessage = `You need ${cost - this.sanctuaryGold} more gold for the imbue.`;
+      return;
+    }
+    const itemLevel = this.imbueItemLevel;
+    const base = { name: item.baseName ?? item.name, slot: item.slot, equipmentType: item.equipmentType };
+    const prefix = this.randomImbueAffix(base, itemLevel, "prefix");
+    const suffix = this.randomImbueAffix(base, itemLevel, "suffix");
+    const stats: D2ItemStats = { ...(item.stats ?? {}) };
+    const affixes: string[] = [];
+    const procs: D2ItemProc[] = [];
+    for (const affix of [prefix, suffix]) {
+      if (!affix) continue;
+      const rolled = rollAffix(affix, itemLevel);
+      Object.assign(stats, rolled.stats);
+      affixes.push(rolled.text);
+      if (rolled.proc) procs.push(rolled.proc);
+    }
+    if (!affixes.length) {
+      this.shopMessage = `${item.name} cannot take a rare enchantment at this level.`;
+      return;
+    }
+    const baseName = item.baseName ?? item.name;
+    // Mutate in place so the pack slot, the stash entry and any paperdoll slot
+    // that already holds this item all see the imbued version.
+    item.name = `${prefix ? prefix.name + " " : ""}${baseName}${suffix ? " " + suffix.name : ""}`;
+    item.rarity = "rare";
+    item.stats = stats;
+    item.affixes = affixes;
+    if (procs.length) item.procs = procs;
+    this.sanctuaryGold -= cost;
+    this.playerGold = Math.max(0, this.playerGold - cost);
+    this.rebuildInventoryGrid();
+    this.shopMessage = `Charsi's art, sold by Gheed: ${item.name} is now rare (item level ${itemLevel}) for ${cost} gold.`;
+    this.persistRunProgress(true);
+  }
+
+  private randomImbueAffix(
+    base: { name: string; slot: D2InventoryItem["slot"]; equipmentType?: EquipmentType },
+    itemLevel: number,
+    kind: "prefix" | "suffix",
+  ): D2Affix | undefined {
+    const pool = eligibleAffixes(base, itemLevel, kind);
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : undefined;
+  }
+
+  buySocketQuest(item: D2InventoryItem): void {
+    if (this.socketQuestItem?.id !== item.id) {
+      this.shopMessage = "Choose the item in your pack first.";
+      return;
+    }
+    const sockets = this.rollSocketQuestSockets(item);
+    if (!sockets) {
+      this.shopMessage = `${item.name} cannot take sockets.`;
+      return;
+    }
+    const cost = this.socketQuestCost(item);
+    if (this.sanctuaryGold < cost) {
+      this.shopMessage = `You need ${cost - this.sanctuaryGold} more gold for the socket work.`;
+      return;
+    }
+    item.sockets = sockets;
+    this.sanctuaryGold -= cost;
+    this.playerGold = Math.max(0, this.playerGold - cost);
+    this.rebuildInventoryGrid();
+    this.shopMessage = `Gheed drills ${sockets} socket${sockets === 1 ? "" : "s"} into ${item.name} for ${cost} gold.`;
+    this.persistRunProgress(true);
+  }
+
   getSanctuaryUpgradeCost(upgrade: "maxLife" | "attackDamage"): number {
     return 250 + this.sanctuaryBonuses[upgrade] * 175;
   }
@@ -8507,9 +8754,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // White bases are the only items a runeword can be spelled into, so they
     // arrive socketed now and then instead of needing a crafter to add holes.
     if (rarity === "normal" && baseKind && (guaranteedSocketedBase || Math.random() < SOCKETED_BASE_CHANCE)) {
-      const capacity = runewordSocketCapacity(baseKind);
-      const levelCap = itemLevel >= 60 ? capacity : itemLevel >= 30 ? Math.min(capacity, 4) : Math.min(capacity, 2);
-      sockets = Math.max(sockets, 1 + Math.floor(Math.random() * levelCap));
+      // The base's own allowance at this item level, from D2's master table; a
+      // War Staff rolls up to five sockets at item level 25 and six at 41.
+      const familyCapacity = runewordSocketCapacity(baseKind);
+      const capacity = socketCapacityForBase(base.name, itemLevel)
+        ?? (itemLevel >= 60 ? familyCapacity : itemLevel >= 30 ? Math.min(familyCapacity, 4) : Math.min(familyCapacity, 2));
+      sockets = Math.max(sockets, 1 + Math.floor(Math.random() * Math.max(1, capacity)));
     }
     const displayName = rarity === "normal"
       ? base.name
@@ -8549,9 +8799,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /**
    * A socketed item's art shows its holes while the item is hovered. The cel
    * files are unpunched, so the holes are drawn over the icon: D2 stacks them
-   * across the face of the item, and a shield or body armor reads best with the
-   * same loose grid at every count. Left/top/size are percentages of the slot
-   * box, and the hole is drawn wider than tall to sit on the isometric ground.
+   * across the face of a wide item, and runs them down the long axis of a
+   * one-cell-wide base. Only the centres are percentages of the slot box; every
+   * hole is the same fixed size (CSS `--d2s-socket-hole`), so a socket on a dirk
+   * is as big as a socket on a body armour.
    */
   socketHoles(item: D2InventoryItem | null | undefined): D2SocketHole[] {
     const sockets = Math.max(0, Math.min(6, Math.floor(item?.sockets ?? 0)));
@@ -10594,6 +10845,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       ];
     }
 
+    if (name === "Warmth" && this.selectedClass === "sorceress") {
+      // The card compares this rank against the next one, so the running total
+      // has to come from the rank it is asked about rather than the flat spell
+      // text it used to fall back on, which printed 15% at every rank.
+      const recharge = Math.round(WARMTH_RECHARGE_PER_RANK * Math.max(1, rank) * 100);
+      return [
+        `All equipped skills recharge ${recharge}% faster`,
+        "Passive: always on once Warmth is learned",
+      ];
+    }
+
     if (name === "Enchant") {
       // Enchant has no numeric rank line of its own. Show the spell text used
       // by the skill list instead of the generic aura fallback in the level-up
@@ -10906,7 +11168,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const level = Math.max(1, Math.min(20, proc.level));
     const damage = Math.max(1, this.basicAttackDamage * 0.45 + level * 6);
     const nearest = this.enemies
-      .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+      .filter((enemy) => enemy.hp > 0 && !enemy.summonType && !enemy.eggProxy)
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (proc.skill === "Frost Nova") {
       this.castFrostNova(level, damage);
@@ -10948,6 +11210,24 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const hits = proc.skill === "Hydra" ? 3 : 1;
     for (let index = 0; index < hits; index += 1) {
       this.queueEnemyDamage(nearest, damage * (index === 0 ? 1 : 0.7), elemental.color, elemental.type);
+    }
+  }
+
+  /**
+   * D2's druid fire synergies, as a share of the skill's own damage. Molten
+   * Boulder takes Volcano and Firestorm ranks and pays them back to Firestorm,
+   * Volcano, Armageddon and Fire Claws.
+   */
+  private druidFireSynergy(skill: string): number {
+    if (this.selectedClass !== "druid") return 0;
+    const rank = (name: string) => Math.max(0, this.skillLevels[name] ?? 0);
+    switch (skill) {
+      case "Molten Boulder": return rank("Volcano") * 0.12 + rank("Firestorm") * 0.08;
+      case "Firestorm": return rank("Molten Boulder") * 0.08;
+      case "Volcano": return rank("Molten Boulder") * 0.16;
+      case "Armageddon": return rank("Molten Boulder") * 0.14;
+      case "Fire Claws": return rank("Molten Boulder") * 0.22;
+      default: return 0;
     }
   }
 
@@ -11011,7 +11291,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const castRateRank = this.skillLevels["Faster Cast Rate"] ?? 0;
     const gearCastRate = Math.min(75, this.equippedFasterCastPercent) / 100;
     const globalRate = Math.max(0.4, (1 - castRateRank * 0.1) * (1 - gearCastRate));
-    return Math.max(0.65, (baseIntervals[visual] + unlockDelay) * rankBonus * globalRate);
+    // Warmth's "15% faster per rank" is a starting-speed increase, so the
+    // interval divides by it: 75% faster casts in 1/1.75 of the time.
+    const warmthRank = Math.max(0, this.skillLevels["Warmth"] ?? 0);
+    const warmthRate = 1 + warmthRank * WARMTH_RECHARGE_PER_RANK;
+    return Math.max(0.65, (baseIntervals[visual] + unlockDelay) * rankBonus * globalRate / warmthRate);
   }
 
   get emptySkillSlots(): number[] {
@@ -12378,8 +12662,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         && Math.max(red, green, blue) <= 48
         && Math.max(red, green, blue) - Math.min(red, green, blue) <= 28;
     };
-    // rock_large's cels already carry authored alpha: their dark, low-chroma
-    // stone is the boulder itself, not a baked-in black matte. Walking the
+    // The boulder's cels already carry authored alpha: their dark, low-chroma
+    // stone is the rock itself, not a baked-in black matte. Walking the
     // perimeter keyer through them erased roughly half of every cel, which is
     // why the rolling boulder looked see-through.
     const keepAuthoredAlpha = id === BOULDER_MISSILE_ID;
@@ -12436,12 +12720,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (id === BOULDER_MISSILE_ID) {
       for (let pixel = 0; pixel < rgba.length; pixel += 4) {
         if (rgba[pixel + 3] === 0) continue;
-        const luminance = (rgba[pixel] * 0.299 + rgba[pixel + 1] * 0.587 + rgba[pixel + 2] * 0.114) / 255;
+        // The cel's cracks are the brightest pixels of the rock whichever hue
+        // they were painted in, so the ramp is keyed to the strongest channel.
+        const intensity = Math.max(rgba[pixel], rgba[pixel + 1], rgba[pixel + 2]) / 255;
         let stop = 1;
-        while (stop < CLAY_BOULDER_PALETTE.length - 1 && luminance > CLAY_BOULDER_PALETTE[stop][0]) stop += 1;
-        const [low, lowRed, lowGreen, lowBlue] = CLAY_BOULDER_PALETTE[stop - 1];
-        const [high, highRed, highGreen, highBlue] = CLAY_BOULDER_PALETTE[stop];
-        const blend = Math.max(0, Math.min(1, (luminance - low) / Math.max(0.0001, high - low)));
+        while (stop < MOLTEN_BOULDER_PALETTE.length - 1 && intensity > MOLTEN_BOULDER_PALETTE[stop][0]) stop += 1;
+        const [low, lowRed, lowGreen, lowBlue] = MOLTEN_BOULDER_PALETTE[stop - 1];
+        const [high, highRed, highGreen, highBlue] = MOLTEN_BOULDER_PALETTE[stop];
+        const blend = Math.max(0, Math.min(1, (intensity - low) / Math.max(0.0001, high - low)));
         rgba[pixel] = lowRed + (highRed - lowRed) * blend;
         rgba[pixel + 1] = lowGreen + (highGreen - lowGreen) * blend;
         rgba[pixel + 2] = lowBlue + (highBlue - lowBlue) * blend;
@@ -12582,7 +12868,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.druidAnimations[name] = {
           frames,
           columns: source.columns,
-          walkColumns: name === "raven" ? 8 : undefined,
+          // Raven and the corpse vines carry eight walk columns followed by
+          // four attack columns; the wereforms use every column for both bands.
+          walkColumns: name === "raven" || name === "poison-creeper" ? 8 : undefined,
           rows,
           frameDurationMs: 85,
           rowScales: rowBodyHeights.map((bodyHeight, rowIndex) => (
@@ -13937,7 +14225,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // target the spell still takes whatever monster is nearest.
     if (this.tryBasicAttackSpell(this.clickMoveTarget ?? undefined)) return;
     const nearest = this.enemies
-      .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
+      .filter((enemy) => enemy.hp > 0 && !enemy.summonType && this.isAutoAttackTarget(enemy))
       .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!nearest) return;
     const clicked = this.clickMoveTarget;
@@ -14130,6 +14418,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * never swings or casts at nothing: melee needs a body at weapon length, while
    * a bow, a thrown weapon or a spell in the basic slot keep their own range.
    */
+  /**
+   * The idle auto-attack only picks monsters it could fight anyway. An egg has
+   * to be attacked on purpose: walking past one must never crack it open, while
+   * clicking it (or shift-clicking through it) targets it like any other enemy.
+   */
+  private isAutoAttackTarget(enemy: Enemy): boolean {
+    return !enemy.eggProxy || enemy === this.clickMoveTarget;
+  }
+
   private hasEnemyInBasicAttackRange(): boolean {
     const spell = this.basicAttackSpell;
     const reach = spell && this.canBasicAttackCastSpell(spell) ? this.basicAttackSpellReach(spell)
@@ -14139,7 +14436,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // A buff, a servant or a placed trap has no reach of its own, so an empty
     // floor must not hold it back.
     if (reach <= 0) return true;
-    return this.enemies.some((enemy) => enemy.hp > 0 && !enemy.summonType
+    return this.enemies.some((enemy) => enemy.hp > 0 && !enemy.summonType && this.isAutoAttackTarget(enemy)
       && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= reach + enemy.r);
   }
 
@@ -16198,6 +16495,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * as line of sight for ranged monsters, so a quill or fireball cannot leave
    * through a wall the shooter is standing behind.
    */
+  /** Whether a world point lies on ground the hero could stand on. */
+  private campaignGroundPassable(x: number, y: number): boolean {
+    const context = this.campaignCollisionContext();
+    if (!context) return true;
+    const point = this.projectArenaPoint(x, y);
+    return !this.campaignBlockedAt(context, point.x, point.y);
+  }
+
   private campaignLineBlocked(
     context: CampaignCollisionContext,
     fromX: number,
@@ -16797,6 +17102,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.actPortalOpen) {
       this.actPortalX += offsetX;
       this.actPortalY += offsetY;
+    }
+    // The blue area door is a ground anchor exactly like the red one. The hero
+    // keeps their anchor and the map scrolls under them, so leaving this out of
+    // the shift pinned the door to the screen: it rode along beside the hero
+    // instead of standing on the spot where it opened.
+    if (this.zonePortalOpen) {
+      this.zonePortalX += offsetX;
+      this.zonePortalY += offsetY;
     }
     for (const text of this.floatingTexts) {
       text.x += offsetX;
@@ -17751,7 +18064,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     });
     enemy.cd = 2.2;
     enemy.eggCooldown = SAND_MAGGOT_EGG_COOLDOWN + Math.random() * 5;
-    this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 8, text: "EGG LAID", color: "#d9c3a1", life: 0.9 });
   }
 
   private updateMaggotEggs(seconds: number): void {
@@ -17763,7 +18075,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.maggotEggs.splice(index, 1);
         const proxyIndex = this.enemies.indexOf(egg.proxy);
         if (proxyIndex >= 0) this.enemies.splice(proxyIndex, 1);
-        this.floatingTexts.push({ x: egg.x, y: egg.y - 18, text: "EGG DESTROYED", color: "#d9c3a1", life: 1 });
         continue;
       }
       egg.age += seconds;
@@ -20099,9 +20410,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private skillCastDamage(skill: string): number {
     const multiplier = Math.max(1, this.skillLevels[skill] ?? 1);
     const baseDamage = this.basicAttackDamage * (skill === this.basicAttackName ? 1 : 1.5) + (multiplier - 1) * 3;
+    const synergisedDamage = baseDamage * (1 + this.druidFireSynergy(skill));
     const adjustedBaseDamage = this.isMeleeDamageSkill(skill)
-      ? this.applyStrengthToMeleeDamage(baseDamage)
-      : this.isSpellDamageSkill(skill) ? this.applyEnergyToSpellDamage(baseDamage) : baseDamage;
+      ? this.applyStrengthToMeleeDamage(synergisedDamage)
+      : this.isSpellDamageSkill(skill) ? this.applyEnergyToSpellDamage(synergisedDamage) : synergisedDamage;
     // Decrepify weakens physical weapon attacks; elemental spells keep their
     // full damage. `isSpellDamageSkill` is the existing split used for Energy.
     return this.applyPaladinAuraDamage(adjustedBaseDamage, this.isMeleeDamageSkill(skill))
@@ -20269,9 +20581,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Advance a rolling Molten Boulder. Monsters caught in the front corridor are
-   * pinned to its leading face and bulldozed along every frame; monsters clipped
-   * on the flank are thrown clear once. The roll ends in a fiery blast.
+   * Advance a rolling Molten Boulder. D2's rock runs a straight line until it
+   * meets scenery or a monster bulkier than the druid; everything smaller is
+   * thrown away from the druid and hurt again whenever it comes back for more.
+   * The path it rolls over stays on fire, and the roll ends in a fiery blast.
    */
   private updateMoltenBoulder(projectile: AttackProjectile, seconds: number): void {
     projectile.age += seconds;
@@ -20288,6 +20601,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const directionY = deltaY / remaining;
     const nextX = projectile.x + directionX * step;
     const nextY = projectile.y + directionY * step;
+    // Scenery stops the roll: like the spell itself, the rock cannot be cast
+    // across ground the hero could not walk - rock, water, lava or the void.
+    const wallContext = this.campaignCollisionContext();
+    if (wallContext && this.campaignLineBlocked(wallContext, projectile.x, projectile.y, nextX, nextY)) {
+      this.explodeMoltenBoulder(projectile);
+      return;
+    }
     const clampedX = Math.max(projectile.radius, Math.min(this.arenaW - projectile.radius, nextX));
     const clampedY = Math.max(projectile.radius, Math.min(this.arenaH - projectile.radius, nextY));
     projectile.x = clampedX;
@@ -20296,33 +20616,61 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.explodeMoltenBoulder(projectile);
       return;
     }
-    const sideHits = projectile.boulderSideHits ?? (projectile.boulderSideHits = []);
+    this.dropMoltenBoulderTrail(projectile, seconds);
+    const hits = projectile.boulderHits ?? (projectile.boulderHits = []);
+    for (const hit of hits) hit.cooldown -= seconds;
     for (const enemy of this.enemies) {
-      // Act bosses are too large to be pinned or thrown by the rolling rock.
-      if (enemy.hp <= 0 || enemy.summonType || enemy.campaignBoss === true) continue;
+      if (enemy.hp <= 0 || enemy.summonType) continue;
       const offsetX = enemy.x - projectile.x;
       const offsetY = enemy.y - projectile.y;
       const forward = offsetX * directionX + offsetY * directionY;
       // Monsters already behind the rock are done being shoved by this pass.
       if (forward < -enemy.r * 0.5) continue;
       const lateral = offsetX * -directionY + offsetY * directionX;
-      const frontReach = projectile.radius + enemy.r;
-      if (forward >= 0 && forward <= frontReach + step + 2 && Math.abs(lateral) <= frontReach * 0.85) {
-        // Pin the monster to the leading face; it keeps moving with the rock
-        // instead of being knocked back to where the boulder left it.
-        const pinnedForward = Math.max(forward, frontReach + 2);
-        enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, projectile.x + directionX * pinnedForward + -directionY * lateral));
-        enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, projectile.y + directionY * pinnedForward + directionX * lateral));
-        continue;
+      const reach = projectile.radius + enemy.r;
+      if (forward > reach + step + 2 || Math.abs(lateral) > reach * 0.85) continue;
+      const damageType = this.damageTypeForProjectile(projectile);
+      if (this.stopsMoltenBoulder(enemy)) {
+        // Too big to shove: the rock breaks on it.
+        this.queueEnemyDamage(enemy, projectile.damage, projectile.color, damageType);
+        this.explodeMoltenBoulder(projectile);
+        return;
       }
-      if (sideHits.includes(enemy)) continue;
-      const offsetDistance = Math.hypot(offsetX, offsetY) || 1;
-      if (offsetDistance > frontReach + 6) continue;
-      // A flank touch throws the monster once, radially away from the rock.
-      enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, enemy.x + offsetX / offsetDistance * BOULDER_SIDE_KNOCKBACK));
-      enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, enemy.y + offsetY / offsetDistance * BOULDER_SIDE_KNOCKBACK));
-      sideHits.push(enemy);
+      // D2's shove points away from the caster rather than along the roll, so
+      // the monster can be pushed back into the boulder's path and hit again.
+      const fromCasterX = enemy.x - this.playerX;
+      const fromCasterY = enemy.y - this.playerY;
+      const casterDistance = Math.hypot(fromCasterX, fromCasterY) || 1;
+      enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r,
+        enemy.x + fromCasterX / casterDistance * BOULDER_KNOCKBACK));
+      enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r,
+        enemy.y + fromCasterY / casterDistance * BOULDER_KNOCKBACK));
+      const previous = hits.find((hit) => hit.enemy === enemy);
+      if (previous) {
+        if (previous.cooldown > 0) continue;
+        previous.cooldown = BOULDER_HIT_INTERVAL;
+      } else {
+        hits.push({ enemy, cooldown: BOULDER_HIT_INTERVAL });
+      }
+      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, damageType);
     }
+  }
+
+  /** D2's rule of thumb: the rock breaks on anything bulkier than the druid. */
+  private stopsMoltenBoulder(enemy: Enemy): boolean {
+    if (enemy.campaignBoss === true) return true;
+    return enemyD2PixelHeight(enemy.species) > BOULDER_HERO_HEIGHT;
+  }
+
+  /** Lay the Blaze the boulder drags behind it, one patch per stretch of path. */
+  private dropMoltenBoulderTrail(projectile: AttackProjectile, seconds: number): void {
+    projectile.boulderTrailIn = (projectile.boulderTrailIn ?? 0) - seconds;
+    if (projectile.boulderTrailIn > 0) return;
+    projectile.boulderTrailIn += BOULDER_TRAIL_INTERVAL;
+    this.addGroundFirePatch(
+      projectile.x, projectile.y, BOULDER_TRAIL_LIFETIME, BOULDER_TRAIL_RADIUS,
+      Math.max(1, projectile.damage * BOULDER_TRAIL_DAMAGE_FRACTION), BLAZE_FIRE_TICK_INTERVAL,
+    );
   }
 
   /** Stop a Molten Boulder and leave a fiery blast where it ran out of line. */
@@ -20416,7 +20764,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private castFirestorm(rank: number): void {
     const rankSteps = Math.max(0, rank - 1);
-    const damagePerTick = Math.max(1, this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(this.basicAttackDamage * 0.18 + rankSteps * 0.15)));
+    const damagePerTick = Math.max(1, this.applyPaladinAuraDamage(this.applyEnergyToSpellDamage(
+      (this.basicAttackDamage * 0.18 + rankSteps * 0.15) * (1 + this.druidFireSynergy("Firestorm")),
+    )));
     const facingAngle = Math.atan2(this.playerFacingY, this.playerFacingX);
     // Rank widens the fan, lengthens the run and strengthens the burn; it never
     // adds a fourth line, because D2's Firestorm is always three.
@@ -20462,10 +20812,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         trail.y += Math.sin(trail.angle + wobble) * step;
         trail.dropRemaining -= step / FIRESTORM_TRAIL_SPEED;
         while (trail.dropRemaining <= 0) {
-          this.addGroundFirePatch(
-            trail.x, trail.y, FIRESTORM_FIRE_LIFETIME, FIRESTORM_FIRE_RADIUS,
-            trail.damagePerTick, FIRESTORM_FIRE_TICK_INTERVAL,
-          );
+          // D2 will not drop fire on ground the player cannot walk on, so a line
+          // running into a river or the void stops burning there.
+          if (this.campaignGroundPassable(trail.x, trail.y)) {
+            this.addGroundFirePatch(
+              trail.x, trail.y, FIRESTORM_FIRE_LIFETIME, FIRESTORM_FIRE_RADIUS,
+              trail.damagePerTick, FIRESTORM_FIRE_TICK_INTERVAL,
+            );
+          }
           trail.dropRemaining += FIRESTORM_TRAIL_DROP_INTERVAL;
         }
         remaining -= step;
@@ -21497,47 +21851,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * Stamps one LightningBolt cel after another along a line, keeping the cel's
-   * authored 43x98 aspect: Diablo II builds its lightning from repeated cels
-   * rather than a stretched streak, so every arc keeps the jagged white core.
-   */
-  private stampLightningBoltRail(
-    ctx: CanvasRenderingContext2D,
-    from: { x: number; y: number },
-    angle: number,
-    length: number,
-    frame: MissileOverlayFrame,
-    width: number,
-    alpha: number,
-  ): void {
-    // A narrower arc uses a proportionally shorter cel instead of being
-    // stretched sideways.
-    const tile = width * (98 / 43);
-    const step = tile * 0.8;
-    const stepX = Math.cos(angle) * step;
-    const stepY = Math.sin(angle) * step;
-    const count = Math.ceil(length / step);
-    for (let index = 0; index < count; index += 1) {
-      // The last cel fades out over its own length so the arc tapers instead of
-      // ending on a hard cut.
-      const segmentAlpha = alpha * Math.min(1, (length - index * step) / step);
-      if (segmentAlpha <= 0.01) continue;
-      ctx.save();
-      ctx.translate(
-        from.x + stepX * index + Math.cos(angle) * tile / 2,
-        from.y + stepY * index + Math.sin(angle) * tile / 2,
-      );
-      ctx.rotate(angle + Math.PI / 2);
-      ctx.globalAlpha = segmentAlpha;
-      ctx.drawImage(frame, -width / 2, -tile / 2, width, tile);
-      ctx.restore();
-    }
-  }
-
-  /**
-   * The short arc between two Chain Lightning bounces, drawn with the same
-   * tiled LightningBolt rail as the Lightning skill. The hop itself stays a
-   * fork sprite; this rail is what links the monsters together.
+   * The bolt a Chain Lightning cast leaves behind as it hops from monster to
+   * monster: the same jagged arc as the Lightning skill, thinned for a
+   * one-monster jump so the chain reads as electricity skipping between bodies.
    */
   private drawChainLightningHopArc(
     ctx: CanvasRenderingContext2D,
@@ -21545,26 +21861,66 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     to: { x: number; y: number },
     time: number,
   ): void {
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const length = Math.hypot(dx, dy);
+    const length = Math.hypot(to.x - from.x, to.y - from.y);
     if (length < 6) return;
-    const frames = this.missileOverlayImages.get("d2-lightningbolt") ?? [];
-    if (!frames.length) return;
-    const frameDuration = Math.max(1, this.missileFrameDuration("d2-lightningbolt"));
-    const animationFrame = Math.floor(Math.max(0, time) * 1000 / frameDuration);
-    let frame: MissileOverlayFrame | undefined = frames[animationFrame % frames.length];
-    if (!this.isMissileFrameReady(frame)) frame = frames.find((candidate) => this.isMissileFrameReady(candidate));
-    if (!this.isMissileFrameReady(frame)) return;
     const dpr = this.arenaRef?.nativeElement.clientWidth
       ? this.arenaRef.nativeElement.width / this.arenaRef.nativeElement.clientWidth
       : 1;
+    // A hop is one monster away, so it is a little over half the Lightning rail
+    // wide, and it re-rolls with the bolt's own age so it flickers.
+    const tick = Math.floor(Math.max(0, time) * 30);
+    const seed = (Math.round(from.x * 13 + from.y * 7 + to.x * 5 + to.y * 3) ^ tick) | 0;
+    this.drawLightningArc(ctx, from, to, { scale: 0.6 * dpr, alpha: 0.9, seed, spurs: 1 });
+  }
+
+  /**
+   * Draws one lightning arc between two screen points: the jagged path stroked
+   * as a wide blue halo down to a thin white core, with a couple of short spurs
+   * off its far half. The Lightning rail and Chain Lightning's hops share it, so
+   * every bolt in the game reads the same way.
+   */
+  private drawLightningArc(
+    ctx: CanvasRenderingContext2D,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    options: { scale: number; alpha: number; seed: number; spurs: number },
+  ): void {
+    const span = Math.hypot(to.x - from.x, to.y - from.y);
+    if (span < 1 || options.alpha <= 0.01) return;
+    const { scale, alpha } = options;
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    let state = (Math.imul(options.seed, 2654435761) >>> 0);
+    const random = () => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return ((state >>> 8) & 0xffffff) / 0x1000000;
+    };
+    const arc = this.buildLightningPath(from, to, Math.min(span * 0.07, 55 * scale), random);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.imageSmoothingEnabled = true;
-    // A hop is one monster away, so it uses a little over half the Lightning
-    // skill's 48 px rail width.
-    this.stampLightningBoltRail(ctx, from, Math.atan2(dy, dx), length, frame, 26 * dpr, 0.85);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    // Halo, glow, inner and core: the thin white line through the middle is what
+    // reads as lightning rather than a blue streak.
+    this.strokeLightningPath(ctx, arc, 14 * scale, "rgba(70, 110, 255, 0.14)", alpha);
+    this.strokeLightningPath(ctx, arc, 7 * scale, "rgba(118, 158, 255, 0.3)", alpha);
+    this.strokeLightningPath(ctx, arc, 3.4 * scale, "rgba(196, 220, 255, 0.55)", alpha);
+    this.strokeLightningPath(ctx, arc, 1.6 * scale, "rgba(246, 250, 255, 0.96)", alpha);
+    // Short spurs off the far half of the arc; a bolt is never a bundle of long
+    // branches.
+    for (let index = 0; index < options.spurs; index += 1) {
+      const at = 0.4 + ((index + 0.5) * 0.45) / options.spurs + random() * 0.06;
+      const anchor = arc[Math.min(arc.length - 2, Math.max(1, Math.round(at * (arc.length - 1))))];
+      const spurAngle = angle + (index % 2 === 0 ? -1 : 1) * (0.55 + random() * 0.45);
+      const spurLength = Math.max(12 * scale, span * (0.075 + random() * 0.05));
+      const spur = this.buildLightningPath(
+        anchor,
+        { x: anchor.x + Math.cos(spurAngle) * spurLength, y: anchor.y + Math.sin(spurAngle) * spurLength },
+        Math.min(spurLength * 0.28, 12 * scale),
+        random,
+      );
+      this.strokeLightningPath(ctx, spur, 5 * scale, "rgba(140, 182, 255, 0.36)", alpha * 0.8);
+      this.strokeLightningPath(ctx, spur, 1.2 * scale, "rgba(226, 240, 255, 0.82)", alpha * 0.85);
+    }
     ctx.restore();
   }
 
@@ -21580,19 +21936,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (length <= 1) return;
     const fade = Math.min(1, Math.max(0, (effect.duration - effect.time) / 0.12));
     if (fade <= 0.01) return;
-    const frames = this.missileOverlayImages.get("d2-lightningbolt") ?? [];
-    if (!frames.length) return;
-    const frameDuration = Math.max(1, this.missileFrameDuration("d2-lightningbolt"));
-    const animationFrame = Math.floor(Math.max(0, effect.time) * 1000 / frameDuration);
-    let frame: MissileOverlayFrame | undefined = frames[animationFrame % frames.length];
-    if (!this.isMissileFrameReady(frame)) frame = frames.find((candidate) => this.isMissileFrameReady(candidate));
-    if (!this.isMissileFrameReady(frame)) return;
-
-    // The authored LightningBolt cel is only a ~100 px segment. Diablo II's
-    // Lightning is seen as one long arc, so stretch that cel down the entire
-    // aim line instead of stamping short pieces near the target. The white
-    // core then runs to the screen edge and the blue part of the cel becomes
-    // the halo; two narrower stretches fork off the main bolt.
+    // Diablo II's Lightning is one long, thin arc: a white-hot core that bends
+    // a handful of times between the caster and the target, a soft blue halo and
+    // at most a couple of finger-length spurs. Stamping the LightningBolt cel
+    // over itself produced parallel jagged streaks that read as a bundle of
+    // branches, so the arc is a single jagged polyline stroked in halo-to-core
+    // passes instead.
     const pad = 48 * dpr;
     let along = 1;
     if (dx > 0.0001) along = Math.min(along, (canvas.width + pad - origin.x) / dx);
@@ -21602,59 +21951,72 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     along = Math.max(0, Math.min(1, along));
     const boltLength = Math.max(1, length * along) + 36 * dpr;
     const angle = Math.atan2(dy, dx);
-
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.imageSmoothingEnabled = true;
-
-    // Re-roll the forks with the animation frame so the bolt flickers.
-    const noise = (index: number) => {
-      const value = Math.sin(effect.seed * 0.37 + index * 19.19 + animationFrame * 4.13) * 43758.5453;
-      return value - Math.floor(value);
-    };
-    const mainWidth = 48 * dpr;
-    // Start the cel slightly behind the caster so its tapered tip is hidden
-    // under the character and the white core reads as leaving the hand.
+    const dirX = Math.cos(angle);
+    const dirY = Math.sin(angle);
+    // Start the arc slightly behind the caster so its tip is hidden under the
+    // character and the core reads as leaving the hand.
     const startBack = 20 * dpr;
-    // Diablo II builds Lightning from repeated LightningBolt cels running the
-    // whole aim line. Stamp the original 43x98 cel end to end at its authored
-    // proportions; stretching one cel to the screen edge smeared its jagged
-    // white core into a smooth streak that no longer read as the game's art.
-    const drawArc = (
-      x: number,
-      y: number,
-      drawAngle: number,
-      arcLength: number,
-      width: number,
-      alpha: number,
-    ) => {
-      this.stampLightningBoltRail(ctx, { x, y }, drawAngle, arcLength, frame, width, fade * alpha);
-    };
-    drawArc(
-      origin.x - Math.cos(angle) * startBack,
-      origin.y - Math.sin(angle) * startBack,
-      angle,
-      boltLength + startBack,
-      mainWidth,
-      1,
-    );
-    for (let index = 0; index < 2; index += 1) {
-      const at = 0.28 + index * 0.32 + noise(index + 1) * 0.12;
-      const spread = (0.32 + noise(index + 3) * 0.22) * (index === 0 ? -1 : 1);
-      const branchLength = Math.max(
-        40 * dpr,
-        Math.min(boltLength - 40 * dpr, boltLength * (0.24 + noise(index + 5) * 0.18)),
-      );
-      drawArc(
-        origin.x + Math.cos(angle) * boltLength * at,
-        origin.y + Math.sin(angle) * boltLength * at,
-        angle + spread,
-        branchLength,
-        mainWidth * (index === 0 ? 0.62 : 0.5),
-        0.8 - index * 0.12,
-      );
+    const from = { x: origin.x - dirX * startBack, y: origin.y - dirY * startBack };
+    const to = { x: from.x + dirX * boltLength, y: from.y + dirY * boltLength };
+    // Re-roll the arc and its spurs thirty times a second so the bolt flickers
+    // in place instead of sliding across the ground.
+    const tick = Math.floor(Math.max(0, effect.time) * 30);
+    this.drawLightningArc(ctx, from, to, { scale: dpr, alpha: fade, seed: Math.floor(effect.seed) ^ tick, spurs: 2 });
+  }
+
+  /**
+   * One jagged lightning path between two points: a random walk across the aim
+   * line, sampled every ~55 px with the wander pinned to zero at both ends, then
+   * joined with straight segments so every bend is a sharp corner. A bolt is a
+   * single path like this - not a fan of branches - and the walk keeps the kinks
+   * irregular instead of repeating one shape the way a tiled cel does.
+   */
+  private buildLightningPath(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    spread: number,
+    random: () => number,
+  ): Array<{ x: number; y: number }> {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const span = Math.hypot(dx, dy);
+    if (span < 1) return [from, to];
+    const steps = Math.max(4, Math.min(14, Math.round(span / 55)));
+    const normalX = -dy / span;
+    const normalY = dx / span;
+    const points: Array<{ x: number; y: number }> = [from];
+    let drift = 0;
+    for (let index = 1; index < steps; index += 1) {
+      const t = index / steps;
+      drift = drift * 0.25 + (random() * 2 - 1) * spread;
+      const offset = drift * Math.sin(Math.PI * t);
+      points.push({
+        x: from.x + dx * t + normalX * offset,
+        y: from.y + dy * t + normalY * offset,
+      });
     }
-    ctx.restore();
+    points.push(to);
+    return points;
+  }
+
+  /** Strokes one lightning polyline; the glow passes reuse the same vertices. */
+  private strokeLightningPath(
+    ctx: CanvasRenderingContext2D,
+    points: Array<{ x: number; y: number }>,
+    width: number,
+    color: string,
+    alpha: number,
+  ): void {
+    if (points.length < 2 || alpha <= 0.01) return;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let index = 1; index < points.length; index += 1) {
+      ctx.lineTo(points[index].x, points[index].y);
+    }
+    ctx.lineWidth = width;
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = alpha;
+    ctx.stroke();
   }
 
   private drawFrostNovaRing(ctx: CanvasRenderingContext2D, effect: SkillVisualEffect, center: { x: number; y: number }): void {
@@ -24226,6 +24588,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return offer.item.id;
   }
 
+  trackPackSlotItem(_index: number, item: D2InventoryItem): string {
+    return item.id;
+  }
+
   onShopItemHover(item: D2InventoryItem, event: MouseEvent): void {
     if (event instanceof PointerEvent && event.pointerType === "touch") return;
     this.cancelItemPreviewHide();
@@ -26214,7 +26580,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
       // 3182 is the paladin head bone's world scale at the 72-unit live size.
       // Normalizing to it makes the same meshes fit every class's head size.
-      const modelHeight = new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+      // The height is the body the model was normalized to, never the bounding
+      // box of the moment: gear that loads before the helmet would inflate it.
+      const modelHeight = characterBodyHeight(model);
       const headScale = head.getWorldScale(new THREE.Vector3()).x;
       const referenceHeadScale = 3182 * (modelHeight / 72);
       const headFit = modelHeight > 0 && headScale > 0 ? referenceHeadScale / headScale : 1;
@@ -26991,6 +27359,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     model.scale.setScalar(targetHeight / size.y);
     model.position.set(-center.x * model.scale.x, -bounds.min.y * model.scale.y, -center.z * model.scale.z);
+    // Gear can stand taller than the hero (a pike, a shield over the shoulder)
+    // and the preview screens attach it before this point, so the scale above
+    // fitted the gear rather than the body. Record the height of the *body* that
+    // was actually scaled: the helmet fit sizes itself from it, and reading the
+    // inflated bounding box made the great helm balloon in the previews.
+    const bodyBounds = new THREE.Box3();
+    model.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.visible || /pike|weapon|staff|bow|shield|valkyrie_vfx/i.test(mesh.name)) return;
+      bodyBounds.expandByObject(mesh);
+    });
+    const bodyHeight = bodyBounds.getSize(new THREE.Vector3()).y;
+    model.userData["d2sBodyHeight"] = bodyHeight > 0 && Number.isFinite(bodyHeight) ? bodyHeight : targetHeight;
   }
 
   private getTextureForMesh(meshName: string, modelClass: string, definition: (typeof CLASS_MODEL)[string]): string | null {
@@ -27825,10 +28206,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const burrowPhase = (summon.summonSlot ?? 0) * 1.7 + summon.x * 0.013 + summon.y * 0.009;
     const burrowRate = summon.animationState === "move" ? 4.2 : 2.4;
     const burrowWave = 0.5 + 0.5 * Math.sin(this.runTime * burrowRate + burrowPhase);
+    // The imported vine is the ground-hugging sprawl from Diablo II, so the burrow
+    // is a shallow wallow in the soil rather than the half-buried mask the tall
+    // placeholder art needed.
     const sinkFraction = !isCreeper ? 0
-      : summon.animationState === "move" ? 0.04 + burrowWave * 0.42
-        : summon.animationState === "attack" ? 0.02 + burrowWave * 0.08
-          : 0.48 + burrowWave * 0.3;
+      : summon.animationState === "move" ? 0.04 + burrowWave * 0.16
+        : summon.animationState === "attack" ? burrowWave * 0.05
+          : 0.08 + burrowWave * 0.12;
     const sink = height * sinkFraction;
     const idleSwirl = isCreeper && summon.animationState !== "move" && summon.animationState !== "attack"
       ? Math.sin(this.runTime * 1.9 + burrowPhase) * width * 0.13
@@ -28763,6 +29147,15 @@ function sanitizeInventoryItem(value: unknown): D2InventoryItem | null {
 
 type BeltQuality = "normal" | "exceptional" | "elite";
 type EquipmentType = "weapon" | "wand" | "claw" | "orb" | "gem" | "jewel" | "rune" | "helmet" | "barbarianHelm" | "druidPelt" | "body" | "shield" | "paladinShield" | "necromancerHead" | "gloves" | "boots" | "belt" | "ring" | "amulet" | "charm";
+
+/**
+ * Charsi imbues weapons and armour and nothing else: rings, amulets, charms and
+ * socketables are never eligible, whatever their rarity.
+ */
+const IMBUE_ELIGIBLE_TYPES: readonly EquipmentType[] = [
+  "weapon", "wand", "claw", "orb", "helmet", "barbarianHelm", "druidPelt",
+  "body", "shield", "paladinShield", "necromancerHead", "gloves", "boots", "belt",
+];
 type PaperdollSlot = "weapon" | "helmet" | "shield" | "ringLeft" | "amulet" | "ringRight" | "gloves" | "body" | "boots" | "belt";
 type D2PreviewStat = "strength" | "dexterity" | "vitality" | "energy" | "damage" | "defense" | "life" | "mana";
 
@@ -28813,6 +29206,12 @@ function getEquipmentType(item: D2InventoryItem): EquipmentType {
   // existed; classify by base so old saves and generated entries still get the
   // Necromancer-only shield rules and the head slot art.
   if (hasBase(NECROMANCER_HEAD_BASE_NAMES)) return "necromancerHead";
+  // The generated named jewels (the "Colossal Jewel" uniques) were written with
+  // `equipmentType: "charm"`, and trusting that field made the whole family
+  // unsocketable: `isSocketable` only accepts a real jewel type, so those cels
+  // could never be set into any host. The base name has to win over the charm
+  // label. `\bjewel\b` also keeps the "Jeweler's" armour prefix out of this.
+  if (/\bjewels?\b/.test(name)) return "jewel";
   if (item.equipmentType) return item.equipmentType;
   if (hasBase(ASSASSIN_CLAW_BASES)) return "claw";
   if (hasBase(BARBARIAN_HELM_BASES)) return "barbarianHelm";
@@ -29252,6 +29651,24 @@ export function enemyD2PixelHeight(species: EnemySpecies): number {
   return ENEMY_D2_PIX_HEIGHTS[species] ?? 96;
 }
 
+/**
+ * Height of a normalized hero's *body*, not of whatever gear is on it.
+ *
+ * `normalizeCharacterModel` records the height it scaled the body to. Weapons
+ * and shields stream in asynchronously afterwards and many of them stand taller
+ * than the hero (a pike, a sword raised over the head), so re-measuring the
+ * model's bounding box when the helmet arrives reports the gear instead: the
+ * helmet fit multiplied itself by the same ratio and only the pieces exempt from
+ * the skull-envelope clamp - the great helm - visibly ballooned. The preview
+ * screens attach gear before the helmet resolves, the arena after it, which is
+ * why the same helm looked right in the arena and huge in the character preview.
+ */
+export function characterBodyHeight(model: THREE.Object3D): number {
+  const recorded = model.userData["d2sBodyHeight"];
+  if (typeof recorded === "number" && Number.isFinite(recorded) && recorded > 0) return recorded;
+  return new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3()).y;
+}
+
 /** World-unit height the hero's 3D model is normalized to before arena scaling. */
 const PLAYER_MODEL_HEIGHT = 72;
 /**
@@ -29308,7 +29725,7 @@ const ENEMY_WALK_ONLY_RATE = 11;
  * its next order breathes instead of freezing on a single walk cel.
  */
 const ENEMY_IDLE_TAIL_FRAMES: Partial<Record<EnemySpecies, number>> = {
-  goatman: 10, skeletonWarrior: 8, golem: 4, sandRaider: 15, sandMaggotYoung: 8,
+  goatman: 10, skeleton: 8, skeletonWarrior: 8, golem: 4, sandRaider: 15, sandMaggotYoung: 8,
   spiderDemon: 12, spikeFiend: 8, scarab: 8, leaper: 11, blunderbore: 8,
   fetishShaman: 12, balrog: 8, bloodLord: 8, minotaur: 8, nihlathak: 8,
   painWorm: 5, regurgitator: 9, salamander: 8, siegeBeast: 10, vileChild: 4,
@@ -29603,7 +30020,6 @@ const ENEMY_MAGE_SPECIES = new Set<EnemySpecies>([
  * same set for the direction count, so the two stay in step.
  */
 const ENEMY_WALK_ATTACK_BLOCK_SPECIES = new Set<EnemySpecies>([
-  "skeleton",
   // The maggot sheets stack four clips of eight direction rows and address them
   // with `spriteBlock`; only their single-row direction read lands here.
   "sandMaggot", "sandMaggotQueen",
@@ -30010,8 +30426,10 @@ interface AttackProjectile {
   blessedHammerHitEnemies?: Enemy[];
   /** A Molten Boulder rolls a fixed line and bulldozes monsters instead of tracking one. */
   boulder?: boolean;
-  /** Monsters already shoved clear of this boulder; flank hits only push once. */
-  boulderSideHits?: Enemy[];
+  /** Monsters this boulder has hit, and the NextDelay left before it may hit them again. */
+  boulderHits?: { enemy: Enemy; cooldown: number }[];
+  /** Seconds until the roll drops its next Blaze patch. */
+  boulderTrailIn?: number;
   /** Draws the boulder's fiery death blast instead of its rock sprite. */
   moltenExplosion?: boolean;
   boneWall?: boolean;
@@ -30375,56 +30793,59 @@ interface D2SocketedContent {
 }
 
 interface D2SocketHole {
+  /** Centre of the hole, as a percentage of the item's slot box. */
   left: number;
   top: number;
-  size: number;
 }
 
 /**
  * Where the sockets sit on a socketable's inventory art, by socket count. These
  * are the wide two-column layouts D2 punches across a shield or body armour.
+ * The holes themselves are one fixed size in CSS (`--d2s-socket-hole`), so a
+ * hole is the same size on a kite shield as on a dagger; only the centres are
+ * laid out here.
  */
 const SOCKET_HOLE_LAYOUTS: D2SocketHole[][] = [
   [],
-  [{ left: 50, top: 46, size: 30 }],
-  [{ left: 37, top: 43, size: 28 }, { left: 63, top: 43, size: 28 }],
-  [{ left: 35, top: 37, size: 27 }, { left: 65, top: 37, size: 27 }, { left: 50, top: 60, size: 27 }],
+  [{ left: 50, top: 50 }],
+  [{ left: 36, top: 46 }, { left: 64, top: 46 }],
+  [{ left: 34, top: 38 }, { left: 66, top: 38 }, { left: 50, top: 64 }],
   [
-    { left: 35, top: 34, size: 25 }, { left: 65, top: 34, size: 25 },
-    { left: 35, top: 58, size: 25 }, { left: 65, top: 58, size: 25 },
+    { left: 34, top: 35 }, { left: 66, top: 35 },
+    { left: 34, top: 65 }, { left: 66, top: 65 },
   ],
   [
-    { left: 34, top: 32, size: 23 }, { left: 66, top: 32, size: 23 }, { left: 50, top: 45, size: 23 },
-    { left: 34, top: 60, size: 23 }, { left: 66, top: 60, size: 23 },
+    { left: 34, top: 33 }, { left: 66, top: 33 }, { left: 50, top: 50 },
+    { left: 34, top: 67 }, { left: 66, top: 67 },
   ],
   [
-    { left: 32, top: 31, size: 21 }, { left: 50, top: 31, size: 21 }, { left: 68, top: 31, size: 21 },
-    { left: 32, top: 57, size: 21 }, { left: 50, top: 57, size: 21 }, { left: 68, top: 57, size: 21 },
+    { left: 32, top: 33 }, { left: 50, top: 33 }, { left: 68, top: 33 },
+    { left: 32, top: 67 }, { left: 50, top: 67 }, { left: 68, top: 67 },
   ],
 ];
 
 /**
- * The same holes down a one-cell-wide base - staves, wands, one-handed axes.
- * They sit centred on the art's width (50%) and run down its long axis, big
- * enough to fill that single column, so the whole socket shows instead of a
- * squeezed sliver at the item's edges.
+ * The same holes down a one-cell-wide base - daggers, dirks, staves, wands.
+ * A row of holes has no room in a single column, so they run down the item's
+ * long axis instead: centred on its width and spread along its full height, so
+ * a 1x2 or 1x3 base uses the whole box rather than a squeezed sliver.
  */
 const SOCKET_HOLE_COLUMN_LAYOUTS: D2SocketHole[][] = [
   [],
-  [{ left: 50, top: 46, size: 62 }],
-  [{ left: 50, top: 22, size: 62 }, { left: 50, top: 74, size: 62 }],
-  [{ left: 50, top: 20, size: 54 }, { left: 50, top: 50, size: 54 }, { left: 50, top: 80, size: 54 }],
+  [{ left: 50, top: 50 }],
+  [{ left: 50, top: 30 }, { left: 50, top: 70 }],
+  [{ left: 50, top: 20 }, { left: 50, top: 50 }, { left: 50, top: 80 }],
   [
-    { left: 50, top: 17, size: 48 }, { left: 50, top: 39, size: 48 },
-    { left: 50, top: 61, size: 48 }, { left: 50, top: 83, size: 48 },
+    { left: 50, top: 16 }, { left: 50, top: 39 },
+    { left: 50, top: 61 }, { left: 50, top: 84 },
   ],
   [
-    { left: 50, top: 16, size: 42 }, { left: 50, top: 33, size: 42 }, { left: 50, top: 50, size: 42 },
-    { left: 50, top: 67, size: 42 }, { left: 50, top: 84, size: 42 },
+    { left: 50, top: 14 }, { left: 50, top: 32 }, { left: 50, top: 50 },
+    { left: 50, top: 68 }, { left: 50, top: 86 },
   ],
   [
-    { left: 50, top: 15, size: 38 }, { left: 50, top: 29, size: 38 }, { left: 50, top: 43, size: 38 },
-    { left: 50, top: 57, size: 38 }, { left: 50, top: 71, size: 38 }, { left: 50, top: 85, size: 38 },
+    { left: 50, top: 13 }, { left: 50, top: 28 }, { left: 50, top: 42 },
+    { left: 50, top: 58 }, { left: 50, top: 72 }, { left: 50, top: 87 },
   ],
 ];
 

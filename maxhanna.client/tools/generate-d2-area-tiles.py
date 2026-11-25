@@ -55,7 +55,9 @@ AREAS = [
     # must not overwrite them.
     # Pandemonium event areas.
     ("a6-forgotten-sands", "Act 2 Tiles - Outdoor Ground", 44, 57),
-    ("a7-matrons-den", "Act 1 Tiles - Outdoor Floor", 2, 8),
+    # Matron's Den stands in the Catacombs, so its atlas is cut from the
+    # exported Catacombs ground by tools/build_matrons_den_tiles.py; this
+    # preview-sheet importer must not overwrite it with outdoor dirt.
     # Uber Tristram is rendered from tri_town4.ds1 and the Tristram DT1 set by
     # tools/render_d2r_tristram.py; this preview-sheet importer must not
     # overwrite that atlas.

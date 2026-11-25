@@ -176,6 +176,9 @@ class WorldSpec:
     #: Chunk layout; the chunk count must equal ``columns * rows``.
     columns: int
     rows: int
+    #: Flat art colour of open water: impassable except where a bridge is painted
+    #: over it.
+    water: tuple[int, int, int] | None = None
 
 
 def ds1(folder: str, *names: str) -> tuple[str, ...]:
@@ -364,8 +367,12 @@ ACT5_WORLDS: tuple[WorldSpec, ...] = (
               ds1("expansion/icecave", "icensew01", "icensew01", "icensew01",
                   "icensew01", "icensew01", "icensew01",
                   "icensew01", "icensew01", "icensew01"), 3, 3),
+    # The Frozen River preset lays its river down as flat, unshaded floor, the
+    # same layer as the ground, so nothing in the chunk says the water is water:
+    # the hero walked across it and the bridges were decoration.  Its exact art
+    # colour is the shoreline.
     WorldSpec("Frozen River", "a5-frozen-river", 5,
-              ds1("expansion/icecave", "poolroom01"), 1, 1),
+              ds1("expansion/icecave", "poolroom01"), 1, 1, water=(67, 81, 81)),
     WorldSpec("Nihlathak's Temple", "a5-nihlathaks-temple", 5,
               ds1("expansion/siege", "prisonaa", "prisonab", "prisonaa",
                   "prisonba", "prisonbb", "prisonba",
@@ -400,12 +407,26 @@ ACT5_WORLDS: tuple[WorldSpec, ...] = (
                   "baalnsew01", "baalnsew01", "baalnsew01"), 3, 3),
 )
 
+# Pandemonium event: Uber Duriel's Forgotten Sands is a level of its own in
+# Diablo II (`Act 5 - Pandemonium 2`, level 134) and draws on the Act 2 desert
+# set.  It used to fall back to the act's shared cave backdrop, so it rendered as
+# a stretched picture of the act 2 map instead of an assembled world.  The chunk
+# mix below is its own: ruined desert courtyards rather than the open dunes of
+# Rocky Waste or the oasis of Far Oasis.
+ACT6_WORLDS: tuple[WorldSpec, ...] = (
+    WorldSpec("Forgotten Sands", "a6-forgotten-sands", 2,
+              ds1("act2/outdoors", "ruin4", "desert3", "ruin5",
+                  "desert7", "ruin6", "desert1",
+                  "ruin7", "desert5", "ruin4"), 3, 3),
+)
+
 WORLDS: dict[int, tuple[WorldSpec, ...]] = {
     1: ACT1_WORLDS,
     2: ACT2_WORLDS,
     3: ACT3_WORLDS,
     4: ACT4_WORLDS,
     5: ACT5_WORLDS,
+    6: ACT6_WORLDS,
 }
 
 
@@ -800,6 +821,11 @@ def draw_diamond(draw: ImageDraw.ImageDraw, tile_x: int, tile_y: int) -> None:
 OPEN_GROUND_FOLDERS = frozenset({"outdoors", "jungle", "mesa", "lava", "siege", "mountaintop"})
 # In open ground a cell whose art nearly fills the diamond is solid wall to wall.
 CELL_SOLID_SHARE = 0.85
+# How far off a world's flat water colour still counts as water.
+WATER_COLOUR_TOLERANCE = 6
+# The dithered ice around deep water throws stray pixels of the water colour;
+# a pool has to be at least this many pixels wide to count as water.
+WATER_SPECKLE_RADIUS = 3
 # Alpha a wall sprite needs before its pixels count as something in the way.
 WALL_ART_ALPHA = 96
 # The hero's body stops this far short of the art, so it never clips into it.
@@ -840,6 +866,28 @@ def wall_cell_stamp(tile: tristram.Tile,
 def is_open_ground(spec: WorldSpec) -> bool:
     """Whether an area is outdoor terrain rather than a built interior."""
     return all(chunk.split("/")[3] in OPEN_GROUND_FOLDERS for chunk in spec.chunks)
+
+
+def water_collision(ground: Image.Image, colour: tuple[int, int, int]) -> Image.Image:
+    """Mask of the flat water colour in a rendered ground.
+
+    Deep water is drawn as one unshaded colour, so the exact art colour is a
+    reliable shoreline; the bridge planks painted over it are timber and stay
+    open.  The shore's blend tiles are slightly off the flat colour and stay
+    walkable, which is where the hero's feet belong.
+    """
+    ground = ground.convert("RGB")
+    difference = ImageChops.difference(ground, Image.new("RGB", ground.size, colour))
+    near: Image.Image | None = None
+    for band in difference.split():
+        band = band.point(lambda value: 255 if value <= WATER_COLOUR_TOLERANCE else 0)
+        near = band if near is None else ImageChops.multiply(near, band)
+    assert near is not None
+    # An opening keeps the pools and drops the speckle the ice texture shows in
+    # the water's own colour, which would otherwise be invisible bumps all over
+    # the walkable shore.
+    speck = 2 * WATER_SPECKLE_RADIUS + 1
+    return near.filter(ImageFilter.MinFilter(speck)).filter(ImageFilter.MaxFilter(speck))
 
 
 def export_collision(scene: tristram.Scene,
@@ -904,6 +952,8 @@ def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     # The collision mask is what the hero actually feels, so it decides where
     # they start: the open floor the mask leaves rather than a doorway gap.
     collision = export_collision(scene, catalogue, palette, is_open_ground(spec))
+    if spec.water is not None:
+        collision = ImageChops.lighter(collision, water_collision(ground, spec.water))
     collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)
     walls, layout = export_walls(scene, catalogue, palette, spawn_anchor(scene, collision))
     walls.save(ASSET_ROOT / f"{spec.slug}-walls.png", optimize=True)
