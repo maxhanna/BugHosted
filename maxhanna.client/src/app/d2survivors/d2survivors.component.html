@@ -276,7 +276,7 @@
             </section>
             <section class="d2s-shop-section d2s-shop-inventory" aria-labelledby="d2s-shop-inventory-title">
               <div class="d2s-shop-section-heading"><h2 id="d2s-shop-inventory-title">Inventory</h2><small>DRAG TO REARRANGE · CTRL-CLICK AN ITEM TO SELL</small></div>
-              <ng-container *ngTemplateOutlet="inventoryPanel"></ng-container>
+              <ng-container *ngTemplateOutlet="inventoryPanel; context: { shop: true }"></ng-container>
             </section>
           </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
@@ -366,7 +366,10 @@
         [class.unique]="label.rarity === 'unique'"
         [class.set]="label.rarity === 'set'"
         [style.left.px]="label.x" [style.top.px]="label.y" aria-hidden="true">{{ label.text }}</div>
-      <div class="d2s-act-portal-tooltip" *ngIf="actPortalOpen && hoveredActPortal as portal" [style.left.px]="portal.x" [style.top.px]="portal.y" role="tooltip">
+      <div class="d2s-act-portal-tooltip"
+        *ngIf="(actPortalOpen || zonePortalOpen) && hoveredPortal as portal"
+        [class.zone]="portal.tone === 'zone'"
+        [style.left.px]="portal.x" [style.top.px]="portal.y" role="tooltip">
         <strong>{{ portal.title }}</strong>
         <span *ngFor="let line of portal.lines">{{ line }}</span>
       </div>
@@ -500,10 +503,8 @@
       </div>
       <section class="d2s-skill-tree" *ngIf="skillTreeOpen" role="dialog" [attr.aria-label]="selectedClassName + ' skill tree'" (click)="$event.stopPropagation()">
         <header class="d2s-skill-tree-header">
-          <div><span>THE PATH OF YOUR HERO</span><h2>{{ selectedClassName }} Skill Tree</h2><small>Character level {{ playerLevel }} · Select skills from level-up offers</small></div>
           <button type="button" class="d2s-skill-tree-close" (click)="toggleSkillTree()" aria-label="Close skill tree">Close <kbd>T</kbd></button>
         </header>
-        <div class="d2s-skill-tree-legend"><span class="learned">Learned</span><span class="available">Eligible on level up</span><span class="locked">Locked</span></div>
         <div class="d2s-skill-tree-sections" *ngIf="activeSkillTreeSection as activeSection">
           <div class="d2s-skill-tree-tabs" role="tablist" aria-label="Skill trees">
             <button type="button" role="tab" *ngFor="let section of skillTreeSections; trackBy: trackBySectionName" class="d2s-skill-tree-tab-button" [class.active]="section.name === activeSection.name" [attr.aria-selected]="section.name === activeSection.name" (click)="selectSkillTreeTab(section.name)">{{ section.name }}</button>
@@ -567,9 +568,11 @@
     </div>
 
 
-    <ng-template #inventoryPanel>
+    <ng-template #inventoryPanel let-shop="shop">
       <div class="d2s-inventory-layout">
-        <section class="d2s-character-stats" aria-label="Character stats">
+        <!-- Gheed's shop only needs the pack itself; the arena's inventory
+             overlay still carries the attribute sheet beside it. -->
+        <section class="d2s-character-stats" *ngIf="!shop" aria-label="Character stats">
           <h3 class="d2s-inventory-heading">{{ selectedClassName }}</h3>
           <p class="d2s-stats-level">Level {{ playerLevel }}</p>
           <div class="d2s-stats-block d2s-attribute-stats">

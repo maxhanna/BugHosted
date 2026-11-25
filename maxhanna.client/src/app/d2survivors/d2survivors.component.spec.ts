@@ -462,6 +462,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 250;
     component.ownedSkills = ["Charged Bolt"];
     component.skillLevels = { "Charged Bolt": 1 };
+    // Only a mouse-button slot casts on its own, so the spell under test sits in
+    // the left slot.
+    component.basicAttackSpell = "Charged Bolt";
     component.enemies = [
       { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any,
     ];
@@ -486,6 +489,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.playerY = 100;
     component.ownedSkills = ["Charged Bolt"];
     component.skillLevels = { "Charged Bolt": 1 };
+    component.basicAttackSpell = "Charged Bolt";
     const target = {
       kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 100,
       hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
@@ -506,6 +510,30 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).playerChasingClickedTarget).toBeFalse();
     (component as any).updateAutomaticSkillCasts(16);
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
+  });
+
+  it("casts only the two mouse-slot spells on its own, never the rest of the book", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charged Bolt", "Ice Bolt"];
+    component.skillLevels = { "Charged Bolt": 1, "Ice Bolt": 1 };
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 2 } as any,
+    ];
+    component.attackProjectiles = [];
+    component.basicAttackSpell = null;
+    component.secondaryAttackSpell = null;
+
+    for (let frame = 0; frame < 240; frame += 1) (component as any).updateAutomaticSkillCasts(16);
+    expect(component.attackProjectiles).toHaveSize(0);
+
+    component.basicAttackSpell = "Charged Bolt";
+    for (let frame = 0; frame < 240; frame += 1) (component as any).updateAutomaticSkillCasts(16);
+    expect(component.attackProjectiles.length).toBeGreaterThan(0);
+    // The spell that never made it into a slot stays in the book, ready.
+    expect(component.skillCastCooldowns["Ice Bolt"]).toBeUndefined();
   });
 
   it("lets the basic-attack picker take a press without closing itself", () => {
@@ -4013,6 +4041,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.equipment.helmet).toBe(wornHelm);
   });
 
+  it("sells a pack item from a ctrl-click in Gheed's inventory panel", () => {
+    component.selectedClass = "sorceress";
+    component.sanctuaryGold = 0;
+    component.playerGold = 0;
+    (component as any).characterProfiles = {};
+    component.hasSavedRun = false;
+    component.runActive = false;
+    component.activeTab = "menu";
+    component.menuPanel = "shop";
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    const packItem = { id: "ctrl-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
+    component.inventory[3] = packItem;
+    const value = component.getItemSellValue(packItem);
+
+    component.onInventoryItemClick(3, packItem, { ctrlKey: true, preventDefault: () => undefined } as unknown as MouseEvent);
+
+    expect(component.inventory[3]).toBeNull();
+    expect(component.sanctuaryGold).toBe(value);
+    expect(component.shopMessage).toContain("sold to Gheed");
+  });
+
   it("refuses to sell a piece of gear the hero has equipped", () => {
     component.selectedClass = "sorceress";
     component.sanctuaryGold = 0;
@@ -6380,12 +6429,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
   });
 
   it("seats caps and helmets on the skull rather than at jaw height", () => {
+    // Mounted on the seven class rigs, the human pieces all sat one brow low:
+    // the cap's face opening, the helm/full/skull brow, the fanged and jawbone
+    // plates and the mask/bone eye holes cut across the eyes. The seat moved up
+    // to 0.0012 head-local, and the bands to 0.0011, so the brow clears the eyes.
     const seatedIds = [
-      "cap", "skull", "helm", "full", "great", "bone", "mask", "assault",
-      "avenger", "fanged", "horned", "wolf", "hawk", "antlers", "falcon", "spirit",
+      "cap", "skull", "helm", "full", "great", "bone", "mask", "assault", "avenger", "fanged", "horned",
     ] as const;
     for (const id of seatedIds) {
+      expect(D2_HELMET_VISUALS[id].lift).toBeGreaterThanOrEqual(0.0012);
+    }
+    for (const id of ["circlet", "coronet", "tiara"] as const) {
+      expect(D2_HELMET_VISUALS[id].lift).toBeGreaterThanOrEqual(0.0011);
+    }
+    expect(D2_HELMET_VISUALS.diadem.lift).toBeGreaterThanOrEqual(0.0011);
+    expect(D2_HELMET_VISUALS.crown.lift).toBeGreaterThanOrEqual(0.0012);
+
+    // The beast masks keep their authored seat: their eye holes already line up
+    // with the eyes, and lifting them would move the holes above them.
+    for (const id of ["wolf", "hawk", "antlers", "falcon", "spirit"] as const) {
       expect(D2_HELMET_VISUALS[id].lift).toBeGreaterThanOrEqual(0.0009);
+      expect(D2_HELMET_VISUALS[id].lift).toBeLessThan(D2_HELMET_VISUALS.cap.lift);
     }
   });
 
@@ -6403,7 +6467,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // bowl back on the skull. It opts out of the skull-envelope clamp, whose
     // bound is measured on the crest rather than on the bowl.
     expect(D2_HELMET_VISUALS.great.scale).toBeCloseTo(D2_HELMET_VISUALS.full.scale * 2, 5);
-    expect(D2_HELMET_VISUALS.great.lift).toBeGreaterThan(D2_HELMET_VISUALS.full.lift * 3);
+    // Two and a half times a full helm's seat: the shared seat moved up to
+    // 0.0012, while the bucket's own value is set from its bowl offset.
+    expect(D2_HELMET_VISUALS.great.lift).toBeGreaterThan(D2_HELMET_VISUALS.full.lift * 2);
     expect(D2_HELMET_VISUALS.great.noFit).toBeTrue();
     expect(D2_HELMET_VISUALS.great.hair).toBe("full");
   });
@@ -7566,22 +7632,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     } as any);
 
     move(hoverX, hoverY);
-    const portal = component.hoveredActPortal!;
+    const portal = component.hoveredPortal!;
     expect(portal.title).toBe("Red Portal");
     expect(portal.lines[0]).toContain("Act 3");
     expect(portal.lines[1]).toContain("Walk into the portal");
 
     // The empty floor beside the doorway has no tooltip.
     move(hoverX - 300, hoverY);
-    expect(component.hoveredActPortal).toBeNull();
+    expect(component.hoveredPortal).toBeNull();
 
     // The last act's portal finishes the campaign instead of naming another act.
     component.currentAct = 8;
     move(hoverX, hoverY);
-    expect(component.hoveredActPortal!.lines[0]).toContain("finish the campaign");
+    expect(component.hoveredPortal!.lines[0]).toContain("finish the campaign");
 
     component.onArenaPointerLeave();
-    expect(component.hoveredActPortal).toBeNull();
+    expect(component.hoveredPortal).toBeNull();
   });
 
   it("names the same next act in the portal hint as in the portal tooltip", () => {
@@ -7609,7 +7675,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
         pointerType: "mouse", pointerId: 1, clientX: hoverX, clientY: hoverY, target: canvas,
         preventDefault: () => undefined,
       } as any);
-      const tooltip = component.hoveredActPortal!;
+      const tooltip = component.hoveredPortal!;
       // The HUD hint interpolates this same phrase, so the two cannot drift.
       expect(component.actPortalLead).toBe(tooltip.lines[0].replace(/^Enter to /, "").replace(/\.$/, ""));
       if (act < 8) expect(component.actPortalLead).toContain(`Act ${act + 1}`);
@@ -7617,6 +7683,50 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     // Act VIII is the end of the campaign, past the Worldstone of Act V.
     expect(component.actPortalLead).toBe("finish the campaign");
+  });
+
+  it("names the blue area portal and the area it opens when the doorway is hovered", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.currentAct = 2;
+    component.currentAreaIndex = 0;
+    (component as any).zonePortalAreaIndex = 1;
+    component.zonePortalOpen = true;
+    (component as any).zonePortalX = 250;
+    (component as any).zonePortalY = 250;
+    (component as any).worldZoom = 2.1;
+    (component as any).projectionDpr = 1;
+    spyOn(component as any, "projectArenaPoint").and.returnValue({ x: 250, y: 320 });
+    const canvas = {
+      width: 500,
+      height: 500,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 500, height: 500 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    // Both portal cels share the same 109x159 frame and ground anchor.
+    const scale = 2.1 * 1 * 0.64;
+    const hoverX = 250 - 54 * scale + 109 * scale / 2;
+    const hoverY = 320 - 120 * scale + 159 * scale / 2;
+    const move = (clientX: number, clientY: number): void => component.onArenaPointerMove({
+      pointerType: "mouse", pointerId: 1, clientX, clientY, target: canvas,
+      preventDefault: () => undefined,
+    } as any);
+
+    move(hoverX, hoverY);
+    const portal = component.hoveredPortal!;
+    // The card wears the door's own colour, so the blue area door does not read
+    // as the act portal.
+    expect(portal.tone).toBe("zone");
+    expect(portal.title).toBe("Blue Portal");
+    const destination = component.currentActDetails.areas[1];
+    expect(portal.lines[0]).toContain(destination.name);
+    expect(portal.lines[0]).toContain(String(destination.level));
+    expect(portal.lines[1]).toContain("Walk into the portal");
+    expect(component.zonePortalLead).toBe(portal.lines[0].replace(/^Enter to /, "").replace(/\.$/, ""));
+
+    // The empty floor beside the doorway has no tooltip.
+    move(hoverX - 300, hoverY);
+    expect(component.hoveredPortal).toBeNull();
   });
 
   it("draws a soft shadow beneath loose item drops", () => {
@@ -10083,7 +10193,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       "Bow and Crossbow",
     );
 
-    expect(component.hoveredSkillTooltip?.x).toBe(124);
+    expect(component.hoveredSkillTooltip?.x).toBe(148);
     expect(component.hoveredSkillTooltip?.y).toBe(114);
 
     const edgeX = window.innerWidth - 20;
@@ -10095,6 +10205,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.hoveredSkillTooltip?.x).toBe(edgeX - 24 - 280);
     expect(component.hoveredSkillTooltip?.y).toBe(114);
+
+    // The card rides the same pointer moves as the custom cursor, so it keeps
+    // following the mouse instead of freezing where the socket left it.
+    (component as any).trackD2Cursor({ clientX: 300, clientY: 200, pointerType: "mouse" } as PointerEvent);
+    expect(component.hoveredSkillTooltip?.x).toBe(348);
+    expect(component.hoveredSkillTooltip?.y).toBe(214);
   });
 
   it("shows the required skills for a hovered skill and omits them for root skills", () => {

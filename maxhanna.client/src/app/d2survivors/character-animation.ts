@@ -1239,7 +1239,19 @@ function solveRestStance(classId: string, arms: JointCandidate[], forearms: Join
     armBone.restQuat = align.multiply(armBone.bindQuat.clone());
     armBone.restDir = target;
     const forearm = forearms.find((entry) => entry.side === armBone.side);
-    if (forearm) forearm.restDir = flex(target, stance.elbow);
+    if (forearm) {
+      const stanceForearm = flex(target, stance.elbow);
+      // The lower arm carries the same problem the upper arm does, and it was
+      // being left in its bind frame: its rest direction moved to the stance but
+      // its rest orientation did not, so a rig bound with the forearm out to the
+      // side (the amazon's) stayed out to the side whatever the pose aimed at.
+      // Rebuilding the frame keeps the lower arm on the stance, and leaves rigs
+      // whose bind already matches the stance untouched, since the alignment is
+      // the identity for them.
+      const align = new THREE.Quaternion().setFromUnitVectors(forearm.restDir, stanceForearm);
+      forearm.restQuat = align.multiply(forearm.bindQuat.clone());
+      forearm.restDir = stanceForearm;
+    }
   }
 }
 

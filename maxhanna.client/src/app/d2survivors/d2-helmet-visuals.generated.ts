@@ -51,7 +51,7 @@ const HELMET_ROOT = "assets/d2survivors/models/helmets";
 function helmet(
   id: D2HelmetVisualId,
   hair: D2HelmetVisual["hair"],
-  lift = 0.0009,
+  lift = 0.0012,
   metalness = 0.12,
   roughness = 0.78,
   rotation: [number, number, number] = [0, 0, 0],
@@ -69,26 +69,37 @@ function helmet(
   };
 }
 
+//
+// Lifts seat the mesh on the *skull*, and the seat every human piece below was
+// authored against sat about one brow too low: mounting each mesh on the seven
+// class rigs and rendering it showed the cap's face opening, the skull/helm/full
+// brow, the fanged and jawbone plates and the mask and bone eye holes all cutting
+// across the eyes, and every circlet, coronet, tiara, diadem, crown and horned
+// band riding the eye line instead of the forehead. The whole family shared the
+// same offset, so the seat moved up by one brow (0.0003 head-local, ~1 unit on a
+// 9-unit head) rather than per piece. The beast masks (wolf, hawk, antlers,
+// falcon, spirit) keep 0.0009: their eye holes already line up with the eyes, and
+// the Avenger Guard and great helm keep their own corrections below.
 export const D2_HELMET_VISUALS: Record<D2HelmetVisualId, D2HelmetVisual> = {
   // Low caps need the close-cropped full-helm hair layer. The half-helm layer
   // is longer than the cap shell and clips through it, especially on the paladin.
-  cap: helmet("cap", "full", 0.0009, 0.02, 0.88),
-  jawbone: helmet("jawbone", "half", 0.001, 0.02, 0.86),
-  skull: helmet("skull", "full", 0.0009, 0.05, 0.8),
-  helm: helmet("helm", "half", 0.0009, 0.55, 0.48),
-  full: helmet("full", "full", 0.0009, 0.6, 0.46),
-  great: helmet("great", "full", 0.0009, 0.6, 0.44),
-  bone: helmet("bone", "full", 0.0009, 0.08, 0.78),
-  crown: helmet("crown", "none", 0.0009, 0.65, 0.38),
-  circlet: helmet("circlet", "none", 0.0008, 0.6, 0.42),
-  coronet: helmet("coronet", "none", 0.0008, 0.6, 0.42),
-  diadem: helmet("diadem", "none", 0.00085, 0.6, 0.42),
-  tiara: helmet("tiara", "none", 0.0008, 0.6, 0.42),
-  mask: helmet("mask", "full", 0.0009, 0.1, 0.76),
-  assault: helmet("assault", "full", 0.0009, 0.6, 0.5),
+  cap: helmet("cap", "full", 0.0012, 0.02, 0.88),
+  jawbone: helmet("jawbone", "half", 0.0013, 0.02, 0.86),
+  skull: helmet("skull", "full", 0.0012, 0.05, 0.8),
+  helm: helmet("helm", "half", 0.0012, 0.55, 0.48),
+  full: helmet("full", "full", 0.0012, 0.6, 0.46),
+  great: helmet("great", "full", 0.0012, 0.6, 0.44),
+  bone: helmet("bone", "full", 0.0012, 0.08, 0.78),
+  crown: helmet("crown", "none", 0.0012, 0.65, 0.38),
+  circlet: helmet("circlet", "none", 0.0011, 0.6, 0.42),
+  coronet: helmet("coronet", "none", 0.0011, 0.6, 0.42),
+  diadem: helmet("diadem", "none", 0.00115, 0.6, 0.42),
+  tiara: helmet("tiara", "none", 0.0011, 0.6, 0.42),
+  mask: helmet("mask", "full", 0.0012, 0.1, 0.76),
+  assault: helmet("assault", "full", 0.0012, 0.6, 0.5),
   avenger: helmet("avenger", "full", 0.0018, 0.6, 0.5),
-  fanged: helmet("fanged", "full", 0.0009, 0.55, 0.52),
-  horned: helmet("horned", "full", 0.0009, 0.58, 0.5),
+  fanged: helmet("fanged", "full", 0.0012, 0.55, 0.52),
+  horned: helmet("horned", "full", 0.0012, 0.58, 0.5),
   wolf: helmet("wolf", "full", 0.0009, 0.02, 0.9),
   hawk: helmet("hawk", "full", 0.0009, 0.02, 0.9),
   antlers: helmet("antlers", "full", 0.0009, 0.02, 0.9),

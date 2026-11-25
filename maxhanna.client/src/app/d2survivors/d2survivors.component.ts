@@ -2782,7 +2782,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   actTransitionReady = false;
   actPortalOpen = false;
   /** The red portal's hover card: where it leads, and where to draw the card. */
-  hoveredActPortal: { title: string; lines: string[]; x: number; y: number } | null = null;
+  hoveredPortal: { title: string; lines: string[]; x: number; y: number; tone: "act" | "zone" } | null = null;
   private actPortalX = 0;
   private actPortalY = 0;
   /** The blue area portal the hero crosses to leave one zone for the next. */
@@ -9342,14 +9342,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (event.pointerType === "mouse" && this.activeTab === "run" && this.runActive) {
       this.updateHoveredEnemy(event);
       this.updateHoveredGroundPickup(event);
-      this.updateHoveredActPortal(event);
+      this.updateHoveredPortal(event);
     }
   }
 
   onArenaPointerLeave(): void {
     this.hoveredEnemy = null;
     this.hoveredGroundPickup = null;
-    this.hoveredActPortal = null;
+    this.hoveredPortal = null;
   }
 
   private updateHoveredEnemy(event: PointerEvent): void {
@@ -9436,24 +9436,56 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /**
-   * The red portal is a battlefield actor, so its tooltip is driven by the
+   * Both portals are battlefield actors, so their tooltip is driven by the
    * pointer like a monster's: the sprite's own drawn frame is the hit area (it
    * is laid down from the exported cel's ground anchor, which is the same box
-   * drawActPortal() uses), and hovering it names the act it opens.
+   * drawPortal() uses), and hovering one names where it leads — the red portal
+   * to the next act, the blue one to the area the act clock has unlocked.
    */
-  private updateHoveredActPortal(event: PointerEvent): void {
+  private updateHoveredPortal(event: PointerEvent): void {
     const canvas = this.arenaRef?.nativeElement;
     const rect = canvas?.getBoundingClientRect();
-    if (!this.actPortalOpen || !canvas || !rect || rect.width <= 0 || rect.height <= 0) {
-      this.hoveredActPortal = null;
+    if ((!this.actPortalOpen && !this.zonePortalOpen)
+      || !canvas || !rect || rect.width <= 0 || rect.height <= 0) {
+      this.hoveredPortal = null;
       return;
     }
     const pointerX = (event.clientX - rect.left) * canvas.width / rect.width;
     const pointerY = (event.clientY - rect.top) * canvas.height / rect.height;
-    const box = this.portalArtBox(this.actPortalX, this.actPortalY, D2_PORTAL_ART);
-    if (pointerX < box.left || pointerX > box.left + box.width
-      || pointerY < box.top || pointerY > box.top + box.height) {
-      this.hoveredActPortal = null;
+    const portals: Array<{
+      x: number; y: number; art: PortalArt; tone: "act" | "zone"; title: string; lines: string[];
+    }> = [];
+    if (this.actPortalOpen) {
+      portals.push({
+        x: this.actPortalX, y: this.actPortalY, art: D2_PORTAL_ART, tone: "act",
+        title: "Red Portal",
+        lines: [`Enter to ${this.actPortalLead}.`, "Walk into the portal to cross over."],
+      });
+    }
+    if (this.zonePortalOpen) {
+      portals.push({
+        x: this.zonePortalX, y: this.zonePortalY, art: D2_BLUE_PORTAL_ART, tone: "zone",
+        title: "Blue Portal",
+        lines: [`Enter to ${this.zonePortalLead}.`, "Walk into the portal to cross over."],
+      });
+    }
+    // Frames overlap only if both doors open on the same spot; the nearer one wins.
+    let hovered: (typeof portals)[number] | null = null;
+    let closest = Number.POSITIVE_INFINITY;
+    for (const portal of portals) {
+      const box = this.portalArtBox(portal.x, portal.y, portal.art);
+      if (pointerX < box.left || pointerX > box.left + box.width
+        || pointerY < box.top || pointerY > box.top + box.height) {
+        continue;
+      }
+      const distance = Math.hypot(pointerX - (box.left + box.width / 2), pointerY - (box.top + box.height / 2));
+      if (distance < closest) {
+        closest = distance;
+        hovered = portal;
+      }
+    }
+    if (!hovered) {
+      this.hoveredPortal = null;
       return;
     }
     // Placed just under the pointer and clamped so the card cannot hang off the
@@ -9462,15 +9494,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const halfWidth = 110;
     const x = Math.min(Math.max(halfWidth, event.clientX - rect.left + 18), Math.max(halfWidth, wrapRect.width - halfWidth));
     const y = Math.min(Math.max(30, event.clientY - rect.top + 22), Math.max(30, wrapRect.height - 46));
-    this.hoveredActPortal = {
-      title: "Red Portal",
-      lines: [
-        `Enter to ${this.actPortalLead}.`,
-        "Walk into the portal to cross over.",
-      ],
-      x,
-      y,
-    };
+    this.hoveredPortal = { title: hovered.title, lines: hovered.lines, x, y, tone: hovered.tone };
   }
 
   /**
@@ -9573,6 +9597,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   get actPortalLead(): string {
     const nextAct = CAMPAIGN_ACTS[this.currentAct];
     return nextAct ? `journey to Act ${this.currentAct + 1} — ${nextAct.name}` : "finish the campaign";
+  }
+
+  /**
+   * Where the open blue portal leads, worded like the red portal's lead so the
+   * two tooltips read alike. The index is clamped the way crossZonePortal()
+   * clamps it, so the door can never promise an area it would not carry the
+   * hero into.
+   */
+  get zonePortalLead(): string {
+    const areas = this.currentActDetails.areas;
+    const target = Math.max(0, Math.min((areas?.length ?? 1) - 1, this.zonePortalAreaIndex));
+    const area = areas?.[target];
+    return area ? `journey on to ${area.name} — level ${area.level}` : "the next area";
   }
 
   /** Esc, the inventory, the skill tree or the level-up choice, over the arena. */
@@ -10179,7 +10216,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private d2CursorPointerMoveHandler?: (event: PointerEvent) => void;
 
   trackD2Cursor(event: PointerEvent): void {
-    if (!this.d2CursorEnabled || event.pointerType === "touch") return;
+    if (event.pointerType === "touch") return;
+    // The skill card rides the same pointer stream as the gauntlet, so the two
+    // can never drift apart: the card keeps its place beside the cursor while
+    // the cursor itself keeps following the mouse, even over the gaps between
+    // the tree's sockets where no socket handler is listening.
+    if (this.hoveredSkillTooltip) this.positionSkillTooltipAt(event.clientX, event.clientY);
+    if (!this.d2CursorEnabled) return;
     const cursor = this.d2CursorRef?.nativeElement;
     if (!cursor) return;
     const target = event.target as Element | null;
@@ -10602,7 +10645,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const viewportWidth = Math.max(1, window.innerWidth);
     const viewportHeight = Math.max(1, window.innerHeight);
     const margin = 12;
-    const horizontalGap = 24;
+    // The gauntlet sprite is what the player sees as the cursor, hanging off the
+    // pointer's fingertip, so the card starts clear of the fingers rather than
+    // under them. Flipping to the left needs only a small gap.
+    const horizontalGap = 48;
+    const leftGap = 24;
     const verticalGap = 14;
     // Measuring forces a layout, so it happens once per tooltip instead of on
     // every pointer move the custom cursor makes over a socket.
@@ -10618,12 +10665,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const y = Math.max(margin, Math.min(anchorY, viewportHeight - margin));
 
     const roomRight = x + horizontalGap + width <= viewportWidth - margin;
-    const roomLeft = x - horizontalGap - width >= margin;
+    const roomLeft = x - leftGap - width >= margin;
     let left: number;
     if (roomRight) {
       left = x + horizontalGap;
     } else if (roomLeft) {
-      left = x - horizontalGap - width;
+      left = x - leftGap - width;
     } else {
       left = Math.max(margin, Math.min(x - width / 2, viewportWidth - margin - width));
     }
@@ -11098,6 +11145,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Every class skill the hero can cast now, gear-granted ones included. */
+  /**
+   * Whether a spell may cast itself. The two mouse-button slots are the only
+   * attack spells that do; the rest of the book has to be assigned to a slot
+   * first. Passive upkeep that a build depends on is exempt.
+   */
+  private isAutomaticCastSkill(skill: string): boolean {
+    if (skill === this.basicAttackSpell || skill === this.secondaryAttackSpell) return true;
+    if (this.isPersistentSummonSkill(skill)) return true;
+    if (skill === "Bone Armor" || skill === "Cyclone Armor" || skill === "Holy Shield") return true;
+    if (this.selectedClass === "paladin" && PALADIN_AURA_SKILLS.has(skill)) return true;
+    return false;
+  }
+
   private get usableClassSkills(): string[] {
     return getClassSkills(this.selectedClass)
       .map((definition) => definition.name)
@@ -11157,6 +11217,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skill === "Holy Shield" && this.selectedClass === "paladin") return "automatically recast after the shield expires";
     if (skill === "Cyclone Armor" && this.selectedClass === "druid") return "automatically recast after the shield expires";
     if (skill === "Thunder Storm" && this.selectedClass === "sorceress") return "aura lasts 15s, then recasts";
+    if (!this.isAutomaticCastSkill(skill)) return "assign it to the left or right mouse slot to cast it";
     return `automatic cast every ${this.getSkillCastLabel(skill)}`;
   }
 
@@ -13896,6 +13957,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         continue;
       }
       if (this.isDruidFormSkill(skill)) continue;
+      // The spell book is not a machine gun. Only the two spells on the mouse
+      // buttons cast on a cadence — the left attack slot and the right attack
+      // slot — so at most two spells are ever in play at once. Everything else
+      // waits in the book until the player assigns it to a slot. The upkeep that
+      // keeps a build running (servants, armour, shields, auras) still applies.
+      if (!this.isAutomaticCastSkill(skill)) {
+        delete this.skillCastCooldowns[skill];
+        continue;
+      }
       if (this.isPersistentSummonSkill(skill)) {
         // Summoning is still a spell; do not replace a servant mid-channel.
         if (this.isArcticBlastChanneling()) continue;
@@ -25244,11 +25314,25 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   sellInventoryItem(slotIndex: number): void {
-    if (!this.runActive || this.activeTab !== "run") return;
+    // Gheed's shop shows the hero's pack while no run is active, so the same
+    // ctrl-click has to sell there too — through the shop's ledger, which
+    // refuses worn gear and reports in the shop's own status line.
+    const inShop = this.menuPanel === "shop";
+    if (!inShop && (!this.runActive || this.activeTab !== "run")) return;
     const anchor = this.getItemAnchorAt(slotIndex);
     if (anchor < 0) return;
     const item = this.inventory[anchor];
     if (!item) return;
+    if (inShop) {
+      this.sellShopItem({ item, source: "Pack", inventoryIndex: anchor });
+      if (this.selectedItem?.id === item.id) {
+        this.selectedItem = null;
+        this.selectedSlotIndex = null;
+        this.selectedEquipmentSlot = null;
+      }
+      if (this.hoveredItem?.id === item.id) this.closeItemPreview();
+      return;
+    }
     const value = this.getItemSellValue(item);
     this.inventory[anchor] = null;
     this.playerGold = Math.min(1_000_000_000, this.playerGold + value);
@@ -27315,9 +27399,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const request = Promise.all([
       new GLTFLoader().loadAsync(visual.model),
       this.requestHeldItemMeshTexture(visual.texture),
-    ]).then(([gltf, texture]) => {
+      visual.normal ? this.requestHeldItemMeshTexture(visual.normal, true) : Promise.resolve(null),
+    ]).then(([gltf, texture, normal]) => {
       const material = new THREE.MeshStandardMaterial({
         map: texture ?? undefined,
+        // D2R's tangent-space relief, so a shield's face reads as the tooled
+        // plate it is instead of a flat painted card.
+        ...(normal ? { normalMap: normal } : {}),
         color: texture ? 0xffffff : 0xb9a88a,
         metalness: 0.55,
         roughness: 0.42,
@@ -27344,13 +27432,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return request;
   }
 
-  private requestHeldItemMeshTexture(path: string): Promise<THREE.Texture | null> {
+  private requestHeldItemMeshTexture(path: string, data = false): Promise<THREE.Texture | null> {
     const cached = this.heldItemMeshTextures.get(path);
     if (cached) return Promise.resolve(cached);
     return new THREE.TextureLoader().loadAsync(path).then((texture) => {
       // D2R's texture space matches the flipped DAE import, like the helmets.
       texture.flipY = false;
-      texture.colorSpace = THREE.SRGBColorSpace;
+      // A normal map carries vector data, not colour, so it must skip sRGB.
+      texture.colorSpace = data ? THREE.NoColorSpace : THREE.SRGBColorSpace;
       this.heldItemMeshTextures.set(path, texture);
       return texture;
     }).catch((error: unknown) => {

@@ -179,10 +179,13 @@ class WorldSpec:
     #: Flat art colour of open water: impassable except where a bridge is painted
     #: over it.
     water: tuple[int, int, int] | None = None
-    #: Block only the body a wall tile actually paints instead of its whole cell.
-    #: A room's walls fill their cell and stay solid either way; the sewer chunks
-    #: are thin railings, arch tops and rubble standing on open floor, and fencing
-    #: their cells put invisible walls across ground the hero can plainly see.
+    #: Build the mask out of the wall art instead of whole cells: every upper
+    #: wall's drawn pixels inside its own cell, stamped from the sprites the wall
+    #: atlas packs, with no share-of-the-cell threshold and no body margin (the
+    #: client's nine-point probe is the body radius).  A room's walls fill their
+    #: cell and stay solid either way; the sewer chunks are thin railings, arch
+    #: bases and rubble standing on open floor, and fencing their cells put
+    #: invisible walls across ground the hero can plainly see.
     wall_footprint: bool = False
 
 
@@ -704,6 +707,25 @@ def spawn_anchor(scene: tristram.Scene, mask: Image.Image | None = None) -> tupl
     return column, row
 
 
+def spawn_point(scene: tristram.Scene, spawn_cell: tuple[int, int]) -> dict[str, float]:
+    """The middle of a cell, in the exported image's pixel space.
+
+    The spawn depends on the collision mask, while the mask for a footprint world
+    is built out of the wall layout, so the layout is assembled first and its
+    spawn filled in once the mask exists.
+    """
+    left, top, _, _ = crop_origin(scene)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    half_step_x = TILE_WIDTH // 2
+    half_step_y = TILE_HEIGHT // 2
+    spawn_column, spawn_row = spawn_cell
+    return {
+        "x": origin_x + (spawn_column - spawn_row) * half_step_x - left + half_step_x,
+        "y": origin_y + (spawn_column + spawn_row) * half_step_y - top + half_step_y,
+    }
+
+
 def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tristram.Tile],
                  palette: list[tuple[int, int, int, int]],
                  spawn_cell: tuple[int, int]) -> tuple[Image.Image, dict]:
@@ -786,11 +808,7 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
 
     # Where the hero starts, in the same pixel space: the middle of a cell that
     # belongs to the level's largest walkable region.
-    spawn_column, spawn_row = spawn_cell
-    spawn = {
-        "x": origin_x + (spawn_column - spawn_row) * half_step_x - left + half_step_x,
-        "y": origin_y + (spawn_column + spawn_row) * half_step_y - top + half_step_y,
-    }
+    spawn = spawn_point(scene, spawn_cell)
 
     layout = {
         "atlasWidth": atlas.width,
@@ -896,6 +914,128 @@ def water_collision(ground: Image.Image, colour: tuple[int, int, int]) -> Image.
     return near.filter(ImageFilter.MinFilter(speck)).filter(ImageFilter.MaxFilter(speck))
 
 
+def floor_void_mask(scene: tristram.Scene) -> Image.Image:
+    """Cells with no floor art at all, as solid rock.
+
+    The black rock a preset keeps outside its rooms carries no floor tile, so
+    nothing is drawn there; leaving it open would let the hero walk out of the
+    level and stand in the transparent void.
+    """
+    left, top, width, height = crop_origin(scene)
+    mask = Image.new("L", (width, height), 0)
+    draw = ImageDraw.Draw(mask)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    covered = floor_cells(scene.layers, scene.width * scene.height)
+    for index, painted in enumerate(covered):
+        if painted:
+            continue
+        column, row = index % scene.width, index // scene.width
+        draw_diamond(draw, origin_x + (column - row) * TILE_WIDTH // 2 - left,
+                     origin_y + (column + row) * TILE_HEIGHT // 2 - top)
+    return mask
+
+
+def wall_footprint_collision(scene: tristram.Scene,
+                             catalogue: dict[tuple[int, int, int], tristram.Tile],
+                             palette: list[tuple[int, int, int, int]]) -> Image.Image:
+    """Every wall's drawn pixels inside its own cell, and nothing else.
+
+    Each upper wall is the sprite the atlas packs, drawn at its placement; the
+    part standing on *its* cell is that wall's footprint, so the mask is the art
+    instead of a guess about how much of a cell it covers.  The tall face a wall
+    raises over the cells diagonally behind it is deliberately not included: the
+    client depth-sorts the hero against those strips, so that floor is meant to
+    be walked on, and clipping each sprite to its own cell keeps the mask on the
+    ground the wall actually occupies.  The hero's body radius is the client's
+    nine-point probe, so no margin is baked in here.
+    """
+    left, top, width, height = crop_origin(scene)
+    mask = Image.new("L", (width, height), 0)
+    solid = Image.new("L", (TILE_WIDTH, TILE_HEIGHT), 255)
+    diamond = cell_diamond()
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    stamps: dict[tuple[int, int, int], Image.Image] = {}
+    for layer in scene.layers:
+        if layer.kind != "wall" or not layer.orientations:
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell & 0x80000000 or cell & 0xFF == 0:
+                continue
+            orientation = layer.orientations[index] & 0xFF
+            if orientation >= 16:
+                continue
+            key = tristram.cell_key(cell, orientation)
+            tile = catalogue.get(key)
+            if tile is None:
+                continue
+            drawn_in_cell = stamps.get(key)
+            if drawn_in_cell is None:
+                sprite, (x0, y0, _, _) = tristram.render_wall_sprite(tile, palette)
+                drawn = sprite.getchannel("A").point(lambda alpha: 255 if alpha > 0 else 0)
+                in_cell = Image.new("L", (TILE_WIDTH, TILE_HEIGHT), 0)
+                in_cell.paste(drawn, (x0, y0), drawn)
+                drawn_in_cell = stamps[key] = ImageChops.multiply(in_cell, diamond)
+            if drawn_in_cell.getbbox() is None:
+                continue
+            column, row = index % scene.width, index // scene.width
+            tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
+            tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
+            mask.paste(solid, (tile_x, tile_y), drawn_in_cell)
+    return mask
+
+
+def audit_floor_collision(art: Image.Image, solid: Image.Image,
+                          scene: tristram.Scene) -> None:
+    """Report floor cells the finished mask blocks, and which of them are art.
+
+    A wall sprite is taller than its cell and leans over the cells above it, so a
+    floor cell the art covers is genuinely solid.  A blocked floor cell the art
+    does *not* cover means the mask grew somewhere the picture shows no wall,
+    which is the only kind of block this audit treats as wrong.
+    """
+    left, top, _, _ = crop_origin(scene)
+    origin_x = scene.height * TILE_WIDTH // 2
+    origin_y = 512
+    # The audit looks one pixel inside the cell: neighbouring diamonds share
+    # their rim, so a void cell's outline would otherwise read as a block on the
+    # floor cell next to it.
+    diamond = cell_diamond().filter(ImageFilter.MinFilter(3))
+    covered = floor_cells(scene.layers, scene.width * scene.height)
+    blocked = solid.load()
+    art_pixels = art.load()
+    area = diamond.histogram()[255]
+    overhang = []
+    unexplained = 0
+    centre_blocked = 0
+    for index, painted in enumerate(covered):
+        if not painted:
+            continue
+        column, row = index % scene.width, index // scene.width
+        tile_x = origin_x + (column - row) * TILE_WIDTH // 2 - left
+        tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
+        cell_art = ImageChops.multiply(
+            art.crop((tile_x, tile_y, tile_x + TILE_WIDTH, tile_y + TILE_HEIGHT)), diamond)
+        cell_solid = ImageChops.multiply(
+            solid.crop((tile_x, tile_y, tile_x + TILE_WIDTH, tile_y + TILE_HEIGHT)), diamond)
+        stray = ImageChops.subtract(cell_solid, cell_art).histogram()[255]
+        unexplained += stray
+        covered_share = cell_solid.histogram()[255] / area
+        centre_x = min(solid.width - 1, tile_x + TILE_WIDTH // 2)
+        centre_y = min(solid.height - 1, tile_y + TILE_HEIGHT // 2)
+        if blocked[centre_x, centre_y] > 127:
+            centre_blocked += 1
+        if cell_art.histogram()[255] > 0:
+            overhang.append((covered_share, column, row))
+    overhang.sort(reverse=True)
+    print(f"  collision audit: {sum(covered)} floor cells, "
+          f"{len(overhang)} under wall art (of which {centre_blocked} lose their centre), "
+          f"{unexplained} blocked pixels with no wall art over them")
+    for share, column, row in overhang[:8]:
+        print(f"    column {column:2d} row {row:2d}: {share * 100:5.1f}% of the cell under wall art")
+
+
 def export_collision(scene: tristram.Scene,
                      catalogue: dict[tuple[int, int, int], tristram.Tile],
                      palette: list[tuple[int, int, int, int]],
@@ -936,14 +1076,7 @@ def export_collision(scene: tristram.Scene,
     # A cell with no floor is not floor: the black rock a preset keeps outside its
     # rooms must be solid, or the hero (and every monster) can walk out of the
     # level and stand in the void.
-    covered = floor_cells(scene.layers, scene.width * scene.height)
-    for index, painted in enumerate(covered):
-        if painted:
-            continue
-        column, row = index % scene.width, index // scene.width
-        draw_diamond(draw, origin_x + (column - row) * TILE_WIDTH // 2 - left,
-                     origin_y + (column + row) * TILE_HEIGHT // 2 - top)
-    return mask
+    return ImageChops.lighter(mask, floor_void_mask(scene))
 
 
 def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
@@ -958,16 +1091,24 @@ def write_world(spec: WorldSpec, source: Path, preview: Path | None) -> dict:
     ASSET_ROOT.mkdir(parents=True, exist_ok=True)
     ground = export_ground(scene, catalogue, palette)
     ground.save(ASSET_ROOT / f"{spec.slug}-ground.png", optimize=True)
-    # The collision mask is what the hero actually feels, so it decides where
-    # they start: the open floor the mask leaves rather than a doorway gap.
-    collision = export_collision(
-        scene, catalogue, palette,
-        block_full_cells=not is_open_ground(spec) and not spec.wall_footprint,
-    )
+    # Walls first: a footprint area's mask is stamped out of the very atlas and
+    # placements the client draws, so it cannot drift from the picture.
+    walls, layout = export_walls(scene, catalogue, palette, (0, 0))
+    if spec.wall_footprint:
+        art = wall_footprint_collision(scene, catalogue, palette)
+        collision = ImageChops.lighter(art, floor_void_mask(scene))
+        audit_floor_collision(art, collision, scene)
+    else:
+        collision = export_collision(
+            scene, catalogue, palette,
+            block_full_cells=not is_open_ground(spec),
+        )
     if spec.water is not None:
         collision = ImageChops.lighter(collision, water_collision(ground, spec.water))
     collision.save(ASSET_ROOT / f"{spec.slug}-walls-collision.png", optimize=True)
-    walls, layout = export_walls(scene, catalogue, palette, spawn_anchor(scene, collision))
+    # The mask is what the hero actually feels, so it decides where they start:
+    # the open floor the mask leaves rather than a doorway gap.
+    layout["spawn"] = spawn_point(scene, spawn_anchor(scene, collision))
     walls.save(ASSET_ROOT / f"{spec.slug}-walls.png", optimize=True)
     with (ASSET_ROOT / f"{spec.slug}-walls.json").open("w", encoding="utf-8") as handle:
         json.dump(layout, handle, separators=(",", ":"))
@@ -1051,7 +1192,13 @@ def main(argv: list[str]) -> int:
         raise SystemExit("No worlds selected")
 
     entries = [write_world(spec, args.source, args.preview) for spec in specs]
-    write_manifest(entries)
+    everything = [spec for act, act_specs in sorted(WORLDS.items()) for spec in act_specs]
+    if len(specs) == len(everything):
+        write_manifest(entries)
+    else:
+        # A filtered run only knows the areas it built, so rewriting the manifest
+        # from it would delete every other world from the generated table.
+        print("manifest unchanged (filtered run; build every area to rewrite it)")
     return 0
 
 
