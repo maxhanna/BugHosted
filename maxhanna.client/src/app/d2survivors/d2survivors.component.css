@@ -549,6 +549,8 @@
 .d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
 .d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
 .d2s-shop-intro { margin: 0; color: #a99572; text-align: center; font: italic 12px Georgia, serif; }
+.d2s-shop-greeting { display: flex; align-items: baseline; justify-content: center; gap: 7px; margin: 0; color: #e6cf9c; text-align: center; font: italic 12px Georgia, serif; }
+.d2s-shop-greeting strong { color: #c9a45f; font: 700 9px Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
 /* Gheed's stand has two halves: what he sells on the left, the hero's own pack
    on the right. */
 .d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); gap: 12px; min-height: 325px; align-items: start; }
@@ -587,26 +589,26 @@
 .d2s-shop-upgrades small { color: #8c7a5e; font: 9px Georgia, serif; }
 .d2s-shop-empty { display: grid; flex: 1; place-items: center; padding: 20px; color: #8d8068; text-align: center; font: italic 12px/1.5 Georgia, serif; }
 .d2s-shop-lock-hint { margin: 6px 0 0; color: #b49a6b; text-align: center; font: 10px Georgia, serif; }
-.d2s-shop-wardrobe { display: grid; gap: 7px; max-height: 235px; overflow-y: auto; padding: 7px 2px; scrollbar-color: #655034 #100e0e; scrollbar-width: thin; }
-.d2s-shop-wardrobe-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.d2s-shop-wardrobe-label { flex: 0 0 100%; color: #98764d; font: 8px Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
-.d2s-shop-wardrobe-empty { color: #7d6a52; font: italic 9px Georgia, serif; }
-.d2s-shop-slot { position: relative; display: grid; width: 34px; height: 38px; place-items: center; padding: 1px; border: 1px solid #4b3925; background: radial-gradient(ellipse, #3a2b1a, #100d0c); cursor: pointer; }
-.d2s-shop-slot img { display: block; width: 26px; height: 30px; object-fit: contain; image-rendering: pixelated; filter: drop-shadow(0 1px 2px #000); }
-.d2s-shop-slot span { position: absolute; right: 0; bottom: -2px; left: 0; overflow: hidden; color: #b9a582; text-overflow: ellipsis; white-space: nowrap; font: 6px Georgia, serif; text-align: center; }
-.d2s-shop-slot.magic { border-color: #3d77e8; }
-.d2s-shop-slot.rare { border-color: #d6c14b; }
-.d2s-shop-slot.unique { border-color: #c08a3e; }
-.d2s-shop-slot.set { border-color: #4bd66f; }
-.d2s-shop-slot.selected, .d2s-shop-slot:hover, .d2s-shop-slot:focus-visible { border-color: #e0c99b; box-shadow: 0 0 8px #ffb34755; outline: none; }
-.d2s-shop-socket-checkout { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid #4b3925; }
-.d2s-shop-socket-checkout > div { display: grid; min-width: 0; gap: 2px; }
-.d2s-shop-socket-checkout strong { overflow: hidden; color: #e5d09d; text-overflow: ellipsis; white-space: nowrap; font: 12px Georgia, serif; }
-.d2s-shop-socket-checkout small { color: #988970; font: 9px Georgia, serif; }
-.d2s-shop-socket-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-.d2s-shop-socket-actions > button { padding: 6px 8px; color: #f0d7a2; border: 1px solid #80643c; background: linear-gradient(#49351e, #1c140f); cursor: pointer; font: 10px ui-monospace, monospace; white-space: nowrap; }
-.d2s-shop-socket-actions > button:disabled { opacity: .48; cursor: default; }
-.d2s-shop-socket-actions > button.d2s-shop-imbue:not(:disabled) { color: #e2d3ff; border-color: #7a5fa8; background: linear-gradient(#3f2f5c, #16101f); }
+.d2s-shop-quest-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 2px; }
+.d2s-quest-tool { display: grid; justify-items: center; gap: 2px; padding: 8px 6px; color: #f0d7a2; border: 1px solid #80643c; background: linear-gradient(#49351e, #1c140f); cursor: pointer; }
+.d2s-quest-tool strong { font: 13px Georgia, serif; letter-spacing: .04em; }
+.d2s-quest-tool small { color: #b7a276; font: 9px ui-monospace, monospace; }
+.d2s-quest-tool:hover, .d2s-quest-tool:focus-visible { border-color: #c9a45f; outline: none; }
+.d2s-quest-tool.armed { color: #fff1c9; border-color: #e0c99b; background: linear-gradient(#6a4c26, #2a1c10); box-shadow: 0 0 10px #ffb34766; }
+.d2s-shop-quest-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 0; color: #e0c99b; text-align: center; font: 10px/1.4 Georgia, serif; }
+.d2s-shop-quest-cancel { padding: 3px 7px; color: #d9c497; border: 1px solid #57452e; background: #100e0d; cursor: pointer; font: 9px Georgia, serif; }
+/* Every shop card that can take the armed tool glows, so the targets read at a glance. */
+.d2s-gheeds-shop[data-quest-tool] .d2s-inv-slot.filled,
+.d2s-gheeds-shop[data-quest-tool] .d2s-equipment-slot.equipped { box-shadow: 0 0 0 1px #f0c76b, 0 0 10px #f0c76b66; }
+.d2s-quest-confirm { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: #000000b8; }
+.d2s-quest-confirm-card { display: grid; justify-items: center; gap: 9px; width: min(330px, 100%); padding: 18px 20px; border: 1px solid #80643c; background: linear-gradient(160deg, #1b1712, #090809); box-shadow: inset 0 0 0 2px #090809, 0 12px 30px #000c; text-align: center; cursor: default; }
+.d2s-quest-confirm-card img { width: 42px; height: 48px; object-fit: contain; image-rendering: pixelated; }
+.d2s-quest-confirm-card h2 { margin: 0; color: #f0d7a2; font: 17px Georgia, serif; }
+.d2s-quest-confirm-card p { margin: 0; color: #cbb790; font: 12px/1.5 Georgia, serif; }
+.d2s-quest-confirm-actions { display: flex; gap: 8px; }
+.d2s-quest-confirm-actions button { padding: 7px 14px; color: #cbb790; border: 1px solid #57452e; background: #100e0d; cursor: pointer; font: 11px Georgia, serif; }
+.d2s-quest-confirm-actions button.primary { color: #f0d7a2; border-color: #947342; background: linear-gradient(#49351e, #1c140f); }
+.d2s-quest-confirm-actions button:hover, .d2s-quest-confirm-actions button:focus-visible { border-color: #e0c99b; outline: none; }
 .d2s-shop-message { min-height: 15px; margin: 0; color: #d4b777; text-align: center; font: 11px Georgia, serif; }
 
 .d2s-lobby { width: 100%; min-width: 0; gap: 10px; }
@@ -1225,6 +1227,32 @@
   animation: d2s-cursor-idle 1.05s steps(16, jump-none) infinite;
 }
 
+/* An armed quest tool rides the gauntlet: the pointer itself shows what the
+   next item click will do. */
+.d2s-d2-cursor[data-quest-tool="imbue"] > span,
+.d2s-d2-cursor[data-quest-tool="socket"] > span {
+  background-image: url('../../assets/d2survivors/ui/cursor-shop.webp');
+  background-size: 128px 128px;
+  animation: none;
+}
+
+.d2s-d2-cursor[data-quest-tool]::after {
+  position: absolute;
+  left: 52px;
+  top: 30px;
+  padding: 4px 8px;
+  border: 1px solid #80643c;
+  background: #100d0cf0;
+  color: #f0d7a2;
+  font: 700 13px/1 Georgia, serif;
+  letter-spacing: .08em;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+}
+
+.d2s-d2-cursor[data-quest-tool="imbue"]::after { content: "IMBUE"; border-color: #b08a55; color: #ffe6b8; }
+.d2s-d2-cursor[data-quest-tool="socket"]::after { content: "SOCKET"; border-color: #8f9aa8; color: #dbe6f2; }
+
 @keyframes d2s-cursor-idle {
   from { background-position: 0 0; }
   to { background-position: -2070px 0; }
@@ -1745,7 +1773,10 @@
 .d2s-skill-tree-tab-button:hover, .d2s-skill-tree-tab-button:focus-visible { border-color: #8a6e43; color: #e3c793; outline: none; }
 .d2s-skill-tree-tab-button.active { border-color: #9b7b48; background: linear-gradient(180deg, #322619, #17120e); color: #f0d6a0; box-shadow: inset 0 0 0 1px #0a0908, 0 0 12px #000a; }
 .d2s-skill-tree-tab { position: relative; min-width: 0; overflow: hidden; padding: 8px; border: 1px solid #56452d; background: linear-gradient(150deg, #161310, #0c0c0d); box-shadow: inset 0 0 46px #000b; }
-.d2s-skill-tree-panel { position: relative; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 343 / 428; overflow: hidden; background: #0c0c0d; }
+/* The tree art is stretched to the panel, so every icon, badge and rank has to
+   be measured against the panel rather than the viewport: container units keep
+   them on the baked sockets at any width. */
+.d2s-skill-tree-panel { position: relative; container-type: inline-size; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 343 / 428; overflow: hidden; background: #0c0c0d; }
 .d2s-skill-tree-tab-art { position: absolute; inset: 0; background-size: 100% 100%; background-position: center; background-repeat: no-repeat; opacity: 1; filter: saturate(.85) brightness(.92); pointer-events: none; }
 .d2s-skill-tree-sockets { position: absolute; inset: 0; z-index: 1; }
 .d2s-tree-skill { position: absolute; z-index: 2; display: grid; width: 29%; height: 14.2%; place-items: center; gap: 1px; transform: translate(-50%, -50%); border: 1px solid transparent; background: none; box-sizing: border-box; overflow: hidden; }
@@ -1755,22 +1786,25 @@
 .d2s-tree-skill:hover, .d2s-tree-skill:focus-within {
   z-index: 4;
   align-content: center;
-  padding: 3px 4px 3px 52px;
+  padding: 3px 4px 3px 15.6cqw;
   border-color: #4a3c2b;
   background: rgba(12, 10, 9, .94);
   box-shadow: 0 3px 12px #000d;
 }
 .d2s-tree-skill:hover strong, .d2s-tree-skill:hover small,
 .d2s-tree-skill:focus-within strong, .d2s-tree-skill:focus-within small { display: block; }
-.d2s-tree-skill-art { width: 46px; height: 44px; border: 1px solid #5a4327; box-shadow: 0 1px 4px #000b; object-fit: cover; }
+/* The baked frame in the art is 44 px at the sheet's own 343 px width, so the
+   icon is 12.5cqw square: it fills that frame and stays inside it when the
+   panel is narrower than 430 px. */
+.d2s-tree-skill-art { box-sizing: border-box; width: 12.5cqw; height: 12.5cqw; border: 1px solid #5a4327; box-shadow: 0 1px 4px #000b; object-fit: cover; }
 /* The open card keeps the icon in a left-hand slot beside the name and rules. */
 .d2s-tree-skill:hover .d2s-tree-skill-art,
 .d2s-tree-skill:focus-within .d2s-tree-skill-art {
   position: absolute;
   top: 50%;
   left: 4px;
-  width: 44px;
-  height: 42px;
+  width: 12.6cqw;
+  height: 12.6cqw;
   transform: translateY(-50%);
 }
 .d2s-tree-skill.learned .d2s-tree-skill-art { border-color: #9b773b; filter: brightness(1.12); box-shadow: 0 0 8px #d6a44d4d, 0 1px 4px #000b; }
@@ -1786,9 +1820,30 @@
 .d2s-tree-skill.available small { color: #a4c48d; }
 .d2s-tree-skill.locked { opacity: .82; }
 /* The required level rides on the icon's top-right corner, like D2's sockets. */
-.d2s-tree-level { position: absolute; top: calc(50% - 23px); left: calc(50% + 11px); display: grid; width: 13px; height: 13px; place-items: center; border: 1px solid #6a5839; background: #0b0b0c; color: #dfc385; font: 7px ui-monospace, monospace; }
+.d2s-tree-level { position: absolute; top: calc(50% - 6.7cqw); left: calc(50% + 3.2cqw); display: grid; width: 3.8cqw; height: 3.8cqw; place-items: center; border: 1px solid #6a5839; background: #0b0b0c; color: #dfc385; font: 2.05cqw ui-monospace, monospace; }
 .d2s-tree-skill:hover .d2s-tree-level,
-.d2s-tree-skill:focus-within .d2s-tree-level { top: 4px; left: 40px; }
+.d2s-tree-skill:focus-within .d2s-tree-level { top: 4px; left: 13.5cqw; }
+/* D2 prints a trained skill's rank in the empty socket baked into the tree art
+   beside its icon. The art already leaves that inset there, so the number is
+   laid straight over it instead of drawing a second box on top of the frame. */
+.d2s-tree-rank {
+  position: absolute;
+  /* The empty socket sits 39 px right and 12 px below the icon centre on the
+     343 px sheet: 39 / 29 % and 12 / 14.2 % of this box. */
+  left: 89.2%;
+  top: 69.7%;
+  z-index: 3;
+  min-width: 4.4cqw;
+  transform: translate(-50%, -50%);
+  color: #f4d478;
+  font: 700 3.6cqw/1 'D2 Exocet', Georgia, serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  text-shadow: 0 0 2px #000, 0 1px 2px #000, 0 0 6px #0009;
+  pointer-events: none;
+}
+.d2s-tree-skill:hover .d2s-tree-rank,
+.d2s-tree-skill:focus-within .d2s-tree-rank { display: none; }
 .d2s-tree-skill { cursor: help; }
 /* Only a socket the tree has unlocked takes the pointer, so a click can never
    throw a point at a skill the hero cannot learn yet. */
@@ -1924,6 +1979,35 @@
   padding-bottom: 2px;
 }
 
+.d2s-warcry-buffs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  max-width: min(420px, 60vw);
+}
+
+.d2s-warcry-buff {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid #5a4a2c;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(28, 22, 12, 0.92), rgba(10, 8, 5, 0.92));
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.7);
+  font-family: "D2 Exocet", inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #f4d478;
+  white-space: nowrap;
+}
+
+.d2s-warcry-buff-time {
+  color: #cfb684;
+  font-size: 11px;
+}
+
 .d2s-skill-bar {
   display: flex;
   align-items: center;
@@ -1960,6 +2044,29 @@
 .d2s-skill-slot.secondary-skill.assigned { border-color: #7f9dc0; }
 .d2s-skill-slot.secondary-skill:hover,
 .d2s-skill-slot.secondary-skill:focus-visible { border-color: #a8c6e6; outline-color: #a8c6e6; }
+.d2s-skill-mana-cost {
+  position: absolute;
+  z-index: 2;
+  right: -2px;
+  bottom: -1px;
+  padding: 0 2px;
+  color: #9fc2ff;
+  background: #0a0d18e0;
+  font: bold 9px/1.35 ui-monospace, monospace;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.d2s-skill-slot.unaffordable .d2s-skill-mana-cost {
+  color: #ff8b8b;
+}
+
+.d2s-skill-slot.unaffordable .d2s-skill-art,
+.d2s-skill-slot.unaffordable .d2s-skill-overlay,
+.d2s-skill-slot.unaffordable .d2s-skill-icon {
+  filter: grayscale(0.55) brightness(0.75);
+}
+
 .d2s-skill-bind {
   position: absolute;
   z-index: 2;
@@ -2303,44 +2410,18 @@
   filter: drop-shadow(0 5px 5px #000c);
 }
 
-.d2s-belt-drag-ghost .d2s-potion-bottle { transform: scale(1.25); }
-
-.d2s-potion-bottle {
-  position: relative;
+/* The belt draws the game's own potion cels, so the bottles match the pack. */
+.d2s-belt-potion-art {
   display: block;
-  width: 19px;
+  width: auto;
   height: 30px;
-  margin-top: 3px;
-  border: 2px solid #9a907c;
-  border-radius: 5px 5px 7px 7px;
-  box-shadow: inset 3px 0 3px #fff5, inset -3px 0 3px #0008, 0 0 6px #000;
-  background: linear-gradient(90deg, #777, #d0c9b6 35%, #5d594e 70%, #a49b86);
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 2px #000a);
+  pointer-events: none;
+  user-select: none;
 }
 
-.d2s-potion-bottle::before {
-  content: "";
-  position: absolute;
-  left: 5px;
-  top: -7px;
-  width: 7px;
-  height: 6px;
-  border: 2px solid #877e6a;
-  border-bottom: 0;
-  background: #6a624e;
-}
-
-.d2s-potion-bottle::after {
-  content: "";
-  position: absolute;
-  inset: 10px 2px 2px;
-  border-radius: 1px 1px 4px 4px;
-  background: linear-gradient(90deg, #490713, #ed293d 40%, #a40d25);
-}
-
-.d2s-potion-bottle.rejuvenation-bottle::after {
-  background: linear-gradient(90deg, #4a145f, #d276f5 42%, #7a29aa);
-  box-shadow: 0 0 7px #d276f5;
-}
+.d2s-belt-drag-ghost .d2s-belt-potion-art { height: 38px; }
 
 .d2s-belt-keys {
   display: grid;
@@ -2439,21 +2520,7 @@
     border-width: 2px;
   }
 
-  .d2s-potion-bottle {
-    width: 14px;
-    height: 22px;
-  }
-
-  .d2s-potion-bottle::before {
-    left: 3px;
-    top: -6px;
-    width: 6px;
-    height: 5px;
-  }
-
-  .d2s-potion-bottle::after {
-    inset: 8px 2px 2px;
-  }
+  .d2s-belt-potion-art { height: clamp(20px, 5vw, 30px); }
 }
 
 .d2s-owned {
@@ -2658,6 +2725,13 @@
   font: 400 clamp(11px, 2.35cqw, 16px) / 1.25 var(--d2s-ui-font);
 }
 
+/* Every block spans the whole sheet so its rows can sit in the painted slots.
+   Without this the last block swallowed every hover aimed at the bake above it,
+   so only its own Life and Mana rows ever produced a tooltip. */
+.d2s-stats-block { pointer-events: none; }
+.d2s-stats-block > div.d2s-stat-line,
+.d2s-stats-block > .d2s-resistance-grid { pointer-events: auto; }
+
 .d2s-stats-block h4 {
   position: absolute;
   width: 1px;
@@ -2715,6 +2789,51 @@
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(2) { top: 42.73%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(3) { top: 59.79%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(4) { top: 70.47%; height: 4.38%; }
+
+/* One "+" sits in the painted gap right of each attribute row while points are
+   unspent, so the sheet's fixed row slots never have to grow. */
+.d2s-attribute-stats .d2s-attribute-spend {
+  position: absolute;
+  top: 50%;
+  right: -1.5em;
+  transform: translateY(-50%);
+  width: 1.2em;
+  height: 1.2em;
+  padding: 0;
+  color: #ffe9b0;
+  border: 1px solid #6d5730;
+  border-radius: 2px;
+  background: #14100bde;
+  font: bold 0.85em/1 var(--d2s-ui-font);
+  text-align: center;
+  text-shadow: none;
+  cursor: pointer;
+}
+
+.d2s-attribute-stats .d2s-attribute-spend:hover,
+.d2s-attribute-stats .d2s-attribute-spend:focus-visible {
+  color: #fff6cf;
+  border-color: #c9a65a;
+  background: #3a2c14;
+  outline: none;
+}
+
+.d2s-character-stats > .d2s-stats-level .d2s-attribute-points {
+  color: #ffd98a;
+  letter-spacing: 0.06em;
+}
+
+.d2s-stats-block small.d2s-attribute-spent { color: #9fc2ff; }
+
+/* Worn, but the hero's Strength, Dexterity or level does not carry it yet: the
+   piece stays on the paperdoll and grants nothing. */
+.d2s-equipment-slot.requirements-unmet .d2s-equipment-art {
+  filter: grayscale(0.65) brightness(0.62) drop-shadow(0 2px 3px #000);
+}
+
+.d2s-equipment-slot.requirements-unmet .d2s-equipment-label { color: #d97a7a; }
+.d2s-equipment-slot.requirements-unmet:hover,
+.d2s-equipment-slot.requirements-unmet:focus-visible { outline-color: #b45a5a; }
 
 .d2s-derived-stats .d2s-stat-line,
 .d2s-resource-stats .d2s-stat-line {
@@ -3050,8 +3169,8 @@
   -webkit-user-select: none;
   /* One socket size for every item in the bag. The holes do not scale with an
      item's footprint, so a dirk's socket is as big as a body armour's. */
-  --d2s-socket-width: 14px;
-  --d2s-socket-height: 12px;
+  --d2s-socket-width: 24px;
+  --d2s-socket-height: 24px;
 }
 
 .d2s-inv-slot {
@@ -3146,10 +3265,15 @@
 }
 
 
+.d2s-equipment-slot { overflow: visible; }
+/* A worn item's holes are sized from its cel in the component, because the
+   paperdoll scales each slot's art differently. */
+.d2s-socket-hole.equipment { pointer-events: none; z-index: 2; }
+
 .d2s-socket-hole {
   position: absolute;
-  width: var(--d2s-socket-width, 14px);
-  height: var(--d2s-socket-height, 12px);
+  width: var(--d2s-socket-width, 24px);
+  height: var(--d2s-socket-height, 24px);
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 38%,

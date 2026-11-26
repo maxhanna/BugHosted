@@ -361,7 +361,6 @@ export const D2_BASE_ITEM_FOOTPRINTS: Readonly<Record<string, D2ItemFootprint>> 
   "Small Charm": { width: 1, height: 1 },
   "Small Shield": { width: 2, height: 2 },
   "Smoked Sphere": { width: 1, height: 2 },
-  "Soulstone Shard": { width: 1, height: 1 },
   "Spear": { width: 2, height: 4 },
   "Spetum": { width: 2, height: 4 },
   "Spiderweb Sash": { width: 2, height: 1 },

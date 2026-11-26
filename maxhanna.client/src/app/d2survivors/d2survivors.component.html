@@ -162,9 +162,10 @@
           </div>
         </section>
 
-        <section class="d2s-menu-subpanel d2s-gheeds-shop" *ngIf="menuPanel === 'shop'">
+        <section class="d2s-menu-subpanel d2s-gheeds-shop" *ngIf="menuPanel === 'shop'" [attr.data-quest-tool]="questRewardConfirm ? null : questRewardMode">
           <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="closeGheedsShop()">‹ Main menu</button><span>Gheed's Shop</span><strong class="d2s-shop-wallet">✦ {{ sanctuaryGold | number:'1.0-0' }} GOLD</strong><small *ngIf="hasSavedRun">Saved pack {{ playerGold | number:'1.0-0' }} G</small></div>
           <p class="d2s-shop-intro">“Heh. The price is the price. Unless you have something worth my time.” — Gheed</p>
+          <p class="d2s-shop-greeting" *ngIf="gheedSpeech as greeting" role="status" aria-live="polite"><strong>Gheed</strong>“{{ greeting }}”</p>
           <div class="d2s-shop-columns">
             <section class="d2s-shop-section" aria-labelledby="d2s-shop-stock-title">
               <div class="d2s-shop-section-heading"><h2 id="d2s-shop-stock-title">Goods &amp; services</h2><small>PERMANENT UPGRADES · GEAR GOES TO PACK OR STASH</small></div>
@@ -183,81 +184,20 @@
                 <article><div><strong>Weapon Drills</strong><small>Start every new run with +2 attack damage · rank {{ sanctuaryBonuses.attackDamage }}/20</small></div><button type="button" [disabled]="sanctuaryBonuses.attackDamage >= 20 || sanctuaryGold < getSanctuaryUpgradeCost('attackDamage')" (click)="buySanctuaryUpgrade('attackDamage')">{{ sanctuaryBonuses.attackDamage >= 20 ? 'MAX' : '✦ ' + getSanctuaryUpgradeCost('attackDamage') }}</button></article>
               </div>
             <section class="d2s-shop-quest" aria-labelledby="d2s-shop-socket-title">
-              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-socket-title">Quest rewards</h2><small>{{ socketQuestItem ? 'ONE ITEM CHOSEN' : 'SOCKETS · IMBUE' }}</small></div>
-              <p class="d2s-shop-lock-hint">Two quest rewards, without the quests. Larzuk: a white base gets its full allowance, a magic base one or two at random, anything rarer exactly one. Charsi: a white weapon or armour without sockets becomes rare at item level {{ imbueItemLevel }}.</p>
-              <div class="d2s-shop-wardrobe">
-                <div class="d2s-shop-wardrobe-row" *ngIf="shopEquippedGear.length">
-                  <small class="d2s-shop-wardrobe-label">Worn</small>
-                  <button type="button" class="d2s-shop-slot" *ngFor="let gear of shopEquippedGear"
-                    [class.selected]="socketQuestItemId === gear.item.id"
-                    [class.magic]="gear.item.rarity === 'magic'"
-                    [class.rare]="gear.item.rarity === 'rare'"
-                    [class.unique]="gear.item.rarity === 'unique'"
-                    [class.set]="gear.item.rarity === 'set'"
-                    [attr.aria-label]="gear.label + ': ' + gear.item.name"
-                    [attr.title]="gear.item.name"
-                    (click)="selectSocketQuestItem(gear.item)"
-                    (mouseenter)="onShopItemHover(gear.item, $event)"
-                    (mousemove)="onItemPreviewMove($event)"
-                    (mouseleave)="onItemPreviewLeave()">
-                    <img [src]="inventoryItemImage(gear.item)" alt="" />
-                    <span>{{ gear.label }}</span>
-                  </button>
-                </div>
-                <div class="d2s-shop-wardrobe-row">
-                  <small class="d2s-shop-wardrobe-label">Pack</small>
-                  <button type="button" class="d2s-shop-slot" *ngFor="let item of shopPackItems; trackBy: trackPackSlotItem"
-                    [class.selected]="socketQuestItemId === item.id"
-                    [class.magic]="item.rarity === 'magic'"
-                    [class.rare]="item.rarity === 'rare'"
-                    [class.unique]="item.rarity === 'unique'"
-                    [class.set]="item.rarity === 'set'"
-                    [attr.aria-label]="item.name"
-                    [attr.title]="item.name"
-                    (click)="selectSocketQuestItem(item)"
-                    (mouseenter)="onShopItemHover(item, $event)"
-                    (mousemove)="onItemPreviewMove($event)"
-                    (mouseleave)="onItemPreviewLeave()">
-                    <img [src]="inventoryItemImage(item)" alt="" />
-                  </button>
-                  <span class="d2s-shop-wardrobe-empty" *ngIf="!shopPackItems.length">Nothing in the pack</span>
-                </div>
-                <div class="d2s-shop-wardrobe-row" *ngIf="sanctuaryStash.length">
-                  <small class="d2s-shop-wardrobe-label">Stash</small>
-                  <button type="button" class="d2s-shop-slot" *ngFor="let item of sanctuaryStash; trackBy: trackPackSlotItem"
-                    [class.selected]="socketQuestItemId === item.id"
-                    [class.magic]="item.rarity === 'magic'"
-                    [class.rare]="item.rarity === 'rare'"
-                    [class.unique]="item.rarity === 'unique'"
-                    [class.set]="item.rarity === 'set'"
-                    [attr.aria-label]="item.name"
-                    [attr.title]="item.name"
-                    (click)="selectSocketQuestItem(item)"
-                    (mouseenter)="onShopItemHover(item, $event)"
-                    (mousemove)="onItemPreviewMove($event)"
-                    (mouseleave)="onItemPreviewLeave()">
-                    <img [src]="inventoryItemImage(item)" alt="" />
-                  </button>
-                </div>
+              <div class="d2s-shop-section-heading"><h2 id="d2s-shop-socket-title">Quest rewards</h2><small>{{ questRewardMode ? 'CLICK AN ITEM' : 'IMBUE · SOCKET' }}</small></div>
+              <p class="d2s-shop-lock-hint">Two quest rewards, without the quests. Imbue: a white weapon or armour without sockets becomes rare at item level {{ imbueItemLevel }}. Socket: a base with no sockets gets its allowance drilled in.</p>
+              <div class="d2s-shop-quest-tools">
+                <button type="button" class="d2s-quest-tool" [class.armed]="questRewardMode === 'imbue'" (click)="armQuestReward('imbue')">
+                  <strong>Imbue</strong><small>Charsi's art · ✦ {{ imbueCost | number:'1.0-0' }}</small>
+                </button>
+                <button type="button" class="d2s-quest-tool" [class.armed]="questRewardMode === 'socket'" (click)="armQuestReward('socket')">
+                  <strong>Socket</strong><small>Larzuk's drill · from ✦ 3,000</small>
+                </button>
               </div>
-              <div class="d2s-shop-socket-checkout" *ngIf="socketQuestItem as chosen">
-                <div>
-                  <strong>{{ chosen.name }}</strong>
-                  <small>{{ socketQuestSummary(chosen) }}</small>
-                  <small *ngIf="imbueEligible(chosen)">Charsi's quest: becomes rare at item level {{ imbueItemLevel }}.</small>
-                </div>
-                <div class="d2s-shop-socket-actions">
-                  <button type="button"
-                    [disabled]="!socketQuestCapacity(chosen) || sanctuaryGold < socketQuestCost(chosen)"
-                    (click)="buySocketQuest(chosen)">{{ socketQuestCapacity(chosen) ? 'Drill · ✦ ' + socketQuestCost(chosen) : 'No sockets' }}</button>
-                  <button type="button" class="d2s-shop-imbue"
-                    [disabled]="!imbueEligible(chosen) || sanctuaryGold < imbueCost"
-                    (click)="imbueItem(chosen)">{{ imbueEligible(chosen) ? 'Imbue · ✦ ' + imbueCost : 'Cannot imbue' }}</button>
-                </div>
-              </div>
-              <div class="d2s-shop-socket-checkout" *ngIf="!socketQuestItem">
-                <div><strong>One item at a time</strong><small>Pick a piece above; Gheed checks the item, then charges for the holes.</small></div>
-              </div>
+              <p class="d2s-shop-quest-hint" *ngIf="questRewardMode && !questRewardConfirm">
+                {{ questRewardMode === 'imbue' ? 'Click a white weapon or armour in the pack, worn gear or stash.' : 'Click a weapon, armour or shield in the pack, worn gear or stash.' }}
+                <button type="button" class="d2s-shop-quest-cancel" (click)="cancelQuestReward()">Cancel</button>
+              </p>
             </section>
               <div class="d2s-shop-stash" *ngIf="sanctuaryStash.length">
                 <div class="d2s-shop-section-heading"><h2 id="d2s-shop-stash-title">Stash</h2><small>{{ sanctuaryStash.length }} ITEMS · COLLECT INTO THE PACK</small></div>
@@ -280,6 +220,17 @@
             </section>
           </div>
           <p class="d2s-shop-message" role="status" aria-live="polite">{{ shopMessage }}</p>
+          <div class="d2s-quest-confirm" *ngIf="questRewardConfirm as pending" (click)="cancelQuestReward()">
+            <div class="d2s-quest-confirm-card" role="dialog" aria-modal="true" aria-labelledby="d2s-quest-confirm-title" (click)="$event.stopPropagation()">
+              <img [src]="inventoryItemImage(pending.item)" alt="" />
+              <h2 id="d2s-quest-confirm-title">{{ pending.mode === 'imbue' ? 'Imbue this item?' : 'Socket this item?' }}</h2>
+              <p>{{ questRewardConfirmText }}</p>
+              <div class="d2s-quest-confirm-actions">
+                <button type="button" class="primary" (click)="confirmQuestReward()">Confirm</button>
+                <button type="button" (click)="cancelQuestReward()">Cancel</button>
+              </div>
+            </div>
+          </div>
         </section>
 
         <section class="d2s-menu-subpanel d2s-credits-panel" *ngIf="menuPanel === 'credits'">
@@ -369,6 +320,12 @@
           <div class="d2s-orb-text"><strong>Life</strong><span>{{ playerHp | number:'1.0-0' }} / {{ effectivePlayerMaxHp }}</span></div>
         </div>
         <div class="d2s-hud-center">
+          <div class="d2s-warcry-buffs" *ngIf="activeWarcryBuffs.length" aria-label="Active warcries">
+            <div class="d2s-warcry-buff" *ngFor="let buff of activeWarcryBuffs" [attr.title]="buff.detail">
+              <span class="d2s-warcry-buff-name">{{ buff.name }}</span>
+              <span class="d2s-warcry-buff-time">{{ buff.seconds | number:'1.0-0' }}s</span>
+            </div>
+          </div>
           <div class="d2s-belt-frame" aria-label="Potion belt">
             <div class="d2s-belt-grid" [class.expanded]="beltExpanded" [attr.data-belt-rows]="beltRows">
             <button
@@ -390,7 +347,7 @@
               (pointercancel)="onBeltSlotPointerCancel($event)"
               (lostpointercapture)="onBeltSlotPointerCancel($event)"
               [title]="slot.kind ? 'Drag to move or drop on the ground; click to pick up, click again to throw. Right-click to drink (' + beltKeyForSlot(i) + ').' : 'Empty belt slot'">
-              <span *ngIf="slot.kind" class="d2s-potion-bottle" [class.red-potion]="slot.kind === 'health'" [class.rejuvenation-bottle]="slot.kind === 'rejuvenation'"></span>
+              <img *ngIf="slot.kind" class="d2s-belt-potion-art" [src]="beltPotionArt(slot.kind)" alt="" draggable="false" />
             </button>
           </div>
             <div class="d2s-belt-keys" aria-hidden="true">
@@ -432,10 +389,11 @@
               <span *ngIf="secondaryAttackSpell" class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - secondaryAttackSlotCastProgress) + ') '" aria-hidden="true"></span>
               <span *ngIf="attackBindLabel(secondaryAttackSlotSkill) as bind" class="d2s-skill-bind" aria-hidden="true">{{ bind }}</span>
             </button>
-            <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [attr.title]="skill + ' · ' + getSkillCastDescriptor(skill) + (getSkillRequirementLabel(skill) ? ' · ' + getSkillRequirementLabel(skill) : '')" [attr.aria-label]="skill + ', ' + getSkillCastDescriptor(skill) + (getSkillRequirementLabel(skill) ? '. ' + getSkillRequirementLabel(skill) : '')">
+            <div class="d2s-skill-slot" *ngFor="let skill of equippedSkills" [class.unaffordable]="!skillIsAffordable(skill)" [attr.title]="skill + ' · ' + getSkillCastDescriptor(skill) + skillManaCostLabel(skill) + (getSkillRequirementLabel(skill) ? ' · ' + getSkillRequirementLabel(skill) : '')" [attr.aria-label]="skill + ', ' + getSkillCastDescriptor(skill) + (skillManaCost(skill) > 0 ? ', ' + skillManaCost(skill) + ' mana' : '') + (getSkillRequirementLabel(skill) ? '. ' + getSkillRequirementLabel(skill) : '')">
               <img *ngIf="hasSkillIconImage(skill); else skillMissile" class="d2s-skill-art" [src]="skillIconPath(skill)" alt="" />
               <ng-template #skillMissile><img *ngIf="skillIcon(skill) === ''; else skillIconFallback" class="d2s-skill-overlay" [src]="missileOverlayPath(getSkillMissileOverlay(skill))" alt="" /></ng-template><ng-template #skillIconFallback><span class="d2s-skill-icon">{{ skillIcon(skill) }}</span></ng-template>
               <span class="d2s-skill-cooldown" [style.transform]="'scaleY(' + (1 - skillCastProgress(skill)) + ') '" aria-hidden="true"></span>
+              <span *ngIf="skillManaCost(skill) > 0" class="d2s-skill-mana-cost" aria-hidden="true">{{ skillManaCost(skill) }}</span>
             </div>
           </div>
           <div class="d2s-basic-attack-picker" *ngIf="basicAttackPickerOpen" role="dialog" [attr.aria-label]="'Choose the spell the ' + basicAttackPickerTitle.toLowerCase() + ' casts'">
@@ -477,7 +435,7 @@
         <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
         <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
         <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
-        <small class="d2s-act-portal-message" *ngIf="actPortalOpen; else actBossLine" role="status">Walk into the red portal to {{ actPortalLead }} · WASD / arrows</small>
+        <small class="d2s-act-portal-message" *ngIf="actPortalOpen; else actBossLine" role="status">Walk into the red portal to {{ actPortalLead }}</small>
         <ng-template #actBossLine><small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small></ng-template>
       </div>
       <div class="d2s-act-transition" *ngIf="actTransitionReady && !actPortalOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
@@ -508,7 +466,7 @@
               <div class="d2s-skill-tree-sockets">
                 <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills; trackBy: trackBySkillName" [class]="'d2s-tree-skill ' + skill.state + (skill.canSpend ? ' spendable' : '')" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason + (skill.canSpend ? ', click to spend a skill point' : '')" (click)="spendSkillPoint(skill.name)" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
                   <img *ngIf="hasSkillIconImage(skill.name)" class="d2s-tree-skill-art" [src]="skillIconPath(skill.name)" alt="" />
-                  <span class="d2s-tree-level" [attr.title]="getSkillLevel(skill.name) ? 'Points spent' : 'Level required'">{{ skillSocketBadge(skill.name, skill.level) }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
+                  <span class="d2s-tree-rank" *ngIf="getSkillLevel(skill.name)" aria-hidden="true">{{ getSkillLevel(skill.name) }}</span><span class="d2s-tree-level" [attr.title]="getSkillLevel(skill.name) ? 'Points spent' : 'Level required'">{{ skillSocketBadge(skill.name, skill.level) }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
                 </article>
               </div>
             </div>
@@ -567,13 +525,17 @@
              overlay still carries the attribute sheet beside it. -->
         <section class="d2s-character-stats" *ngIf="!shop" aria-label="Character stats">
           <h3 class="d2s-inventory-heading">{{ selectedClassName }}</h3>
-          <p class="d2s-stats-level">Level {{ playerLevel }}</p>
+          <p class="d2s-stats-level">Level {{ playerLevel }}<span *ngIf="attributePointsRemaining > 0" class="d2s-attribute-points"> · {{ attributePointsRemaining }} pts</span></p>
           <div class="d2s-stats-block d2s-attribute-stats">
             <h4>Attributes</h4>
-            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'strength')" (mouseleave)="hideStatTooltip()"><span>Strength</span><b>{{ selectedClassStats.attributes[0].value + equippedStrengthBonus }}<small *ngIf="equippedStrengthBonus"> (+{{ equippedStrengthBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('strength') as strengthDelta" [class.negative]="strengthDelta < 0"> {{ formatItemStatDelta(strengthDelta) }} str</small></b></div>
-            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'dexterity')" (mouseleave)="hideStatTooltip()"><span>Dexterity</span><b>{{ selectedClassStats.attributes[1].value + equippedDexterityBonus }}<small *ngIf="equippedDexterityBonus"> (+{{ equippedDexterityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('dexterity') as dexterityDelta" [class.negative]="dexterityDelta < 0"> {{ formatItemStatDelta(dexterityDelta) }} dex</small></b></div>
-            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'vitality')" (mouseleave)="hideStatTooltip()"><span>Vitality</span><b>{{ selectedClassStats.attributes[2].value + equippedVitalityBonus }}<small *ngIf="equippedVitalityBonus"> (+{{ equippedVitalityBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('vitality') as vitalityDelta" [class.negative]="vitalityDelta < 0"> {{ formatItemStatDelta(vitalityDelta) }} vit</small></b></div>
-            <div class="d2s-stat-line" (mouseenter)="showStatTooltip($event, 'energy')" (mouseleave)="hideStatTooltip()"><span>Energy</span><b>{{ selectedClassStats.attributes[3].value + equippedEnergyBonus }}<small *ngIf="equippedEnergyBonus"> (+{{ equippedEnergyBonus }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta('energy') as energyDelta" [class.negative]="energyDelta < 0"> {{ formatItemStatDelta(energyDelta) }} en</small></b></div>
+            <div class="d2s-stat-line" *ngFor="let attribute of attributeRows" (mouseenter)="showStatTooltip($event, attribute.key)" (mouseleave)="hideStatTooltip()">
+              <span>{{ attribute.name }}</span>
+              <b>{{ attribute.value }}<small *ngIf="attribute.gear"> (+{{ attribute.gear }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta(attribute.key) as attributeDelta" [class.negative]="attributeDelta < 0"> {{ formatItemStatDelta(attributeDelta) }} {{ attribute.name.slice(0, 3).toLowerCase() }}</small></b>
+              <button *ngIf="attributePointsRemaining > 0" type="button" class="d2s-attribute-spend"
+                (click)="spendAttributePoint(attribute.key)"
+                [attr.title]="'Spend 1 of ' + attributePointsRemaining + ' attribute points on ' + attribute.name"
+                [attr.aria-label]="'Spend an attribute point on ' + attribute.name">+</button>
+            </div>
           </div>
           <div class="d2s-stats-block d2s-derived-stats">
             <h4>Combat</h4>
@@ -611,14 +573,16 @@
               class="d2s-equipment-slot"
               [class]="'d2s-equipment-slot position-' + slot.position"
               [class.equipped]="!!getEquipmentItem(slot.slot)"
+              [class.requirements-unmet]="equipmentSlotRequirementsUnmet(slot.slot)"
               [class.rare]="getEquipmentItem(slot.slot)?.rarity === 'rare'"
               [class.unique]="getEquipmentItem(slot.slot)?.rarity === 'unique'"
               [class.set]="getEquipmentItem(slot.slot)?.rarity === 'set'"
               [class.magic]="getEquipmentItem(slot.slot)?.rarity === 'magic'"
               [attr.data-equipment-slot]="slot.slot"
-              [attr.aria-label]="equipmentSlotLabel(slot.slot) + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name : ', empty')"
+              [attr.aria-label]="equipmentSlotLabel(slot.slot) + (getEquipmentItem(slot.slot) ? ': ' + getEquipmentItem(slot.slot)?.name + (equipmentSlotRequirementsUnmet(slot.slot) ? ' (requirements not met)' : '') : ', empty')"
               [draggable]="!!getEquipmentItem(slot.slot)"
               (dragstart)="startEquipmentDrag(slot.slot, $event)"
+              (dragend)="onInventoryDragEnd()"
               (dragover)="$event.preventDefault()"
               (drop)="onEquipmentDrop(slot.slot, $event)"
               (contextmenu)="unequipEquipmentSlot(slot.slot, $event)"
@@ -627,6 +591,11 @@
               (mousemove)="onItemPreviewMove($event)"
               (mouseleave)="onItemPreviewLeave()">
               <img class="d2s-equipment-art" [class.empty]="!getEquipmentItem(slot.slot)" [src]="getEquipmentItem(slot.slot) ? inventoryItemImage(getEquipmentItem(slot.slot)!) : equipmentSlotImage(slot.slot)" [alt]="getEquipmentItem(slot.slot) ? '' : 'Empty ' + equipmentSlotLabel(slot.slot) + ' slot'" />
+              <ng-container *ngIf="hoveredEquipmentSlot === slot.slot">
+                <i *ngFor="let hole of equipmentSocketHoles" class="d2s-socket-hole equipment"
+                  [style.left.px]="hole.left" [style.top.px]="hole.top"
+                  [style.width.px]="hole.size" [style.height.px]="hole.size" aria-hidden="true"></i>
+              </ng-container>
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || equipmentSlotLabel(slot.slot) }}</span>
             </button>
           </div>
@@ -697,7 +666,7 @@
         <button type="button" class="d2s-inventory-close" (click)="toggleInventory()" aria-label="Close inventory">Close</button>
       </header>
       <ng-container *ngTemplateOutlet="inventoryPanel"></ng-container>
-      <p class="d2s-hint">Drag gear to equip · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · drag a gem or jewel onto an item with an open socket to set it · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
+      <p class="d2s-hint">Drag gear to equip · the + beside an attribute spends a point · touch: long-press an item, then drag to move it · right-click a weapon or armor to equip or swap · drag a gem or jewel onto an item with an open socket to set it · Ctrl-click or use the item preview to sell · right-click equipped gear to unequip</p>
     </section>
     <aside class="d2s-stat-tooltip" *ngIf="visibleStatTooltip as statTooltip" [style.left.px]="statTooltip.x" [style.top.px]="statTooltip.y" role="tooltip">
       <strong>{{ statTooltip.title }}</strong>
@@ -759,7 +728,7 @@
   </section>
 
   <div class="d2s-belt-drag-ghost" *ngIf="beltDrag?.moved" [style.left.px]="beltDragGhostX" [style.top.px]="beltDragGhostY" aria-hidden="true">
-    <span class="d2s-potion-bottle" [class.rejuvenation-bottle]="beltDrag?.kind === 'rejuvenation'"></span>
+    <img class="d2s-belt-potion-art ghost" [src]="beltPotionArt(beltDrag?.kind === 'rejuvenation' ? 'rejuvenation' : 'health')" alt="" draggable="false" />
   </div>
 
   <ng-container *ngIf="activeTab === 'menu' && menuPanel === 'shop'">
@@ -790,7 +759,7 @@
         </div>
       </div>
   </ng-container>
-  <div #d2Cursor class="d2s-d2-cursor" aria-hidden="true"><span></span></div>
+  <div #d2Cursor class="d2s-d2-cursor" [attr.data-quest-tool]="questRewardConfirm ? null : questRewardMode" aria-hidden="true"><span></span></div>
 
   <div class="d2s-asset-indicator" *ngIf="!assetsReady && activeTab !== 'run'" role="status" aria-live="polite">
     <span class="d2s-asset-indicator-label">Preparing assets {{ assetsLoaded }} / {{ assetsTotal }}</span>

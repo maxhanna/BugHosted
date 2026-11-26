@@ -102,7 +102,7 @@ export const D2_CLASS_SKILL_TREES: Record<string, D2ClassSkillTree> = {
       skill("Bash", 1), skill("Leap", 6), skill("Double Swing", 6, ["Bash"]), skill("Stun", 12, ["Bash"]), skill("Double Throw", 12, ["Bash", "Double Swing"]), skill("Leap Attack", 18, ["Leap"]), skill("Concentrate", 18, ["Bash", "Stun"]), skill("Frenzy", 24, ["Bash", "Double Swing", "Double Throw"]), skill("Whirlwind", 30, ["Bash", "Leap", "Stun", "Concentrate", "Leap Attack"]), skill("Berserk", 30, ["Bash", "Stun", "Concentrate"]),
     ] },
     { name: "Combat Masteries", skills: [
-      skill("Sword Mastery", 1), skill("Axe Mastery", 1), skill("Mace Mastery", 1), skill("Polearm Mastery", 6), skill("Throwing Mastery", 6), skill("Spear Mastery", 6), skill("Increased Stamina", 12), skill("Iron Skin", 18), skill("Increased Speed", 24, ["Increased Stamina"]), skill("Natural Resistance", 30, ["Iron Skin"]),
+      skill("Blade Mastery", 1), skill("Axe Mastery", 1), skill("Mace Mastery", 1), skill("Polearm Mastery", 6), skill("Throwing Mastery", 6), skill("Spear Mastery", 6), skill("Increased Stamina", 12), skill("Iron Skin", 18), skill("Increased Speed", 24, ["Increased Stamina"]), skill("Natural Resistance", 30, ["Iron Skin"]),
     ] },
     { name: "Warcries", skills: [
       skill("Howl", 1), skill("Find Potion", 1), skill("Taunt", 6, ["Howl"]), skill("Shout", 6, ["Howl"]), skill("Find Item", 12, ["Find Potion"]), skill("Battle Cry", 18, ["Howl", "Taunt"]), skill("Battle Orders", 24, ["Howl", "Shout"]), skill("Grim Ward", 24, ["Find Potion", "Find Item"]), skill("War Cry", 30, ["Howl", "Taunt", "Shout", "Battle Cry", "Battle Orders"]), skill("Battle Command", 30, ["Howl", "Shout", "Battle Orders"]),

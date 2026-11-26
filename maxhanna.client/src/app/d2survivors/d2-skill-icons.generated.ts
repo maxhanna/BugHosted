@@ -62,7 +62,7 @@ export const D2_SKILL_ICON_PATHS: Readonly<Record<string, string>> = {
   "Shadow Master": "assets/d2survivors/skills/assassin/shadow-master.webp",
   "Phoenix Strike": "assets/d2survivors/skills/assassin/phoenix-strike.webp",
   "Bash": "assets/d2survivors/skills/barbarian/bash.webp",
-  "Sword Mastery": "assets/d2survivors/skills/barbarian/sword-mastery.webp",
+  "Blade Mastery": "assets/d2survivors/skills/barbarian/sword-mastery.webp",
   "Axe Mastery": "assets/d2survivors/skills/barbarian/axe-mastery.webp",
   "Mace Mastery": "assets/d2survivors/skills/barbarian/mace-mastery.webp",
   "Howl": "assets/d2survivors/skills/barbarian/howl.webp",

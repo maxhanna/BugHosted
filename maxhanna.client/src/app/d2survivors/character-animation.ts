@@ -1988,35 +1988,32 @@ export function poseCharacterRig(rig: CharacterRig, state: CharacterPoseState): 
       // the character. The elbow cross product used before pointed through the
       // back on these rips, which laid the face behind the knuckles.
       const front = FORWARD.clone().applyQuaternion(rootWorldQuat);
-      const bodyUp = up.clone().applyQuaternion(rootWorldQuat);
-      const outboard = new THREE.Vector3(item.anchor.side > 0 ? 1 : -1, 0, 0)
-        .applyQuaternion(rootWorldQuat);
       // The fist has to sit behind the face, otherwise the fingers show through
       // the cel. Measure how far the fingertips actually reach: hand length
       // varies wildly between rips, so a fixed multiple of it left some classes
       // poking through by a unit or more.
-      //
-      // Measure that reach out of the palm rather than along the body's front:
-      // the fingertips sit at a fixed offset in the hand's own frame, so the
-      // extent is the same pose after pose, while a front projection pumps as
-      // the idle sway turns the wrist and slid the face a third of a unit
-      // toward and away from the camera.
       const handJoint = hand ?? forearm ?? item.anchor;
-      const palmWorld = hand?.palmNormal
-        ? hand.palmNormal.clone().applyQuaternion(hand.bone.getWorldQuaternion(new THREE.Quaternion())).normalize()
-        : null;
-      let tipReach = handUnits * 1.6;
+      // The face is pushed along the body's front, so measure the hand's reach
+      // along that same direction. The palm projection this used to take is
+      // pose-stable, but it undercounts a hand whose palm faces inward: the
+      // shield was parked a hand and a half ahead of the knuckles and read as
+      // floating off the arm instead of being carried.
+      let tipReach = 0;
+      let measuredReach = false;
       for (const satellite of rig.satellites) {
         if (satellite.follow !== handJoint) continue;
         const offset = satellite.bone.getWorldPosition(new THREE.Vector3()).sub(fist);
-        const reach = palmWorld ? -offset.dot(palmWorld) : offset.dot(front);
-        if (Number.isFinite(reach)) tipReach = Math.max(tipReach, reach);
+        const reach = offset.dot(front);
+        if (!Number.isFinite(reach)) continue;
+        measuredReach = true;
+        tipReach = Math.max(tipReach, reach);
       }
-      const clearance = Math.max(body * 0.034, tipReach + body * 0.006);
-      const center = fist.clone()
-        .addScaledVector(outboard, body * 0.012)
-        .addScaledVector(bodyUp, body * 0.02)
-        .addScaledVector(front, clearance);
+      // A rig without separate finger bones still needs a hand's own span.
+      if (!measuredReach) tipReach = handUnits * 0.9;
+      const clearance = Math.max(body * 0.034, tipReach + body * 0.005);
+      // Centre the boss on the fist: any sideways or upward nudge slid the grip
+      // to the rim, where the hand no longer looked like it was holding it.
+      const center = fist.clone().addScaledVector(front, clearance);
       item.visual.position.copy(center.applyMatrix4(parentInverse));
       return;
     }

@@ -13,6 +13,8 @@ import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
 import { PALADIN_AURA_ART } from "./d2-paladin-auras.generated";
 import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
+import { BARBARIAN_WARCRY_AURA_ART } from "./d2-barbarian-auras.generated";
+import { WARCRY_VOICE_LINES } from "./d2-warcry-voice";
 import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
 import { NOVA_RING_ART } from "./d2-nova-ring.generated";
@@ -27,6 +29,7 @@ import { D2_AFFIXES, eligibleAffixes, itemAffixTypes, rollAffix } from "./d2-ite
 import { D2_RUNE_BY_NAME } from "./d2-runes";
 import { socketCapacityForBase } from "./d2-socket-caps";
 import { AREA_COMPLETE_VOICE_EVENTS, AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, HERO_VOICE_LINES, heroVoiceLine } from "./d2-hero-voice";
+import { GHEED_VOICE_LINES, randomGheedVoiceLine } from "./d2-gheed-voice";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
   let fixture: ComponentFixture<D2SurvivorsComponent>;
@@ -47,6 +50,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     fixture = TestBed.createComponent(D2SurvivorsComponent);
     component = fixture.componentInstance;
+    // Every cast charges mana now. These tests are about what a spell does, not
+    // about affording it, so they start with an orb no single assertion drains.
+    component.playerMaxMana = 1000;
+    component.playerMana = 1000;
   });
 
   afterEach(() => fixture.destroy());
@@ -275,8 +282,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const sword = { id: "socket-sword", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
     socketQuestPack(sword);
 
-    component.selectSocketQuestItem(sword);
-    expect(component.socketQuestItem).toBe(sword);
     // A Broad Sword is 3/4/4 on the master socket table.
     expect(component.socketQuestCapacity(sword)).toBe(4);
     expect(component.socketQuestSummary(sword)).toContain("4 sockets");
@@ -313,7 +318,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     socketQuestPack(sword, 5);
 
     expect(component.socketQuestCapacity(sword)).toBe(3);
-    component.selectSocketQuestItem(sword);
     component.buySocketQuest(sword);
     expect(sword.sockets).toBe(3);
   });
@@ -345,14 +349,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const first = { id: "socket-magic-1", name: "Cruel Broad Sword", baseName: "Broad Sword", rarity: "magic", slot: "weapon", desc: "A blade." } as any;
     const second = { id: "socket-magic-2", name: "Cruel Broad Sword", baseName: "Broad Sword", rarity: "magic", slot: "weapon", desc: "A blade." } as any;
     socketQuestPack(first);
-    component.selectSocketQuestItem(first);
     (spyOn(Math, "random") as jasmine.Spy).and.returnValue(0.2);
     component.buySocketQuest(first);
     expect(first.sockets).toBe(2);
 
     component.inventory[0] = second;
-    component.selectSocketQuestItem(first);
-    component.selectSocketQuestItem(second);
     (Math.random as jasmine.Spy).and.returnValue(0.9);
     component.buySocketQuest(second);
     expect(second.sockets).toBe(1);
@@ -365,7 +366,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     socketQuestPack(rare);
 
     expect(component.socketQuestCapacity(rare)).toBe(4);
-    component.selectSocketQuestItem(rare);
     component.buySocketQuest(rare);
     expect(rare.sockets).toBe(1);
 
@@ -374,8 +374,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.socketQuestSummary(already)).toContain("already has 2 sockets");
 
     component.inventory[0] = already;
-    component.selectSocketQuestItem(rare);
-    component.selectSocketQuestItem(already);
     const gold = component.sanctuaryGold;
     component.buySocketQuest(already);
     expect(already.sockets).toBe(2);
@@ -393,7 +391,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.imbueItemLevel).toBe(26);
     expect(component.imbueEligible(plate)).toBeTrue();
-    component.selectSocketQuestItem(plate);
     const cost = component.imbueCost;
     component.imbueItem(plate);
 
@@ -419,7 +416,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.imbueEligible(charm)).toBeFalse();
     expect(component.imbueEligible(jewel)).toBeFalse();
 
-    component.selectSocketQuestItem(ring);
     const gold = component.sanctuaryGold;
     component.imbueItem(ring);
     expect(ring.rarity).toBe("normal");
@@ -431,12 +427,91 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const plate = { id: "imbue-broke", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", desc: "Mail." } as any;
     socketQuestPack(plate);
     component.sanctuaryGold = component.imbueCost - 1;
-    component.selectSocketQuestItem(plate);
 
     component.imbueItem(plate);
 
     expect(plate.rarity).toBe("normal");
     expect(component.shopMessage).toContain("more gold for the imbue");
+  });
+
+  it("arms a quest tool and asks before it touches the clicked item", () => {
+    const sword = { id: "quest-arm", name: "Broad Sword", baseName: "Broad Sword", rarity: "normal", slot: "weapon", desc: "A blade." } as any;
+    socketQuestPack(sword);
+    component.menuPanel = "shop";
+
+    component.armQuestReward("socket");
+    expect(component.questRewardMode).toBe("socket");
+    expect(component.questRewardConfirm).toBeNull();
+
+    component.onInventoryItemClick(0, sword, new MouseEvent("click"));
+
+    expect(component.questRewardConfirm?.mode).toBe("socket");
+    expect(component.questRewardConfirm?.item).toBe(sword);
+    expect(component.questRewardConfirmText).toContain("socket Broad Sword");
+    expect(sword.sockets).toBeUndefined();
+
+    component.cancelQuestReward();
+    expect(component.questRewardConfirm).toBeNull();
+    expect(component.questRewardMode).toBeNull();
+    expect(sword.sockets).toBeUndefined();
+  });
+
+  it("runs the imbue only after the confirmation", () => {
+    const plate = { id: "quest-confirm", name: "Chain Mail", baseName: "Chain Mail", rarity: "normal", slot: "armor", equipmentType: "body", desc: "Mail.", stats: { defense: 40 } } as any;
+    socketQuestPack(plate);
+    component.menuPanel = "shop";
+    component.playerLevel = 22;
+    const gold = component.sanctuaryGold;
+
+    component.armQuestReward("imbue");
+    component.onInventoryItemClick(0, plate, new MouseEvent("click"));
+    expect(plate.rarity).toBe("normal");
+    expect(component.sanctuaryGold).toBe(gold);
+
+    component.confirmQuestReward();
+
+    expect(plate.rarity).toBe("rare");
+    expect(component.sanctuaryGold).toBe(gold - component.imbueCost);
+    expect(component.questRewardMode).toBeNull();
+    expect(component.questRewardConfirm).toBeNull();
+  });
+
+  it("turns the armed tool away from an item it cannot work on", () => {
+    const ring = { id: "quest-ring", name: "Ring", baseName: "Ring", rarity: "normal", slot: "charm", equipmentType: "ring", desc: "A ring." } as any;
+    socketQuestPack(ring);
+    component.menuPanel = "shop";
+
+    component.armQuestReward("imbue");
+    component.onInventoryItemClick(0, ring, new MouseEvent("click"));
+
+    expect(component.questRewardConfirm).toBeNull();
+    expect(component.questRewardMode).toBe("imbue");
+    expect(component.shopMessage).toContain("cannot be imbued");
+  });
+
+  it("greets the player in his own voice when Gheed's shop opens", () => {
+    spyOn(component as any, "stopMenuHeroPreview");
+    spyOn(component as any, "startMenuHeroPreview");
+    (component as any).menuSoundPreferred = false;
+    component.gheedSpeech = null;
+
+    component.openGheedsShop();
+
+    expect(component.menuPanel).toBe("shop");
+    expect(GHEED_VOICE_LINES.map((line) => line.text)).toContain(component.gheedSpeech!);
+
+    component.closeGheedsShop();
+    expect(component.gheedSpeech).toBeNull();
+  });
+
+  it("ships only Gheed greetings whose voice file and subtitle agree", () => {
+    expect(GHEED_VOICE_LINES.length).toBeGreaterThan(0);
+    for (const line of GHEED_VOICE_LINES) {
+      expect(line.path).toContain("/voice/gheed/");
+      expect(line.text.length).toBeGreaterThan(0);
+    }
+    expect(randomGheedVoiceLine(() => 0)).toBe(GHEED_VOICE_LINES[0]);
+    expect(randomGheedVoiceLine(() => 0.999999)).toBe(GHEED_VOICE_LINES[GHEED_VOICE_LINES.length - 1]);
   });
 
   it("lists owned castable spells and clears the assignment back to the weapon attack", () => {
@@ -2555,11 +2630,88 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const tooltip = component.hoveredStatTooltip!;
     const masteryLine = tooltip.lines.find((line) => line.label.includes("Axe Mastery rank 5"));
 
-    expect(component.inventoryAttackDamage).toBe(121);
+    // Axe Mastery rank 5 is +48% weapon damage from the guidebook table.
+    expect(component.inventoryAttackDamage).toBe(149);
     expect(masteryLine?.label).toContain("Hand Axe");
-    expect(masteryLine?.value).toBe("+20");
+    expect(masteryLine?.value).toBe("+48% damage, 21% critical strike");
     expect(tooltip.lines.find((line) => line.label === "Weapon & damage gear")?.value).toBe("+1");
-    expect(tooltip.lines.find((line) => line.total)?.value).toBe("121");
+    expect(tooltip.lines.find((line) => line.total)?.value).toBe("149");
+  });
+
+  it("follows the Combat Masteries tables for damage, attack and critical strike", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = {
+      "Blade Mastery": 20, "Axe Mastery": 5, "Polearm Mastery": 1, "Spear Mastery": 1,
+      "Throwing Mastery": 5, "Iron Skin": 3, "Increased Stamina": 5, "Increased Speed": 5,
+      "Natural Resistance": 5,
+    };
+
+    expect(component.masteryDamagePercentForRank(1)).toBe(28);
+    expect(component.masteryDamagePercentForRank(20)).toBe(123);
+    expect(component.masteryAttackPercentForRank("Axe Mastery", 20)).toBe(192);
+    // Polearms, spears and throwing weapons open at 44% instead of 40%.
+    expect(component.masteryAttackPercentForRank("Polearm Mastery", 1)).toBe(44);
+    expect(component.masteryAttackPercentForRank("Spear Mastery", 1)).toBe(44);
+    expect(component.masteryCritPercentForRank(1)).toBe(5);
+    expect(component.masteryCritPercentForRank(20)).toBe(29);
+
+    // Critical strike is the table plus a fifth of the attack bonus.
+    component.equipment.weapon = { name: "Hand Axe", baseName: "Hand Axe", slot: "weapon", stats: { damageMin: 1, damageMax: 1 } } as any;
+    component.equipment.shield = null;
+    expect(component.activeWeaponMastery).toEqual({ skill: "Axe Mastery", rank: 5 });
+    expect(component.criticalStrikeChance).toBeCloseTo(17 + 72 * 0.05);
+
+    // Daggers count for Blade Mastery after the remaster's rename.
+    component.equipment.weapon = { name: "Dagger", baseName: "Dagger", slot: "weapon", stats: { damageMin: 1, damageMax: 1 } } as any;
+    expect(component.activeWeaponMastery).toEqual({ skill: "Blade Mastery", rank: 20 });
+    expect(component.weaponMasteryDamagePercent).toBe(123);
+
+    // Iron Skin's permanent Defense feeds the same dodge roll as Shout.
+    component.equipment.weapon = null;
+    expect(component.ironSkinDefensePercent).toBe(50);
+    expect(component.combatDefenseAvoidChance).toBeCloseTo(Math.min(45, 50 * 0.18) / 100);
+  });
+
+  it("lands a mastery critical strike for double damage on a physical blow", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = { "Axe Mastery": 5 };
+    component.equipment.weapon = { name: "Hand Axe", baseName: "Hand Axe", slot: "weapon", stats: { damageMin: 1, damageMax: 1 } } as any;
+    component.equipment.shield = null;
+    component.floatingTexts = [];
+    const enemy = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0 } as any;
+
+    const random = spyOn(Math, "random").and.returnValue(0);
+    (component as any).dealMeleeDamage(enemy, 100);
+    expect(enemy.hp).toBe(800);
+    expect(component.floatingTexts.some((text) => text.text === "CRITICAL")).toBe(true);
+
+    random.and.returnValue(0.99);
+    enemy.hp = 1000;
+    component.floatingTexts = [];
+    (component as any).dealMeleeDamage(enemy, 100);
+    expect(enemy.hp).toBe(900);
+    expect(component.floatingTexts).toHaveSize(0);
+  });
+
+  it("turns the remaining masteries into life, speed and resistances", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = { "Increased Stamina": 5, "Increased Speed": 5, "Natural Resistance": 5 };
+    component.playerMaxHp = 1000;
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+
+    // 90% stamina at rank 5 becomes 9% maximum Life.
+    expect(component.increasedStaminaPercent).toBe(90);
+    expect(component.effectivePlayerMaxHp).toBe(1090);
+    // The speed table's rank-5 step.
+    expect(component.increasedSpeedPercent).toBe(28);
+    expect(component.increasedSpeedMultiplier).toBeCloseTo(1.28);
+    // Natural Resistance rank 5 is 26% to all four elemental resistances.
+    expect(component.naturalResistancePercent).toBe(26);
+    expect(component.equippedFireResistance).toBe(26);
+    expect(component.equippedColdResistance).toBe(26);
+    expect(component.equippedLightningResistance).toBe(26);
+    expect(component.equippedPoisonResistance).toBe(26);
   });
 
   it("explains that Axe Mastery does not apply to a non-axe weapon", () => {
@@ -2579,6 +2731,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.inventoryAttackDamage).toBe(101);
     expect(masteryLine?.value).toBe("No matching rank");
     expect(tooltip.lines.find((line) => line.total)?.value).toBe("101");
+  });
+
+  it("explains the Combat attributes in tooltips without the stat blocks blocking hovers", () => {
+    component.inventoryOpen = true;
+    component.playerLevel = 8;
+
+    for (const stat of ["damage", "attackRating", "defense", "stamina"] as const) {
+      component.showStatTooltip({ clientX: 10, clientY: 10 } as MouseEvent, stat);
+      const tooltip = component.hoveredStatTooltip!;
+      expect(tooltip.title).withContext(stat).not.toBe("");
+      expect(tooltip.description.length).withContext(stat).toBeGreaterThan(20);
+      expect(tooltip.lines.length).withContext(stat).toBeGreaterThan(1);
+      expect(tooltip.lines.some((line) => line.total)).withContext(stat).toBeTrue();
+    }
+
+    component.showStatTooltip({ clientX: 10, clientY: 10 } as MouseEvent, "attackRating");
+    expect(component.hoveredStatTooltip!.lines.find((line) => line.label === "Level & Dexterity")).toBeDefined();
+    component.showStatTooltip({ clientX: 10, clientY: 10 } as MouseEvent, "stamina");
+    expect(component.hoveredStatTooltip!.lines.find((line) => line.total)?.value).toBe(`${component.effectiveStamina}`);
+  });
+
+  it("opens the character sheet with C as well as I", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.inventoryOpen = false;
+
+    component.onGlobalAttackKey(new KeyboardEvent("keydown", { key: "c" }));
+    expect(component.inventoryOpen).toBeTrue();
+
+    component.onGlobalAttackKey(new KeyboardEvent("keydown", { key: "c" }));
+    expect(component.inventoryOpen).toBeFalse();
+
+    component.onGlobalAttackKey(new KeyboardEvent("keydown", { key: "i" }));
+    expect(component.inventoryOpen).toBeTrue();
   });
 
   it("shows active spell effects in the Life and Defense tooltips", () => {
@@ -2708,9 +2894,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Double Swing", enemy);
 
-    // A rank-1 Double Swing is 150 before Strength; the opening blow is 70% of
-    // that plus the main-hand sword, and the off hand is still queued.
-    expect(enemy.hp).toBeCloseTo(1000 - (150 * 0.7 + 6), 5);
+    // A rank-1 Double Swing adds its 15% and Bash's 10% to the 150 base before
+    // Strength; the opening blow is 70% of that plus the main-hand sword.
+    expect(enemy.hp).toBeCloseTo(1000 - (150 * 1.25 * 0.7 + 6), 5);
     expect((component as any).doubleSwingRemaining).toBe(1);
     expect((component as any).doubleSwingSide).toBe(1);
     expect((component as any).attackAnimationStyle).toBe("swordSlash");
@@ -2719,7 +2905,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     // The second swing lands with the off-hand axe, so both weapons hit and the
     // cast out-damages a single-hand blow.
-    expect(enemy.hp).toBeCloseTo(1000 - (150 * 0.7 + 6) - (150 * 0.7 + 4.5), 5);
+    expect(enemy.hp).toBeCloseTo(1000 - (150 * 1.25 * 0.7 + 6) - (150 * 1.25 * 0.7 + 4.5), 5);
     expect((component as any).doubleSwingRemaining).toBe(0);
     expect((component as any).attackAnimationSide).toBe(1);
     expect(component.floatingTexts).toHaveSize(2);
@@ -2877,6 +3063,344 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).leapDustEffects.length).toBeGreaterThan(0);
   });
 
+  it("places Fangskin at the Claw Viper Temple altar", () => {
+    component.currentAct = 2;
+    component.currentAreaIndex = 6;
+    component.actTime = 95;
+    component.miniBossSpawned = true;
+    component.enemies = [];
+
+    component.spawnEnemies(16);
+
+    const fangskin = component.enemies.find((enemy) => enemy.customName === "Fangskin");
+    expect(component.currentArea.name).toBe("Claw Viper Temple");
+    expect(fangskin).toBeTruthy();
+    expect(fangskin!.species).toBe("salamander");
+    expect(fangskin!.miniBoss).toBeTrue();
+    expect(fangskin!.lightningEnchanted).toBeTrue();
+    // Extra Fast: the Salamander moves well past its ordinary pace.
+    expect(fangskin!.speed).toBe(92);
+    expect(component.getEnemyDisplayName(fangskin!)).toBe("Fangskin");
+  });
+
+  it("leaves Fangskin out of Act II's other areas", () => {
+    component.currentAct = 2;
+    component.currentAreaIndex = 5;
+    component.actTime = 95;
+    component.miniBossSpawned = true;
+    component.enemies = [];
+
+    component.spawnEnemies(16);
+
+    expect(component.currentArea.name).toBe("Valley of Snakes");
+    expect(component.enemies.some((enemy) => enemy.customName === "Fangskin")).toBeFalse();
+  });
+
+  it("sprays charged bolts from Fangskin whenever he is struck", () => {
+    component.currentAct = 2;
+    component.runTime = 10;
+    component.enemies = [];
+    component.attackProjectiles = [];
+    const fangskin = (component as any).makeMiniBoss({
+      name: "Fangskin", species: "salamander", time: 94, announcement: "", color: "#fff",
+      health: 130, damage: 6, radius: 24, speed: 92, lightningEnchanted: true,
+    });
+    fangskin.x = 200;
+    fangskin.y = 200;
+    component.enemies.push(fangskin);
+
+    (component as any).maybeReleaseLightningEnchanted(fangskin);
+    expect(component.attackProjectiles.length).toBe(8);
+    expect(component.attackProjectiles.every((bolt) => bolt.kind === "lightning" && bolt.targetPlayer)).toBeTrue();
+
+    // A fast weapon cannot fire the volley again inside its cooldown.
+    (component as any).maybeReleaseLightningEnchanted(fangskin);
+    expect(component.attackProjectiles.length).toBe(8);
+  });
+
+  it("casts the right-hand spell at the bare ground the player clicked", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.selectedClass = "sorceress";
+    component.ownedSkills = ["Ice Bolt"];
+    component.skillLevels = { "Ice Bolt": 1 };
+    component.secondaryAttackSpell = "Ice Bolt";
+    component.playerMana = 100;
+    component.playerX = 250;
+    component.playerY = 250;
+    // A monster elsewhere on the map must not steal the spell from the click.
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 150, y: 150,
+      hp: 100, maxHp: 100, speed: 90, r: 14, dmg: 2,
+    } as any];
+    const canvas = document.createElement("canvas");
+    canvas.width = 500;
+    canvas.height = 500;
+    canvas.className = "d2s-arena";
+    Object.defineProperty(canvas, "clientWidth", { value: 500 });
+    Object.defineProperty(canvas, "clientHeight", { value: 500 });
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 500 } as any);
+    (component as any).arenaRef = { nativeElement: canvas };
+    (component as any).projectArenaPoint(0, 0);
+    const world = (component as any).arenaWorldPointAt(360, 260);
+    expect(world).toBeTruthy();
+    const event = {
+      pointerType: "mouse", button: 2, clientX: 360, clientY: 260,
+      target: canvas, pointerId: 1, shiftKey: false,
+      preventDefault: () => undefined,
+    } as any;
+
+    component.onArenaPointerDown(event);
+
+    expect(component.attackProjectiles.length).toBe(1);
+    const missile = component.attackProjectiles[0];
+    expect(missile.targetX).toBeCloseTo(world!.x, 1);
+    expect(missile.targetY).toBeCloseTo(world!.y, 1);
+    // The press is spent: the context menu that follows must not cast again.
+    component.onArenaContextMenu(event as any);
+    expect(component.attackProjectiles.length).toBe(1);
+  });
+
+  it("leaps a barbarian to bare ground on a right click", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Leap"];
+    component.skillLevels = { Leap: 1 };
+    component.secondaryAttackSpell = "Leap";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [];
+    const canvas = document.createElement("canvas");
+    canvas.width = 500;
+    canvas.height = 500;
+    canvas.className = "d2s-arena";
+    Object.defineProperty(canvas, "clientWidth", { value: 500 });
+    Object.defineProperty(canvas, "clientHeight", { value: 500 });
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 500 } as any);
+    (component as any).arenaRef = { nativeElement: canvas };
+
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 2, clientX: 330, clientY: 300,
+      target: canvas, pointerId: 1, shiftKey: false,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect((component as any).playerLeapRemaining).toBeGreaterThan(0);
+    expect((component as any).playerLeapDistance).toBeGreaterThan(0);
+  });
+
+  it("casts the left-hand spell at bare ground on a shift click", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.selectedClass = "sorceress";
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    component.basicAttackSpell = "Fire Bolt";
+    component.playerMana = 100;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 150, y: 150,
+      hp: 100, maxHp: 100, speed: 90, r: 14, dmg: 2,
+    } as any];
+    const canvas = document.createElement("canvas");
+    canvas.width = 500;
+    canvas.height = 500;
+    canvas.className = "d2s-arena";
+    Object.defineProperty(canvas, "clientWidth", { value: 500 });
+    Object.defineProperty(canvas, "clientHeight", { value: 500 });
+    canvas.getBoundingClientRect = () => ({ left: 0, top: 0, width: 500, height: 500 } as any);
+    (component as any).arenaRef = { nativeElement: canvas };
+    (component as any).projectArenaPoint(0, 0);
+    const world = (component as any).arenaWorldPointAt(340, 280);
+    expect(world).toBeTruthy();
+
+    component.onArenaPointerDown({
+      pointerType: "mouse", button: 0, clientX: 340, clientY: 280,
+      target: canvas, pointerId: 1, shiftKey: true,
+      preventDefault: () => undefined,
+    } as any);
+
+    expect(component.attackProjectiles.length).toBe(1);
+    const missile = component.attackProjectiles[0];
+    expect(missile.targetX).toBeCloseTo(world!.x, 1);
+    expect(missile.targetY).toBeCloseTo(world!.y, 1);
+  });
+
+  it("lifts the darkness over a warcry ring instead of glowing over monsters", () => {
+    const stops: string[] = [];
+    const gradient = { addColorStop: (_offset: number, color: string) => stops.push(color) };
+    const created: unknown[] = [];
+    const fill = jasmine.createSpy("fill");
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      globalCompositeOperation: "source-over",
+      createRadialGradient: () => { created.push(gradient); return gradient; },
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill,
+      fillStyle: null,
+    } as any;
+    (component as any).warcryAuraEffects.length = 0;
+    (component as any).warcryAuraEffects.push({ skill: "War Cry", x: 250, y: 250, time: 0.2 });
+
+    (component as any).liftDarknessForWarcryRings(ctx);
+
+    // The hole is cut out of the darkness layer, not painted over the sprites.
+    expect(ctx.globalCompositeOperation).toBe("destination-out");
+    expect(created.length).toBe(1);
+    expect(stops.length).toBe(4);
+    expect(fill).toHaveBeenCalled();
+  });
+
+  it("leaves the darkness alone when no warcry ring is up", () => {
+    const create = jasmine.createSpy("createRadialGradient");
+    const ctx = {
+      save: () => undefined,
+      restore: () => undefined,
+      globalCompositeOperation: "source-over",
+      createRadialGradient: create,
+      beginPath: () => undefined,
+      arc: () => undefined,
+      fill: () => undefined,
+      fillStyle: null,
+    } as any;
+    (component as any).warcryAuraEffects.length = 0;
+
+    (component as any).liftDarknessForWarcryRings(ctx);
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("keeps the leap's animation lock through a click order", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    (component as any).playerLeapRemaining = 0.4;
+    (component as any).playerAttackLockRemaining = 0.4;
+    (component as any).attackAnimationLockRemaining = 0.4;
+    (component as any).clickMoveTarget = { x: 400, y: 400, hp: 10, r: 14, species: "fallen" } as any;
+
+    (component as any).cancelAttackAnimation();
+
+    expect((component as any).playerAttackLockRemaining).toBeCloseTo(0.4, 5);
+    expect((component as any).attackAnimationLockRemaining).toBeCloseTo(0.4, 5);
+  });
+
+  it("ignores movement input while the barbarian is airborne", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).isPlayerMoving = false;
+    (component as any).playerLeapRemaining = 0.4;
+    (component as any).playerLeapDuration = 0.6;
+    (component as any).keysDown.add("w");
+
+    component.movePlayer(16);
+
+    expect((component as any).isPlayerMoving).toBeFalse();
+    expect((component as any).playerMoveX).toBe(0);
+    expect((component as any).playerMoveY).toBe(0);
+    (component as any).keysDown.clear();
+  });
+
+  it("holds every cast and swing until the leap lands", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    (component as any).playerLeapRemaining = 0.4;
+    const spell = spyOn(component as any, "tryBasicAttackSpell");
+
+    expect((component as any).tryAttackSlotSpell("secondary")).toBeFalse();
+    component.attackNearestEnemy();
+
+    expect(spell).not.toHaveBeenCalled();
+  });
+
+  it("leaps the whole distance to a clicked monster, past its rank range", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Leap"];
+    component.skillLevels = { Leap: 1 };
+    component.playerX = 100;
+    component.playerY = 100;
+    const far = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 900, y: 100,
+      hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [far];
+
+    (component as any).startLeap(undefined, far);
+
+    const rankRange = (component as any).leapRangeForRank(1);
+    expect(rankRange).toBeLessThan(700);
+    // A named monster is a deliberate leap order: the barbarian crosses the
+    // whole distance instead of the rank's reach.
+    expect((component as any).playerLeapDistance).toBeCloseTo(900 - 100 - (14 + 16), 5);
+  });
+
+  it("walks a held right-click order into melee range instead of casting at floor", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.basicAttackSpell = null;
+    component.secondaryAttackSpell = null;
+    const far = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 600, y: 100,
+      hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [far];
+    (component as any).heldAttackTarget = { enemy: far, hand: "secondary" };
+
+    (component as any).updateBasicAttack();
+
+    expect((component as any).clickMoveTarget).toBe(far);
+    expect(component.attackProjectiles).toHaveSize(0);
+  });
+
+  it("casts the held right hand's spell at the monster it named", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.secondaryAttackSpell = "Ice Bolt";
+    const near = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 220, y: 100,
+      hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [near];
+    (component as any).heldAttackTarget = { enemy: near, hand: "secondary" };
+    spyOn(component as any, "heldAttackReach").and.returnValue(Number.POSITIVE_INFINITY);
+    const cast = spyOn(component as any, "tryAttackSlotSpell").and.returnValue(true);
+
+    (component as any).updateBasicAttack();
+
+    expect(cast).toHaveBeenCalledWith("secondary", near);
+  });
+
+  it("suppresses every other automatic cast while an attack order is held", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 120, y: 100, hp: 10, maxHp: 10, r: 14, dmg: 1 } as any;
+    component.enemies = [near];
+    (component as any).heldAttackTarget = { enemy: near, hand: "basic" };
+    const cast = spyOn(component as any, "activateOwnedSkill");
+
+    (component as any).updateAutomaticSkillCasts(16);
+
+    expect(cast).not.toHaveBeenCalled();
+  });
+
+  it("drops a held attack order when the mouse button comes up", () => {
+    const near = { kind: "normal", species: "fallen", x: 120, y: 100, hp: 10, r: 14 } as any;
+    (component as any).heldAttackTarget = { enemy: near, hand: "basic" };
+
+    component.onArenaPointerEnd({ pointerType: "mouse", buttons: 0, pointerId: 9 } as any);
+
+    expect((component as any).heldAttackTarget).toBeNull();
+  });
+
   it("leaps to a clicked floor spot beyond a monster", () => {
     component.selectedClass = "barbarian";
     component.playerX = 250;
@@ -3017,8 +3541,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillLevels = { Zeal: 1 };
     component.floatingTexts = [];
     component.activateOwnedSkill("Zeal");
+    // The guidebook starts Zeal at two swings, not one.
     for (let beat = 0; beat < 4; beat += 1) (component as any).updateZealStrikes(160);
-    expect(component.floatingTexts.length).toBe(1);
+    expect(component.floatingTexts.length).toBe(2);
     expect((component as any).getSkillRankStats("Zeal", "strike", 5)).toContain("5 rapid melee strikes per cast");
   });
 
@@ -3088,6 +3613,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(second.hp).toBe(1000);
     (component as any).updateZealStrikes(160);
     expect(second.hp).toBeLessThan(1000);
+    // Rank 4 is five swings: one more remains after the first blow on the new target.
+    expect((component as any).zealStrikeRemaining).toBe(1);
+    (component as any).updateZealStrikes(160);
     expect((component as any).zealStrikeRemaining).toBe(0);
   });
 
@@ -3147,7 +3675,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const damage = 1000 - target.hp;
     expect(damage).toBeGreaterThan(0);
     expect(component.playerHp).toBeCloseTo(500 + damage * 0.1, 5);
-    expect(component.playerMana).toBeCloseTo(100 + damage * 0.05, 5);
+    // The swing itself costs Smite's 5 mana, and the leech is paid back on top.
+    expect(component.playerMana).toBeCloseTo(100 - 5 + damage * 0.05, 5);
   });
 
   it("does not leech life or mana from ranged spells", () => {
@@ -3176,7 +3705,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(target.hp).toBeLessThan(1000);
     expect(component.playerHp).toBe(500);
-    expect(component.playerMana).toBe(100);
+    // Ranged spells never leech, but the 25-mana cast still leaves the orb.
+    expect(component.playerMana).toBe(100 - 25);
   });
 
   it("makes Nihlathak teleport out of melee pressure instead of swinging back", () => {
@@ -3327,36 +3857,39 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.keysDown.delete("d");
   });
 
-  it("splits Vengeance into four damage types so single immunities do not stop it", () => {
+  it("adds fire, cold and lightning on top of the Vengeance blow", () => {
     component.selectedClass = "paladin";
     component.runActive = true;
     component.playerX = 250;
     component.playerY = 250;
     component.ownedSkills = ["Vengeance"];
     component.skillLevels = { Vengeance: 1 };
-    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
     component.enemies = [target];
     component.floatingTexts = [];
 
+    // The physical blow still lands, and each element adds 70% of it at rank 1.
+    target.hp = 1000;
     component.activateOwnedSkill("Vengeance");
     const fullDamage = 1000 - target.hp;
     expect(fullDamage).toBeGreaterThan(0);
 
-    // One immunity removes only that element's quarter of the strike.
     target.hp = 1000;
     target.immunities = ["fire"];
     component.floatingTexts = [];
     component.activateOwnedSkill("Vengeance");
-    expect(1000 - target.hp).toBeCloseTo(fullDamage * 0.75, 5);
+    const fireImmune = 1000 - target.hp;
+    expect(fireImmune).toBeGreaterThan(0);
+    expect(fireImmune).toBeLessThan(fullDamage);
 
+    // Immunity to all three elements cannot stop the physical part.
     target.hp = 1000;
-    target.immunities = ["fire", "cold", "lightning", "magic"];
+    target.immunities = ["fire", "cold", "lightning"];
     component.floatingTexts = [];
     component.activateOwnedSkill("Vengeance");
-    expect(target.hp).toBe(1000);
-    expect(component.floatingTexts.length).toBe(0);
+    expect(1000 - target.hp).toBeGreaterThan(0);
     expect((component as any).getSkillRankStats("Vengeance", "strike", 1))
-      .toContain("Damage split evenly across fire, cold, lightning and magic");
+      .toContain("+70% fire, cold and lightning damage added to the blow");
   });
 
   it("spawns an animated Blessed Hammer that spirals out and strikes what it passes", () => {
@@ -3723,6 +4256,324 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(near.fearRemaining).toBeCloseTo(3.2);
   });
 
+  it("gives every barbarian warcry its own ring and a recorded shout", () => {
+    component.selectedClass = "barbarian";
+    component.playerX = 300;
+    component.playerY = 200;
+    const warcries = Object.keys(BARBARIAN_WARCRY_AURA_ART);
+    const voice = spyOn<any>(component as any, "playWarcryVoice");
+
+    for (const skill of warcries) {
+      component.ownedSkills = [skill];
+      component.skillLevels = { [skill]: 1 };
+      (component as any).warcryAuraEffects.length = 0;
+
+      component.activateOwnedSkill(skill);
+
+      expect((component as any).warcryAuraEffects)
+        .withContext(`${skill} should raise its ring on the hero`)
+        .toEqual([jasmine.objectContaining({ skill, x: 300, y: 200, time: 0 })]);
+      expect(voice).toHaveBeenCalledWith(skill);
+      expect(WARCRY_VOICE_LINES[skill]?.length ?? 0)
+        .withContext(`${skill} should have a recorded shout`)
+        .toBeGreaterThan(0);
+      expect(BARBARIAN_WARCRY_AURA_ART[skill].columns)
+        .withContext(`${skill} should have an animation`)
+        .toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps Shout's Defense bonus and its synergy duration from the D2 table", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Shout"];
+    component.skillLevels = { Shout: 1, "Battle Orders": 4, "Battle Command": 2 };
+    (component as any).shoutRemaining = 0;
+    component.activateOwnedSkill("Shout");
+
+    // 30s base + 5s per rank of Battle Orders (4) and Battle Command (2).
+    expect((component as any).shoutRemaining).toBeCloseTo(60);
+    expect((component as any).shoutDefensePercentForRank(1)).toBe(100);
+    expect((component as any).shoutDefensePercentForRank(5)).toBe(140);
+    // 100% Defense avoids 18% of the hits that land.
+    expect(component.shoutAvoidChance).toBeCloseTo(0.18);
+    expect(component.activeWarcryBuffs.map((buff) => buff.name)).toEqual(["Shout"]);
+  });
+
+  it("keeps the Battle Orders orbs at the same percentage when the maximum rises", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Battle Orders"];
+    component.skillLevels = { "Battle Orders": 1 };
+    component.playerMaxHp = 400;
+    component.playerMaxMana = 100;
+    component.playerHp = 200;
+    component.playerMana = 50;
+    (component as any).battleOrdersRemaining = 0;
+
+    component.activateOwnedSkill("Battle Orders");
+
+    expect(component.effectivePlayerMaxHp).toBe(540);
+    expect(component.playerHp).toBeCloseTo(270);
+    expect(component.effectivePlayerMaxMana).toBe(135);
+    // The shout costs its 12 mana before the orbs grow, so 38/100 stays 38%.
+    expect(component.playerMana).toBeCloseTo(38 / 100 * 135, 5);
+  });
+
+  it("gives every owned skill +1 while Battle Command runs and restores them after", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Battle Command", "Shout", "Howl"];
+    component.skillLevels = { "Battle Command": 1, Shout: 2, Howl: 3 };
+    (component as any).battleCommandRemaining = 0;
+
+    component.activateOwnedSkill("Battle Command");
+    expect(component.skillLevels["Shout"]).toBe(3);
+    expect(component.skillLevels["Howl"]).toBe(4);
+
+    // Recasting while it runs adds its own rank to the duration synergy.
+    const firstCast = (component as any).battleCommandRemaining;
+    (component as any).battleCommandRemaining = 1;
+    component.activateOwnedSkill("Battle Command");
+    expect((component as any).battleCommandRemaining).toBeGreaterThan(firstCast);
+
+    (component as any).updateWarcryBuffs(999);
+    expect(component.skillLevels["Shout"]).toBe(2);
+    expect(component.skillLevels["Howl"]).toBe(3);
+  });
+
+  it("makes War Cry damage and stun the pack around the barbarian", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["War Cry"];
+    component.skillLevels = { "War Cry": 1, Howl: 2, Taunt: 1, "Battle Cry": 1 };
+    component.playerX = 250;
+    component.playerY = 250;
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 400, maxHp: 400, speed: 100, r: 14, dmg: 2 } as any;
+    const far = { ...near, x: 700, hp: 400, maxHp: 400 };
+    component.enemies = [near, far];
+
+    component.activateOwnedSkill("War Cry");
+
+    // 20-30 base damage plus 6% a rank from Howl, Taunt and Battle Cry.
+    const expected = (25 + 4 * 0.06) * (1 + 4 * 0.06);
+    expect((component as any).pendingDamage.get(near)?.damage ?? 0).toBeGreaterThan(expected * 0.9);
+    expect(near.stunRemaining).toBeCloseTo(1);
+    expect(far.stunRemaining).toBeUndefined();
+    expect(far.hp).toBe(400);
+  });
+
+  it("plants Grim Ward only on a corpse, then slows and exposes what stands in it", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Grim Ward"];
+    component.skillLevels = { "Grim Ward": 1 };
+    component.playerX = 250;
+    component.playerY = 250;
+    (component as any).warcryCorpses.length = 0;
+    (component as any).grimWards.length = 0;
+
+    component.activateOwnedSkill("Grim Ward");
+    expect((component as any).grimWards.length).toBe(0);
+
+    (component as any).recordWarcryCorpse({ x: 300, y: 250 });
+    component.activateOwnedSkill("Grim Ward");
+    const ward = (component as any).grimWards[0];
+    expect(ward).toEqual(jasmine.objectContaining({ x: 300, y: 250 }));
+    expect(ward.remaining).toBeCloseTo(40);
+    expect((component as any).warcryCorpses.length).toBe(0);
+
+    const inside = { kind: "normal", species: "fallen", spriteFrame: 0, x: 320, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    component.enemies = [inside];
+    (component as any).updateGrimWards(0.1);
+    expect(inside.wardSlowPercent).toBeCloseTo(11);
+    expect(inside.wardVulnerableRemaining).toBeGreaterThan(0);
+    expect((component as any).enemyWardSlowPercent(inside)).toBeCloseTo(11);
+    expect((component as any).enemyResistanceMultiplier(inside, "physical")).toBeCloseTo(1.2);
+
+    (component as any).updateGrimWards(41);
+    expect((component as any).grimWards.length).toBe(0);
+  });
+
+  it("reads the combat skill tables for damage, stun and synergies", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = {
+      "Double Swing": 5, Bash: 2, "Double Throw": 3, Stun: 3, "War Cry": 4,
+      "Leap Attack": 2, Leap: 3, Concentrate: 2, "Battle Orders": 1,
+      Frenzy: 2, Taunt: 1, Howl: 2, Whirlwind: 1, Berserk: 2,
+    };
+
+    // Double Swing: +15% +5%/rank, plus Bash's +10%/rank.
+    expect((component as any).barbarianCombatDamageMultiplier("Double Swing", 5)).toBeCloseTo(1.55);
+    // Double Throw: +16% +8%/rank, plus Double Swing's +8%/rank (five ranks).
+    expect((component as any).barbarianCombatDamageMultiplier("Double Throw", 3)).toBeCloseTo(1.72);
+    // Stun: +15% +5%/rank, plus Bash's +8%/rank.
+    expect((component as any).barbarianCombatDamageMultiplier("Stun", 3)).toBeCloseTo(1.41);
+    // Leap Attack: +200% +30%/rank, plus Leap's +10%/rank.
+    expect((component as any).barbarianCombatDamageMultiplier("Leap Attack", 2)).toBeCloseTo(3.6);
+    // Concentrate: +70% +5%/rank, Bash +5%, Battle Orders +10%.
+    expect((component as any).barbarianCombatDamageMultiplier("Concentrate", 2)).toBeCloseTo(1.95);
+    // Frenzy: +90% +5%/rank, Double Swing +8% a rank (none here), Taunt +8%.
+    expect((component as any).barbarianCombatDamageMultiplier("Frenzy", 2)).toBeCloseTo(2.43);
+    // Whirlwind starts at -50% and gains 8% a rank.
+    expect((component as any).barbarianCombatDamageMultiplier("Whirlwind", 1)).toBeCloseTo(0.5);
+    expect((component as any).barbarianCombatDamageMultiplier("Whirlwind", 8)).toBeCloseTo(1.06);
+    // Berserk: +150% +15%/rank, Howl and Battle Orders +10% a rank each.
+    expect((component as any).barbarianCombatDamageMultiplier("Berserk", 2)).toBeCloseTo(2.95);
+
+    // 1.2s at rank 1, +0.2s a rank, +5% a rank of War Cry.
+    expect((component as any).stunSecondsForRank(3)).toBeCloseTo(1.92);
+  });
+
+  it("builds Frenzy charges that quicken the barbarian and then fall away", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = { Frenzy: 5, "Increased Stamina": 2 };
+    component.ownedSkills = ["Frenzy"];
+    (component as any).frenzyStacks = 0;
+    (component as any).frenzyRemaining = 0;
+
+    expect((component as any).frenzyMaxStacks).toBe(3);
+    expect((component as any).frenzyDurationSeconds).toBeCloseTo(6.8);
+
+    const baseAttackSpeed = component.playerAttackSpeedMultiplier;
+    for (let hit = 0; hit < 5; hit += 1) (component as any).addFrenzyCharge();
+    expect((component as any).frenzyStacks).toBe(3);
+    expect(component.playerAttackSpeedMultiplier).toBeCloseTo(baseAttackSpeed + 0.21);
+    expect((component as any).frenzyMoveMultiplier).toBeCloseTo(1.3);
+
+    (component as any).updateBarbarianCombatState(7);
+    expect((component as any).frenzyStacks).toBe(0);
+    expect(component.playerAttackSpeedMultiplier).toBeCloseTo(baseAttackSpeed);
+  });
+
+  it("hangs the Berserk sigil above the head for as long as the Defense is gone", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const canvas = {
+      width: 900, height: 900,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 900, height: 900 }),
+    } as any;
+    (component as any).arenaRef = { nativeElement: canvas };
+    (component as any).projectionWidth = 900;
+    (component as any).projectionCenterX = 450;
+    (component as any).projectionCenterY = 450;
+    (component as any).projectionDpr = 1;
+    (component as any).worldZoom = 2.1;
+    (component as any).berserkRemaining = 0;
+
+    expect((component as any).berserkStateIconPlacement()).toBeNull();
+
+    (component as any).berserkRemaining = 3;
+    const placement = (component as any).berserkStateIconPlacement() as { x: number; y: number; size: number };
+    const ground = (component as any).projectArenaPoint(250, 250);
+    const heroHeight = (component as any).playerScreenHeight();
+
+    expect(placement).not.toBeNull();
+    // The swirl, not its mostly empty cell, is what hangs over the head.
+    const swirlCenterX = placement.x + placement.size * 0.49;
+    // The cell's top sits 0.34 of its size above the head line; the swirl's own
+    // centroid is 0.20 into the cell, which leaves its halo clear of the head.
+    const swirlCenterY = placement.y + placement.size * 0.2;
+    // The halo's lower edge still clears the head, so the sigil floats over it.
+    expect(swirlCenterY + placement.size * 0.14).toBeLessThanOrEqual(ground.y - heroHeight + 1);
+    expect(swirlCenterX).toBeCloseTo(ground.x, 5);
+    expect(swirlCenterY).toBeLessThan(ground.y - heroHeight);
+    expect(swirlCenterY).toBeGreaterThan(ground.y - heroHeight - placement.size * 0.4);
+    expect(placement.size).toBeGreaterThan(heroHeight);
+
+    // The sigil belongs to the exposed window, so it goes when the rage ends.
+    (component as any).berserkRemaining = 0;
+    expect((component as any).berserkStateIconPlacement()).toBeNull();
+  });
+
+  it("raises Defense with Concentrate and lets Berserk throw it away", () => {
+    component.selectedClass = "barbarian";
+    component.skillLevels = { Concentrate: 3, Shout: 3, Berserk: 1 };
+    (component as any).shoutRemaining = 0;
+    (component as any).concentrateDefenseRemaining = 0;
+    (component as any).berserkRemaining = 0;
+
+    (component as any).concentrateDefenseRemaining = 3;
+    expect(component.concentrateDefensePercent).toBe(120);
+    // 120% Defense avoids 21.6% of hits, under the 45% cap.
+    expect(component.combatDefenseAvoidChance).toBeCloseTo(0.216);
+
+    component.playerHp = component.effectivePlayerMaxHp;
+    (component as any).applyIncomingDamage(100);
+    const guardedLoss = component.effectivePlayerMaxHp - component.playerHp;
+
+    (component as any).berserkRemaining = 2.7;
+    component.playerHp = component.effectivePlayerMaxHp;
+    (component as any).applyIncomingDamage(100);
+    const exposedLoss = component.effectivePlayerMaxHp - component.playerHp;
+    // Berserk's exposure adds 30% damage taken on top of the lost Dodge.
+    expect(exposedLoss).toBeCloseTo(guardedLoss * 1.3, 5);
+  });
+
+  it("spins Whirlwind through every monster in reach without full-rank damage", () => {
+    component.selectedClass = "barbarian";
+    component.ownedSkills = ["Whirlwind"];
+    component.skillLevels = { Whirlwind: 1 };
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.playerMaxMana = 500;
+    component.runActive = true;
+    component.equipment.weapon = {
+      name: "Short Sword", baseName: "Short Sword", slot: "weapon",
+      stats: { damageMin: 4, damageMax: 8 },
+    } as any;
+    (component as any).whirlwindOverlayRemaining = 0;
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 900, maxHp: 900, speed: 100, r: 14, dmg: 2 } as any;
+    const behind = { ...near, x: 250, y: 320, hp: 900, maxHp: 900 };
+    const far = { ...near, x: 700, hp: 900, maxHp: 900 };
+    component.enemies = [near, behind, far];
+
+    component.activateOwnedSkill("Whirlwind");
+
+    // The rank-one table cuts at half a normal blow, but it hits both sides.
+    expect((component as any).pendingDamage.get(near)?.damage ?? 0).toBeGreaterThan(0);
+    expect((component as any).pendingDamage.get(behind)?.damage ?? 0).toBeGreaterThan(0);
+    expect((component as any).pendingDamage.get(far)).toBeUndefined();
+    expect((component as any).whirlwindOverlayRemaining).toBeGreaterThan(0);
+  });
+
+  it("remembers the main-menu sound toggle for the next tab", () => {
+    try {
+      window.localStorage.removeItem("d2survivors.menu-sound.v1");
+      (component as any).menuSoundPreferred = true;
+      (component as any).ambientAudioEnabled = true;
+      component.toggleAmbientAudio();
+      expect(window.localStorage.getItem("d2survivors.menu-sound.v1")).toBe("off");
+
+      // A fresh tab starts from the stored value instead of the default.
+      (component as any).menuSoundPreferred = true;
+      (component as any).loadMenuSoundPreference();
+      expect((component as any).menuSoundPreferred).toBeFalse();
+
+      (component as any).ambientAudioEnabled = false;
+      (component as any).toggleAmbientAudio();
+      expect(window.localStorage.getItem("d2survivors.menu-sound.v1")).toBe("on");
+      expect((component as any).menuSoundPreferred).toBeTrue();
+    } finally {
+      window.localStorage.removeItem("d2survivors.menu-sound.v1");
+    }
+  });
+
+  it("plays a warcry shout only while game audio is enabled", () => {
+    const play = jasmine.createSpy("play").and.returnValue(Promise.resolve());
+    const realAudio = (window as any).Audio;
+    (window as any).Audio = function AudioMock() { return { play, pause: () => undefined, src: "", volume: 1 }; };
+    try {
+      (component as any).menuSoundPreferred = true;
+      (component as any).playWarcryVoice("Shout");
+      expect(play).toHaveBeenCalled();
+      const calls = play.calls.count();
+      (component as any).menuSoundPreferred = false;
+      (component as any).playWarcryVoice("Shout");
+      expect(play.calls.count()).toBe(calls);
+    } finally {
+      (window as any).Audio = realAudio;
+    }
+  });
+
   it("makes feared enemies run away and prevents their attacks", () => {
     component.playerX = 250;
     component.playerY = 250;
@@ -3782,6 +4633,150 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemy.animationState).toBe("move");
   });
 
+  it("has a fetish shaman breathe Inferno on a hero who closes to melee range", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 500;
+    (component as any).playerLeapRemaining = 0;
+    const shaman = {
+      kind: "normal", species: "fetishShaman", spriteFrame: 0, x: 300, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 18, dmg: 10, cd: 0,
+    } as any;
+    component.enemies = [shaman];
+    component.attackProjectiles = [];
+    (component as any).skillVisualEffects.length = 0;
+
+    component.updateEnemies(16);
+
+    const breath = (component as any).skillVisualEffects.find((effect: any) => effect.inferno && effect.playerConeDamage);
+    expect(breath).toBeDefined();
+    expect(breath!.coneRange).toBe(96);
+    expect(breath!.sourceEnemy).toBe(shaman);
+    // In the hero's face the shaman breathes instead of throwing a fireball.
+    expect(component.attackProjectiles.length).toBe(0);
+    expect(shaman.animationState).toBe("attack");
+    expect(shaman.cd).toBeGreaterThan(0);
+
+    const hpBefore = component.playerHp;
+    (component as any).updateSkillVisualEffects(220);
+    expect(component.playerHp).toBeLessThan(hpBefore);
+
+    // Stepping out of the cone stops the burn even while the breath lasts.
+    const hpOutside = component.playerHp;
+    component.playerY = 250 + 400;
+    (component as any).updateSkillVisualEffects(220);
+    expect(component.playerHp).toBe(hpOutside);
+
+    // Out past the flame's trigger the shaman is back to its fireball.
+    component.playerY = 150;
+    (component as any).skillVisualEffects.length = 0;
+    shaman.cd = 0;
+    shaman.attackAnimationTime = 0;
+    component.updateEnemies(16);
+    expect(component.attackProjectiles.some((projectile) => projectile.source === shaman)).toBeTrue();
+  });
+
+  it("draws belt potions with the imported D2 potion cels", () => {
+    // The red Healing Potion and the purple Rejuvenation Potion cels the pack
+    // uses, straight from the extract's invrps/invvps art.
+    expect(component.beltPotionArt("health")).toBe("assets/d2survivors/items/d2/invrps.png");
+    expect(component.beltPotionArt("rejuvenation")).toBe("assets/d2survivors/items/d2/invvps.png");
+  });
+
+  it("swaps a barbarian's two worn weapons by dragging one hand onto the other", () => {
+    const mainHand = {
+      id: "main-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal",
+      slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+      stats: { damageMin: 2, damageMax: 5 }, desc: "A short sword.", affixes: [],
+    } as any;
+    const offHand = { ...mainHand, id: "off-sword", name: "Sabre", baseName: "Sabre" };
+    component.selectedClass = "barbarian";
+    component.playerLevel = 10;
+    component.equipment.weapon = mainHand;
+    component.equipment.shield = offHand;
+    spyOn(component as any, "persistRunProgress");
+    const event = { preventDefault: () => undefined } as any;
+
+    component.startEquipmentDrag("weapon", event);
+    component.onEquipmentDrop("shield", event);
+
+    // Both hands trade in place: nothing passes through the pack.
+    expect(component.equipment.shield?.id).toBe("main-sword");
+    expect(component.equipment.weapon?.id).toBe("off-sword");
+    expect(component.inventoryStatus).toContain("swapped");
+  });
+
+  it("swaps the two ring slots by dragging one ring onto the other", () => {
+    const leftRing = {
+      id: "left-ring", name: "Ring", baseName: "Ring", rarity: "magic",
+      slot: "ring", equipmentType: "ring", requiredLevel: 1, affixes: [], desc: "A ring.",
+    } as any;
+    const rightRing = { ...leftRing, id: "right-ring", name: "Ring of Might" };
+    component.selectedClass = "paladin";
+    component.playerLevel = 10;
+    component.equipment.ringLeft = leftRing;
+    component.equipment.ringRight = rightRing;
+    spyOn(component as any, "persistRunProgress");
+    const event = { preventDefault: () => undefined } as any;
+
+    component.startEquipmentDrag("ringLeft", event);
+    component.onEquipmentDrop("ringRight", event);
+
+    expect(component.equipment.ringLeft?.id).toBe("right-ring");
+    expect(component.equipment.ringRight?.id).toBe("left-ring");
+  });
+
+  it("refuses an equipment drag when the target slot cannot wear the item", () => {
+    const sword = {
+      id: "paladin-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal",
+      slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+      stats: { damageMin: 2, damageMax: 5 }, desc: "A short sword.", affixes: [],
+    } as any;
+    const shield = {
+      id: "targe", name: "Targe", baseName: "Targe", rarity: "normal",
+      slot: "armor", equipmentType: "paladinShield", requiredLevel: 1,
+      stats: { armor: 8 }, desc: "A paladin shield.", affixes: [],
+    } as any;
+    component.selectedClass = "paladin";
+    component.playerLevel = 10;
+    component.equipment.weapon = sword;
+    component.equipment.shield = shield;
+    spyOn(component as any, "persistRunProgress");
+    const event = { preventDefault: () => undefined } as any;
+
+    component.startEquipmentDrag("weapon", event);
+    component.onEquipmentDrop("shield", event);
+
+    expect(component.equipment.weapon?.id).toBe("paladin-sword");
+    expect(component.equipment.shield?.id).toBe("targe");
+    expect(component.inventoryStatus).toContain("cannot go in the");
+  });
+
+  it("moves a worn weapon into an empty off hand without using the pack", () => {
+    const sword = {
+      id: "spare-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal",
+      slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+      stats: { damageMin: 2, damageMax: 5 }, desc: "A short sword.", affixes: [],
+    } as any;
+    component.selectedClass = "barbarian";
+    component.playerLevel = 10;
+    component.equipment.weapon = sword;
+    component.equipment.shield = null;
+    component.inventory = Array.from({ length: 40 }, () => null);
+    spyOn(component as any, "persistRunProgress");
+    const event = { preventDefault: () => undefined } as any;
+
+    component.startEquipmentDrag("weapon", event);
+    component.onEquipmentDrop("shield", event);
+
+    expect(component.equipment.weapon).toBeNull();
+    expect((component.equipment.shield as any)?.id).toBe("spare-sword");
+    // The pack stayed empty: the weapon never left the paperdoll.
+    expect(component.inventory.filter(Boolean).length).toBe(0);
+  });
+
   it("stuns the nearest enemy when Telekinesis is cast", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
@@ -3797,8 +4792,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(near.stunRemaining).toBeCloseTo(1.2);
     expect(far.stunRemaining).toBeUndefined();
-    expect((component as any).getSkillRankStats("Telekinesis", "strike", 1)).toContain("Pickup reach: +40%");
-    expect((component as any).getSkillRankStats("Telekinesis", "strike", 1)).toContain("Stun duration: 1.2s");
+    expect((component as any).getSkillRankStats("Telekinesis", "strike", 1))
+      .toContain("Stun 1.2s, pickup reach +40%");
+    expect((component as any).getSkillRankStats("Telekinesis", "strike", 1))
+      .toContain("1-2 lightning damage at range");
   });
 
   it("extends ground pickup reach while Telekinesis is learned", () => {
@@ -4140,8 +5137,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(damage).toBeGreaterThan(0);
     expect(attacker.x).toBeGreaterThan(300);
-    expect((component as any).getSkillRankStats("Teleport", "passive", 20)).toContain("48% chance to teleport away when hit");
-    expect((component as any).getSkillRankStats("Teleport", "passive", 20)).toContain("Moves to a random visible location away from the attacker");
+    expect((component as any).getSkillRankStats("Teleport", "passive", 20)).toContain("48% chance to slip away when hit");
+    expect((component as any).getSkillRankStats("Teleport", "passive", 20)).toContain("Instantly rematerialises up to 320 units away");
   });
 
   it("does not teleport when the Teleport passive roll fails", () => {
@@ -4228,7 +5225,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Charged Bolt");
 
     const bolts = component.attackProjectiles;
-    expect(bolts).toHaveSize(5);
+    // Three bolts at rank one, exactly as the guidebook's column says.
+    expect(bolts).toHaveSize(3);
     for (const bolt of bolts) {
       // Nothing is targeted, so every bolt is aimed a full view away and must
       // find its own first collision along that line.
@@ -4367,7 +5365,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       (component as any).skillCastCooldowns = {};
       component.attackProjectiles = [];
       component.activateOwnedSkill("Charged Bolt");
-      expect(component.attackProjectiles.length).toBe(4 + rank);
+      expect(component.attackProjectiles.length).toBe(2 + rank);
     }
   });
 
@@ -7167,7 +8165,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       ["Leather Cap", 2, 2], ["Chain Hauberk", 2, 3], ["Kris", 1, 3], ["Mithril Point", 1, 2], ["Staff", 1, 3],
       ["Barbarian Battle Axe", 2, 3], ["Barbarian Great Sword", 2, 4], ["Barbarian Throwing Axe", 1, 2],
       ["Crimson Small Charm", 1, 1], ["Azure Small Charm", 1, 1], ["Gold Amulet", 1, 1],
-      ["Ring of the Artisan", 1, 1], ["Soulstone Shard", 1, 1],
+      ["Ring of the Artisan", 1, 1],
       ["Katar", 1, 3], ["Wrist Blade", 1, 3], ["Hatchet Hands", 1, 3], ["Cestus", 1, 3], ["Claws", 1, 3],
       ["Blade Talons", 1, 3], ["Scissors Katar", 1, 3],
       ["Jawbone Cap", 2, 2], ["Fanged Helm", 2, 2], ["Horned Helm", 2, 2], ["Assault Helmet", 2, 2], ["Avenger Guard", 2, 2],
@@ -8866,16 +9864,17 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(component.attackProjectiles).toHaveSize(0);
     });
 
-    it("slides a ranged monster sideways around a wall on its chosen side", () => {
-      spyOn(component as any, "campaignStepBlocked").and.callFake(
-        (_context: unknown, _x: number, _y: number, dx: number, dy: number) => Math.abs(Math.atan2(dy, dx)) < 0.4,
-      );
+    it("holds a ranged monster still when the wall offers it no detour", () => {
+      spyOn(component as any, "campaignStepBlocked").and.returnValue(true);
+      (component as any).detourSearchesLeft = 1;
       const fiend = { x: 100, y: 100, pathSide: 1 } as any;
 
       const step = (component as any).enemyWallAwareStep(context(), fiend, 1, 0, 5, 400, 100);
 
-      expect(step.x).toBeGreaterThan(100);
-      expect(step.y).toBeGreaterThan(100);
+      // No route inside the detour box: the monster waits rather than sliding.
+      expect(step.x).toBe(100);
+      expect(step.y).toBe(100);
+      expect(fiend.detourRetry).toBeGreaterThan(0);
     });
   });
 
@@ -9339,6 +10338,81 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(stats?.paladinClassSkillLevel).toBe(1);
   });
 
+  it("clears the item tooltip when the hovered item is sold", () => {
+    const sword = {
+      id: "sold-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal",
+      slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+      stats: { damageMin: 2, damageMax: 5 }, desc: "A short sword.", affixes: [],
+    } as any;
+    const emptyEquipment = () => ({
+      weapon: null, helmet: null, shield: null, ringLeft: null, amulet: null,
+      ringRight: null, gloves: null, body: null, boots: null, belt: null,
+    });
+    component.activeTab = "run";
+    component.runActive = true;
+    component.inventoryOpen = true;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.equipment = emptyEquipment() as any;
+    component.inventory[0] = sword;
+    (component as any).rebuildInventoryGrid();
+    component.hoveredItem = sword;
+    component.hoveredSlotIndex = 0;
+    component.selectedItem = sword;
+    component.selectedSlotIndex = 0;
+    spyOn(component as any, "persistRunProgress");
+
+    component.sellInventoryItem(0);
+
+    expect(component.inventory[0]).toBeNull();
+    expect(component.hoveredItem).toBeNull();
+    expect(component.selectedItem).toBeNull();
+    expect(component.itemPreviewItem).toBeNull();
+  });
+
+  it("clears the item tooltip when the hovered worn item is sold", () => {
+    const sword = {
+      id: "worn-sword", name: "Sabre", baseName: "Sabre", rarity: "normal",
+      slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+      stats: { damageMin: 3, damageMax: 7 }, desc: "An old sabre.", affixes: [],
+    } as any;
+    component.activeTab = "run";
+    component.runActive = true;
+    component.inventoryOpen = true;
+    component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+    component.equipment.weapon = sword;
+    component.hoveredItem = sword;
+    component.hoveredEquipmentSlot = "weapon";
+    component.selectedItem = sword;
+    component.selectedEquipmentSlot = "weapon";
+    spyOn(component as any, "persistRunProgress");
+
+    component.sellEquippedItem("weapon");
+
+    expect(component.equipment.weapon).toBeNull();
+    expect(component.hoveredItem).toBeNull();
+    expect(component.selectedItem).toBeNull();
+    expect(component.itemPreviewItem).toBeNull();
+  });
+
+  it("keys the stun loop's black backdrop out when it loads", () => {
+    const source = document.createElement("canvas");
+    source.width = 3;
+    source.height = 1;
+    const context = source.getContext("2d")!;
+    context.fillStyle = "rgb(4, 4, 4)";
+    context.fillRect(0, 0, 1, 1);
+    context.fillStyle = "rgb(200, 200, 200)";
+    context.fillRect(1, 0, 1, 1);
+
+    const keyed = (component as any).keyOutEffectBackdrop(source) as HTMLCanvasElement;
+    const pixels = keyed.getContext("2d")!.getImageData(0, 0, 3, 1).data;
+
+    // The near-black backdrop becomes fully transparent...
+    expect(pixels[3]).toBe(0);
+    // ...while the bright star pixels keep their alpha.
+    expect(pixels[7]).toBe(255);
+  });
+
   it("closes both hovered and selected item tooltips", () => {
     component.hoveredItem = { name: "Short Sword" } as any;
     component.selectedItem = { name: "Short Sword" } as any;
@@ -9446,6 +10520,39 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(component.hoveredItem).toBeNull();
     } finally {
       component.onItemPreviewEnter();
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it("hides a clicked item's tooltip as soon as the pointer leaves the item", () => {
+    jasmine.clock().install();
+    try {
+      const item = {
+        id: "picked-sword", name: "Short Sword", baseName: "Short Sword", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+        stats: { damageMin: 2, damageMax: 5 }, desc: "A short sword.", affixes: [],
+      } as any;
+      component.inventoryOpen = true;
+      component.inventory = Array.from({ length: 40 }, () => null);
+      component.inventory[2] = item;
+      const event = { clientX: 100, clientY: 120, ctrlKey: false, preventDefault: () => undefined } as any;
+
+      component.onInventoryItemHover(2, item, event);
+      component.onInventoryItemClick(2, item, event);
+      expect(component.itemPreviewItem?.id).toBe("picked-sword");
+
+      component.onItemPreviewLeave();
+      jasmine.clock().tick(200);
+
+      expect(component.itemPreviewItem).toBeNull();
+      // Only the tooltip goes; the slot stays selected for sell/equip.
+      expect(component.selectedItem?.id).toBe("picked-sword");
+      expect(component.selectedSlotIndex).toBe(2);
+
+      // Hovering the item again brings its tooltip straight back.
+      component.onInventoryItemHover(2, item, event);
+      expect(component.itemPreviewItem?.id).toBe("picked-sword");
+    } finally {
       jasmine.clock().uninstall();
     }
   });
@@ -9815,9 +10922,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Double Throw");
 
-    expect(component.attackProjectiles.length).toBe(1);
-    const projectile = component.attackProjectiles[0];
-    expect(projectile.speed).toBeGreaterThan(650);
+    // Double Throw sends both weapons, one after the other.
+    expect(component.attackProjectiles.length).toBe(2);
+    for (const projectile of component.attackProjectiles) expect(projectile.speed).toBeGreaterThan(650);
     (component as any).updateAttackProjectiles(1000);
     expect(target.hp).toBeLessThan(1000);
   });
@@ -10002,6 +11109,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
         desc: generated.desc, stats: { ...generated.stats }, affixes: [...generated.affixes],
       };
     };
+    // Hsarus' pieces ask for level 3; below it they stay worn but inert, so this
+    // set-logic test starts at the level the pieces are made for.
+    component.playerLevel = 3;
     component.equipment.shield = setItem("Hsarus' Iron Fist");
     component.equipment.boots = setItem("Hsarus' Iron Heel");
     expect(component.getEquippedSetCount("Hsarus' Defense")).toBe(2);
@@ -10243,7 +11353,1424 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Smite");
     (component as any).flushPendingDamage();
 
-    expect(target.hp).toBeCloseTo(812.5, 5);
+    // Smite rank 1 is +15% on top of the 1.5x skill base and the Strength bonus.
+    expect(target.hp).toBeCloseTo(784.375, 5);
+  });
+
+  it("uses the guidebook's cold damage tables and synergies", () => {
+    component.selectedClass = "sorceress";
+    component.skillLevels = { "Ice Bolt": 1 };
+    expect((component as any).sorceressColdSkillDamage("Ice Bolt")).toBeCloseTo(4, 5);
+    expect((component as any).sorceressColdLength("Ice Bolt")).toBeCloseTo(6, 5);
+
+    component.skillLevels = { "Ice Bolt": 20 };
+    expect((component as any).sorceressColdSkillDamage("Ice Bolt")).toBeCloseTo(43.5, 5);
+    expect((component as any).sorceressColdLength("Ice Bolt")).toBeCloseTo(32.6, 5);
+
+    // Frost Nova adds 15% per level to Ice Bolt, and carries its own table.
+    component.skillLevels = { "Ice Bolt": 1, "Frost Nova": 1 };
+    expect((component as any).sorceressColdSkillDamage("Ice Bolt")).toBeCloseTo(4.6, 5);
+    expect((component as any).sorceressColdSkillDamage("Frost Nova")).toBeCloseTo(3, 5);
+
+    component.skillLevels = { Blizzard: 1 };
+    expect((component as any).sorceressColdSkillDamage("Blizzard")).toBeCloseTo(68.5, 5);
+
+    component.skillLevels = { "Frozen Orb": 1, "Ice Bolt": 1 };
+    expect((component as any).sorceressColdSkillDamage("Frozen Orb")).toBeCloseTo(42.5 * 1.02, 5);
+  });
+
+  it("stacks Blizzard storms and pours in the table's per-second damage", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Blizzard"];
+    component.skillLevels = { Blizzard: 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 5000, maxHp: 5000, speed: 0, r: 14, dmg: 0 } as any;
+    component.enemies = [target];
+    (component as any).playerBlizzards.length = 0;
+
+    component.activateOwnedSkill("Blizzard", target);
+    component.activateOwnedSkill("Blizzard", target);
+    const storms = (component as any).playerBlizzards;
+    expect(storms).toHaveSize(2);
+    // 68.5 damage per second over four seconds, split across 24 shards.
+    expect(storms[0].damagePerShard).toBeCloseTo(68.5 * 4 / 24, 5);
+    expect(storms[1].damagePerShard).toBeCloseTo(68.5 * 4 / 24, 5);
+  });
+
+  it("keeps one cold armor up and answers the attacks each one covers", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 500;
+    (component as any).playerMaxHp = 500;
+    component.ownedSkills = ["Frozen Armor", "Shiver Armor", "Chilling Armor"];
+    component.skillLevels = { "Frozen Armor": 1, "Shiver Armor": 1, "Chilling Armor": 1 };
+    // No shield and no lucky block roll: the blows these armors answer land.
+    component.equipment.shield = null;
+    spyOn(Math, "random").and.returnValue(0.99);
+    const monster = () => ({
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 500, maxHp: 500,
+      speed: 0, r: 14, dmg: 10, resistances: { cold: 0 }, immunities: [],
+    }) as any;
+
+    component.activateOwnedSkill("Shiver Armor");
+    expect((component as any).coldArmorSkill).toBe("Shiver Armor");
+    expect((component as any).coldArmorRemaining).toBe(130);
+    expect(component.coldArmorDefensePercent).toBe(45);
+    const biter = monster();
+    component.enemies = [biter];
+    (component as any).rebuildEnemyGrid();
+    (component as any).applyIncomingDamage(10, biter, "melee");
+    (component as any).flushPendingDamage();
+    expect(biter.hp).toBeLessThan(500);
+    expect(biter.coldRemaining).toBeCloseTo(4, 5);
+
+    // Frozen Armor replaces it and freezes melee attackers instead.
+    component.activateOwnedSkill("Frozen Armor");
+    expect((component as any).coldArmorSkill).toBe("Frozen Armor");
+    // Shiver Armor adds ten seconds to Frozen Armor's duration.
+    expect((component as any).coldArmorRemaining).toBe(140);
+    const frozen = monster();
+    component.enemies = [frozen];
+    (component as any).rebuildEnemyGrid();
+    (component as any).applyIncomingDamage(10, frozen, "melee");
+    // 1.2s from the table, +5% because one rank of Shiver Armor is learned.
+    expect(frozen.freezeRemaining).toBeCloseTo(1.32, 5);
+
+    // Chilling Armor only answers missiles, so a melee blow passes untouched.
+    component.activateOwnedSkill("Chilling Armor");
+    expect((component as any).coldArmorSkill).toBe("Chilling Armor");
+    expect((component as any).coldArmorDefensePercent).toBe(45);
+    const melee = monster();
+    component.enemies = [melee];
+    (component as any).rebuildEnemyGrid();
+    (component as any).applyIncomingDamage(10, melee, "melee");
+    expect(melee.hp).toBe(500);
+    const archer = monster();
+    archer.x = 270;
+    component.enemies = [archer];
+    (component as any).rebuildEnemyGrid();
+    (component as any).applyIncomingDamage(10, archer, "missile");
+    (component as any).flushPendingDamage();
+    expect(archer.hp).toBeLessThan(500);
+  });
+
+  it("pierces cold resistance with Cold Mastery but never cold immunity", () => {
+    component.selectedClass = "sorceress";
+    component.skillLevels = { "Cold Mastery": 1 };
+    const vulnerable = { kind: "normal", species: "fallen", resistances: { cold: 75 } } as any;
+    const immune = { kind: "normal", species: "fallen", resistances: { cold: 100 } } as any;
+    expect((component as any).enemyResistanceMultiplier(vulnerable, "cold")).toBeCloseTo(0.45, 5);
+    expect((component as any).enemyResistanceMultiplier(immune, "cold")).toBe(0);
+
+    component.skillLevels = { "Cold Mastery": 20 };
+    expect((component as any).effectiveEnemyResistance(vulnerable, "cold")).toBe(-40);
+  });
+
+  it("uses the guidebook's fire tables, synergies and Fire Mastery", () => {
+    component.selectedClass = "sorceress";
+    component.skillLevels = { "Fire Bolt": 1 };
+    expect((component as any).sorceressFireSkillDamage("Fire Bolt")).toBeCloseTo(4.5, 5);
+
+    component.skillLevels = { "Fire Bolt": 20 };
+    expect((component as any).sorceressFireSkillDamage("Fire Bolt")).toBeCloseTo(52.5, 5);
+
+    // Fire Ball adds 16% per level to Fire Bolt; Fire Mastery adds 30% at rank one.
+    component.skillLevels = { "Fire Bolt": 1, "Fire Ball": 1 };
+    expect((component as any).sorceressFireSkillDamage("Fire Bolt")).toBeCloseTo(4.5 * 1.16, 5);
+    component.skillLevels = { "Fire Bolt": 1, "Fire Mastery": 1 };
+    expect((component as any).sorceressFireSkillDamage("Fire Bolt")).toBeCloseTo(4.5 * 1.3, 5);
+
+    // Hydra's per-bolt column, and its own synergy.
+    component.skillLevels = { Hydra: 1, "Fire Bolt": 1 };
+    expect((component as any).hydraBoltDamage()).toBeCloseTo(16.5 * 1.03, 5);
+
+    // Inferno's reach grows with the guidebook's yard table.
+    expect((component as any).infernoRangeForRank(1)).toBeCloseTo(66, 5);
+    expect((component as any).infernoRangeForRank(20)).toBeCloseTo(252, 5);
+  });
+
+  it("burns Blaze, Fire Wall and Meteor with their own columns", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Blaze", "Fire Wall", "Meteor"];
+    component.skillLevels = { Blaze: 1, "Fire Wall": 1, Meteor: 1 };
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).blazeFirePatches.length = 0;
+    (component as any).playerAttackLockRemaining = 0;
+
+    component.activateOwnedSkill("Blaze");
+    expect((component as any).blazeRemaining).toBeCloseTo(4.6, 5);
+    // 18-37 damage per second, paid on the half-second fire tick.
+    // 18-37 per second, +1% because one rank of Fire Wall is learned.
+    expect((component as any).blazeDamagePerTick).toBeCloseTo((18 + 37) / 2 * 1.01 * 0.5, 5);
+
+    component.activateOwnedSkill("Fire Wall");
+    const wall = component.attackProjectiles[0] as any;
+    expect(wall.life).toBeCloseTo(3.6, 5);
+    expect(wall.wallHalfLength).toBe(80);
+    expect(wall.damage).toBeCloseTo((70 + 94) / 2 * 0.5, 5);
+
+    (component as any).blazeFirePatches.length = 0;
+    component.activateOwnedSkill("Meteor", undefined, { x: 300, y: 250 });
+    const meteor = component.attackProjectiles[component.attackProjectiles.length - 1] as any;
+    expect(meteor.impactRadius).toBe(80);
+    expect((component as any).blazeFirePatches).toHaveSize(1);
+    expect((component as any).blazeFirePatches[0].damagePerTick)
+      .toBeCloseTo((35 + 58) / 2 * 0.5, 5);
+  });
+
+  it("casts Enchant as a timed weapon buff", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Enchant"];
+    component.skillLevels = { Enchant: 1 };
+    component.basicAttackDamage = 100;
+    component.basicAttackName = "Attack";
+
+    component.activateOwnedSkill("Enchant");
+    expect((component as any).enchantRemaining).toBe(144);
+    expect((component as any).enchantFireDamage).toBeCloseTo(9, 5);
+    expect((component as any).enchantAttackRatingPercent).toBe(20);
+    expect((component as any).skillCastDamage("Attack")).toBeCloseTo(100 + 9, 5);
+
+    (component as any).updateSkillVisualEffects(200_000);
+    expect((component as any).enchantRemaining).toBe(0);
+    expect((component as any).skillCastDamage("Attack")).toBeCloseTo(100, 5);
+  });
+
+  it("uses the guidebook's lightning tables, synergies and Lightning Mastery", () => {
+    component.selectedClass = "sorceress";
+    component.skillLevels = { "Charged Bolt": 1 };
+    expect((component as any).sorceressLightningSkillDamage("Charged Bolt")).toBeCloseTo(3, 5);
+    component.skillLevels = { "Charged Bolt": 1, Lightning: 1 };
+    expect((component as any).sorceressLightningSkillDamage("Charged Bolt")).toBeCloseTo(3 * 1.06, 5);
+
+    // Lightning's 1-43 has a 22 average, and its three synergies add 8% each.
+    component.skillLevels = { Lightning: 1 };
+    expect((component as any).sorceressLightningSkillDamage("Lightning")).toBeCloseTo(22, 5);
+    component.skillLevels = { Lightning: 1, "Charged Bolt": 1, Nova: 1, "Chain Lightning": 1 };
+    expect((component as any).sorceressLightningSkillDamage("Lightning")).toBeCloseTo(22 * 1.24, 5);
+
+    component.skillLevels = { Nova: 1 };
+    expect((component as any).sorceressLightningSkillDamage("Nova")).toBeCloseTo(10.5, 5);
+    component.skillLevels = { "Chain Lightning": 1 };
+    expect((component as any).sorceressLightningSkillDamage("Chain Lightning")).toBeCloseTo(20.5, 5);
+
+    // Lightning Mastery starts at +50%.
+    component.skillLevels = { Nova: 1, "Lightning Mastery": 1 };
+    expect((component as any).sorceressLightningSkillDamage("Nova")).toBeCloseTo(10.5 * 1.5, 5);
+  });
+
+  it("absorbs damage into mana with Energy Shield", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    (component as any).playerMaxHp = 1000;
+    component.playerMana = 500;
+    component.ownedSkills = ["Energy Shield", "Telekinesis"];
+    component.skillLevels = { "Energy Shield": 1, Telekinesis: 0 };
+    component.equipment.shield = null;
+    component.enemies = [];
+
+    component.activateOwnedSkill("Energy Shield");
+    expect((component as any).energyShieldRemaining).toBe(144);
+    expect((component as any).energyShieldAbsorbPercent).toBe(20);
+
+    // 20% of a 100-point hit is absorbed at 2 mana per point.
+    const taken = (component as any).applyIncomingDamage(100);
+    expect(taken).toBeLessThan(100);
+    expect(component.playerMana).toBeLessThan(500);
+
+    // Eight Telekinesis points lower the ratio to 1.5 mana per point.
+    component.skillLevels = { "Energy Shield": 1, Telekinesis: 8 };
+    expect((component as any).energyShieldManaRatio()).toBeCloseTo(1.5, 5);
+    component.skillLevels = { "Energy Shield": 1, Telekinesis: 16 };
+    expect((component as any).energyShieldManaRatio()).toBeCloseTo(1, 5);
+  });
+
+  it("teleports to a clicked point and runs Thunder Storm for its table duration", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 150;
+    component.playerY = 150;
+    component.ownedSkills = ["Teleport", "Thunder Storm"];
+    component.skillLevels = { Teleport: 1, "Thunder Storm": 1 };
+    component.enemies = [];
+    (component as any).skillCastCooldowns = {};
+
+    component.activateOwnedSkill("Teleport", undefined, { x: 350, y: 150 });
+    // The world shifts under the hero, who stays centred on screen.
+    expect(component.playerX).toBeCloseTo((component as any).arenaW / 2, 5);
+    expect((component as any).playerMoveX).not.toBeUndefined();
+
+    component.activateOwnedSkill("Thunder Storm");
+    expect((component as any).thunderStormRemaining).toBe(32);
+    expect((component as any).getSkillRankStats("Thunder Storm", "aura", 1))
+      .toContain("1-100 lightning damage per bolt");
+  });
+
+  it("uses the guidebook's druid elemental tables and synergies", () => {
+    component.selectedClass = "druid";
+    component.skillLevels = { Firestorm: 1 };
+    expect((component as any).druidElementalSkillDamage("Firestorm")).toBeCloseTo(5, 5);
+    component.skillLevels = { Twister: 1 };
+    expect((component as any).druidElementalSkillDamage("Twister")).toBeCloseTo(7, 5);
+    component.skillLevels = { Tornado: 1 };
+    expect((component as any).druidElementalSkillDamage("Tornado")).toBeCloseTo(30, 5);
+    component.skillLevels = { Hurricane: 1 };
+    expect((component as any).druidElementalSkillDamage("Hurricane")).toBeCloseTo(37.5, 5);
+    component.skillLevels = { Armageddon: 1 };
+    expect((component as any).druidElementalSkillDamage("Armageddon")).toBeCloseTo(50, 5);
+    component.skillLevels = { Volcano: 1 };
+    expect((component as any).druidElementalSkillDamage("Volcano")).toBeCloseTo(9, 5);
+    component.skillLevels = { Fissure: 1 };
+    expect((component as any).druidElementalSkillDamage("Fissure")).toBeCloseTo(20, 5);
+    component.skillLevels = { "Molten Boulder": 1 };
+    expect((component as any).druidElementalSkillDamage("Molten Boulder")).toBeCloseTo(9, 5);
+
+    // Arctic Blast's synergies add 15% each; Hurricane pulls its own duration.
+    component.skillLevels = { "Arctic Blast": 1, Hurricane: 1, "Cyclone Armor": 1 };
+    expect((component as any).druidElementalSkillDamage("Arctic Blast")).toBeCloseTo(11.5 * 1.3, 5);
+    expect((component as any).hurricaneDurationSeconds()).toBe(12);
+    component.skillLevels = { Hurricane: 1, Fissure: 3 };
+    expect((component as any).armageddonDurationSeconds()).toBe(16);
+  });
+
+  it("casts Fissure vents and a Hurricane that follows the druid", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Fissure", "Hurricane", "Cyclone Armor"];
+    component.skillLevels = { Fissure: 1, Hurricane: 1, "Cyclone Armor": 1 };
+    component.enemies = [];
+    component.attackProjectiles = [];
+    (component as any).skillCastCooldowns = {};
+    (component as any).blazeFirePatches.length = 0;
+
+    component.activateOwnedSkill("Fissure", undefined, { x: 320, y: 250 });
+    expect((component as any).blazeFirePatches).toHaveSize(3);
+    expect((component as any).blazeFirePatches[0].life).toBeCloseTo(3.2, 5);
+    expect((component as any).blazeFirePatches[0].damagePerTick).toBeCloseTo(20 * 0.5, 5);
+
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0, resistances: { cold: 0 }, immunities: [] } as any;
+    component.enemies = [target];
+    (component as any).rebuildEnemyGrid();
+    component.activateOwnedSkill("Hurricane");
+    expect((component as any).hurricaneRemaining).toBe(12);
+    (component as any).updateHurricane(0.6);
+    (component as any).flushPendingDamage();
+    expect(target.hp).toBeLessThan(1000);
+  });
+
+  it("absorbs a flat pool with Cyclone Armor and absorbs it before life", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    (component as any).playerMaxHp = 1000;
+    component.ownedSkills = ["Cyclone Armor"];
+    component.skillLevels = { "Cyclone Armor": 1 };
+    component.equipment.shield = null;
+    component.enemies = [];
+    (component as any).skillCastCooldowns = {};
+
+    component.activateOwnedSkill("Cyclone Armor");
+    expect((component as any).cycloneArmorAbsorptionRemaining).toBe(40);
+    expect((component as any).applyIncomingDamage(100)).toBeCloseTo(60, 5);
+    expect((component as any).cycloneArmorAbsorptionRemaining).toBe(0);
+
+    // Twister ranks add 7% to the pool.
+    component.skillLevels = { "Cyclone Armor": 1, Twister: 2 };
+    expect((component as any).cycloneArmorAbsorbForRank(1)).toBe(46);
+  });
+
+  it("locks the elemental spells out of wereform, but not Armageddon", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Werewolf", "Firestorm", "Armageddon"];
+    component.skillLevels = { Werewolf: 1, Firestorm: 1, Armageddon: 1 };
+    (component as any).skillCastCooldowns = {};
+    (component as any).playerMana = 500;
+    (component as any).playerMaxMana = 500;
+    (component as any).firestormTrails.length = 0;
+    (component as any).rockShowers.length = 0;
+
+    component.activateOwnedSkill("Werewolf");
+    expect((component as any).druidForm).toBe("werewolf");
+
+    component.activateOwnedSkill("Firestorm");
+    expect((component as any).firestormTrails).toHaveSize(0);
+
+    component.activateOwnedSkill("Armageddon");
+    expect((component as any).rockShowers).toHaveSize(1);
+  });
+
+  it("grounds the hero with one cached shadow blit per frame", () => {
+    const calls: Array<{ image: unknown; x: number; y: number; w: number; h: number }> = [];
+    const ctx = {
+      save: jasmine.createSpy("save"),
+      restore: jasmine.createSpy("restore"),
+      drawImage: (image: unknown, x: number, y: number, w: number, h: number) => calls.push({ image, x, y, w, h }),
+    } as any;
+
+    (component as any).projectionCenterY = 350;
+    component.drawPlayerShadow(ctx, { x: 200, y: 300 });
+
+    expect(calls).toHaveSize(1);
+    const shadow = calls[0];
+    expect(shadow.w).toBeGreaterThan(12);
+    expect(shadow.h).toBeCloseTo(shadow.w * 0.42, 5);
+    expect(shadow.x).toBeCloseTo(200 - shadow.w / 2, 5);
+    expect(shadow.y).toBeLessThan(300);
+
+    // Second frame reuses the same raster instead of rebuilding a gradient.
+    component.drawPlayerShadow(ctx, { x: 210, y: 300 });
+    expect(calls).toHaveSize(2);
+    expect(calls[1].image).toBe(calls[0].image);
+  });
+
+  it("draws a worn item's sockets over its art, not its slot", () => {
+    const helmet = {
+      id: "test-socketed-helm", name: "Great Helm", baseName: "Great Helm", rarity: "normal",
+      slot: "armor", equipmentType: "helmet", sockets: 2, stats: { armor: 20 },
+    } as any;
+    const holes = (component as any).socketHoles(helmet);
+    expect(holes).toHaveSize(2);
+
+    const placed = (component as any).placeEquipmentSocketHoles(
+      holes,
+      { left: 100, top: 50, width: 40, height: 30 },
+      { left: 90, top: 40 },
+    );
+    expect(placed).toHaveSize(2);
+    expect(placed[0].left).toBeCloseTo(10 + 40 * holes[0].left / 100, 5);
+    expect(placed[0].top).toBeCloseTo(10 + 30 * holes[0].top / 100, 5);
+    expect(placed[0].size).toBe(9);
+    expect(placed[1].left).toBeGreaterThan(placed[0].left);
+  });
+
+  it("sockets a rune into a socketed axe and explains when an axe has no holes", () => {
+    const rune = {
+      id: "test-eld-rune", name: "Eld", baseName: "Eld", rarity: "normal",
+      slot: "charm", equipmentType: "rune", stats: {}, affixes: [],
+    } as any;
+    const socketedAxe = {
+      id: "test-socketed-axe", name: "Hand Axe", baseName: "Hand Axe", rarity: "normal",
+      slot: "weapon", sockets: 2, stats: { damageMin: 3, damageMax: 6 },
+    } as any;
+    const plainAxe = {
+      id: "test-plain-axe", name: "Consecrated Hand Axe of Blight", baseName: "Hand Axe",
+      rarity: "rare", slot: "weapon", stats: { damageMin: 3, damageMax: 8 }, affixes: ["+66% Damage to Undead"],
+    } as any;
+
+    (component as any).inventory = [socketedAxe, plainAxe, rune, null];
+    (component as any).dragState = { source: "inventory", slotIndex: 2, item: rune };
+    (component as any).onInventoryDrop(0, { preventDefault: () => undefined } as DragEvent);
+    expect(component.socketedCount(socketedAxe)).toBe(1);
+    expect((component as any).inventory[2]).toBeNull();
+
+    // A second rune dropped on a hole-less rare gets a specific message.
+    const second = { ...rune, id: "test-eld-rune-2" } as any;
+    (component as any).inventory = [plainAxe, second, null, null];
+    (component as any).dragState = { source: "inventory", slotIndex: 1, item: second };
+    (component as any).onInventoryDrop(0, { preventDefault: () => undefined } as DragEvent);
+    expect(component.socketedCount(plainAxe)).toBe(0);
+    expect(component.inventoryStatus).toContain("has no sockets");
+    expect(component.inventoryStatus).toContain("Gheed's socket reward");
+  });
+
+  it("uses the guidebook's druid summoning tables", () => {
+    component.selectedClass = "druid";
+    component.skillLevels = { Raven: 3, "Summon Spirit Wolf": 5, "Summon Dire Wolf": 3, "Summon Grizzly": 1 };
+    const stats = (name: string, rank: number) => (component as any).druidSummonTableStats(name, rank);
+
+    expect(stats("Raven", 3).damage).toBe(5);
+    expect(stats("Summon Spirit Wolf", 5).damage).toBe(8.5);
+    expect(stats("Summon Spirit Wolf", 5).health).toBe(142);
+    expect(stats("Summon Dire Wolf", 3).health).toBe(228);
+    expect(stats("Summon Grizzly", 1).health).toBe(1300);
+    expect(stats("Summon Grizzly", 1).damage).toBe(70);
+    expect(stats("Oak Sage", 1).health).toBe(60);
+    expect(stats("Spirit of Barbs", 1).health).toBe(213);
+
+    expect((component as any).summonLimitForSkill("Raven")).toBe(3);
+    expect((component as any).summonLimitForSkill("Summon Spirit Wolf")).toBe(5);
+    expect((component as any).summonLimitForSkill("Summon Dire Wolf")).toBe(3);
+    expect((component as any).summonLimitForSkill("Summon Grizzly")).toBe(1);
+  });
+
+  it("keeps one wolf family and one vine at a time", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.enemies = [];
+    component.skillLevels = { "Summon Spirit Wolf": 1, "Summon Dire Wolf": 1, "Summon Grizzly": 1, "Poison Creeper": 1, "Carrion Vine": 1 };
+    const count = (skill: string) => component.enemies.filter((enemy) => enemy.summonSkill === skill).length;
+
+    (component as any).summonCompanion("Summon Spirit Wolf");
+    expect(count("Summon Spirit Wolf")).toBe(1);
+    (component as any).summonCompanion("Summon Dire Wolf");
+    expect(count("Summon Spirit Wolf")).toBe(0);
+    (component as any).summonCompanion("Summon Grizzly");
+    expect(count("Summon Dire Wolf")).toBe(0);
+    expect(count("Summon Grizzly")).toBe(1);
+
+    (component as any).summonCompanion("Poison Creeper");
+    (component as any).summonCompanion("Carrion Vine");
+    expect(count("Poison Creeper")).toBe(0);
+    expect(count("Carrion Vine")).toBe(1);
+  });
+
+  it("gives Heart of Wolverine's damage and Spirit of Barbs' reflection", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.enemies = [];
+    component.skillLevels = { Firestorm: 1, "Heart of Wolverine": 1, "Spirit of Barbs": 1 };
+    const plain = (component as any).skillCastDamage("Firestorm");
+    (component as any).summonCompanion("Heart of Wolverine");
+    expect((component as any).skillCastDamage("Firestorm") / plain).toBeCloseTo(1.2, 5);
+
+    (component as any).summonCompanion("Spirit of Barbs");
+    expect(component.enemies.filter((enemy) => enemy.summonSkill === "Heart of Wolverine")).toHaveSize(0);
+    expect((component as any).spiritOfBarbsReflectPercent()).toBe(50);
+
+    const attacker = { kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 10, resistances: { cold: 0 }, immunities: [] } as any;
+    component.enemies.push(attacker);
+    component.equipment.shield = null;
+    (component as any).playerHp = 1000;
+    (component as any).playerMaxMana = 500;
+    (component as any).rebuildEnemyGrid();
+    spyOn(Math, "random").and.returnValue(0.99);
+    (component as any).applyIncomingDamage(100, attacker);
+    (component as any).flushPendingDamage();
+    expect(attacker.hp).toBeCloseTo(950, 5);
+  });
+
+  it("charges the orb for every cast and refuses one the pool cannot cover", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMaxMana = 35;
+    component.playerMana = 35;
+    component.ownedSkills = ["Ice Bolt"];
+    component.skillLevels = { "Ice Bolt": 1 };
+    component.enemies = [
+      { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 1 } as any,
+    ];
+    component.attackProjectiles = [];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Ice Bolt");
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.playerMana).toBe(30);
+
+    // D2 charges up front: a bolt the orb cannot pay for never leaves the hand.
+    component.playerMana = 4;
+    (component as any).skillCastCooldowns = {};
+    component.activateOwnedSkill("Ice Bolt");
+    expect(component.attackProjectiles.length).toBe(1);
+    expect(component.playerMana).toBe(4);
+    expect(component.floatingTexts.some((entry) => entry.text.includes("NOT ENOUGH MANA"))).toBeTrue();
+  });
+
+  it("prices every class's actives and leaves passives, auras and Magic Arrow free", () => {
+    component.selectedClass = "sorceress";
+    expect(component.skillManaCost("Ice Bolt")).toBe(5);
+    expect(component.skillManaCost("Meteor")).toBe(20);
+    // Warmth is a passive and Teleport is a real cast, even though both are
+    // listed as passive escapes in the skill data.
+    expect(component.skillManaCost("Warmth")).toBe(0);
+    expect(component.skillManaCost("Teleport")).toBe(24);
+
+    component.selectedClass = "paladin";
+    expect(component.skillManaCost("Might")).toBe(0);
+    expect(component.skillManaCost("Holy Bolt")).toBe(5);
+
+    component.selectedClass = "amazon";
+    expect(component.skillManaCost("Magic Arrow")).toBe(0);
+    expect(component.skillManaCost("Strafe")).toBe(12);
+
+    component.selectedClass = "barbarian";
+    expect(component.skillManaCost("Whirlwind")).toBe(12);
+
+    component.selectedClass = "necromancer";
+    expect(component.skillManaCost("Raise Skeleton")).toBe(9);
+
+    component.selectedClass = "druid";
+    expect(component.skillManaCost("Shock Wave")).toBe(12);
+
+    component.selectedClass = "assassin";
+    expect(component.skillManaCost("Phoenix Strike")).toBe(6);
+  });
+
+  it("does not bill a cast the hero's state turns into nothing", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.playerMaxMana = 100;
+    component.playerMana = 100;
+    component.ownedSkills = ["Cyclone Armor"];
+    component.skillLevels = { "Cyclone Armor": 1 };
+
+    component.activateOwnedSkill("Cyclone Armor");
+    expect(component.playerMana).toBe(90);
+
+    // The armor is already up, so the second click is free and stays refused.
+    component.activateOwnedSkill("Cyclone Armor");
+    expect(component.playerMana).toBe(90);
+  });
+
+  it("refills the orb on its own, faster with Warmth and never past the maximum", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerMaxMana = 100;
+    component.playerMana = 0;
+
+    (component as any).updateManaRegeneration(1);
+    expect(component.playerMana).toBeCloseTo(3, 5);
+
+    component.playerMana = 0;
+    component.skillLevels = { Warmth: 1 };
+    (component as any).updateManaRegeneration(1);
+    expect(component.playerMana).toBeGreaterThan(3);
+
+    component.playerMana = 99;
+    (component as any).updateManaRegeneration(60);
+    expect(component.playerMana).toBe(100);
+  });
+
+  it("refills both life and mana with a full rejuvenation potion", () => {
+    component.beltSlots = Array.from({ length: 16 }, () => ({ kind: null as "health" | "rejuvenation" | null }));
+    component.beltSlots[0] = { kind: "rejuvenation" };
+    component.playerMaxHp = 800;
+    component.playerHp = 10;
+    component.playerMaxMana = 60;
+    component.playerMana = 2;
+    spyOn(component as any, "persistRunProgress");
+
+    component.drinkBeltPotion(0);
+
+    expect(component.playerHp).toBe(component.effectivePlayerMaxHp);
+    expect(component.playerMana).toBe(component.effectivePlayerMaxMana);
+    expect(component.beltSlots[0].kind).toBeNull();
+  });
+
+  it("charges the sorceress for a teleport like any other cast", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerMaxMana = 30;
+    component.playerMana = 30;
+    component.ownedSkills = ["Teleport"];
+    component.skillLevels = { Teleport: 1 };
+
+    component.activateOwnedSkill("Teleport", undefined, { x: 400, y: 250 });
+
+    expect(component.playerMana).toBe(6);
+  });
+
+  it("hands out five attribute points per level and spends them on demand", () => {
+    component.playerLevel = 1;
+    expect(component.attributePointsRemaining).toBe(0);
+
+    component.playerLevel = 2;
+    expect(component.attributePointsEarned).toBe(5);
+    expect(component.attributePointsRemaining).toBe(5);
+
+    component.spendAttributePoint("strength");
+    expect(component.spentAttributes[0]).toBe(1);
+    expect(component.attributePointsRemaining).toBe(4);
+    expect(component.attributeStrength).toBe(component.attributeBaseValue(0) + component.equippedStrengthBonus);
+
+    // Back at level 1 the same point is not available any more.
+    component.playerLevel = 1;
+    expect(component.attributePointsRemaining).toBe(0);
+    component.spendAttributePoint("strength");
+    expect(component.spentAttributes[0]).toBe(1);
+  });
+
+  it("credits the level-up with both skill and attribute points", () => {
+    component.runActive = true;
+    component.playerLevel = 1;
+    component.playerXp = 0;
+    component.xpToNextLevel = (component as any).xpForLevel(1);
+
+    (component as any).grantExperience(component.xpToNextLevel);
+
+    expect(component.playerLevel).toBe(2);
+    expect(component.skillPoints).toBe(1);
+    expect(component.attributePointsRemaining).toBe(5);
+    expect(component.levelUpNotice).toContain("attribute point");
+  });
+
+  it("turns placed points into melee damage, attack rating, life and mana", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerLevel = 3;
+    component.playerMaxHp = 400;
+    component.playerMaxMana = 20;
+
+    const meleeBefore = (component as any).applyStrengthToMeleeDamage(100);
+    const ratingBefore = component.inventoryAttackRating;
+    const lifeBefore = component.effectivePlayerMaxHp;
+    const manaBefore = component.effectivePlayerMaxMana;
+
+    for (let point = 0; point < 3; point += 1) component.spendAttributePoint("strength");
+    for (let point = 0; point < 2; point += 1) component.spendAttributePoint("dexterity");
+    for (let point = 0; point < 3; point += 1) component.spendAttributePoint("vitality");
+    for (let point = 0; point < 2; point += 1) component.spendAttributePoint("energy");
+
+    expect(component.attributePointsRemaining).toBe(0);
+    // Strength is 1% melee damage a point, Dexterity 5 Attack Rating, Vitality
+    // 1 Life, Energy 1% spell damage and 2 Mana.
+    expect((component as any).applyStrengthToMeleeDamage(100)).toBeCloseTo(meleeBefore + 3, 5);
+    expect(component.inventoryAttackRating).toBe(ratingBefore + 10);
+    expect(component.effectivePlayerMaxHp).toBe(lifeBefore + 3);
+    expect(component.effectivePlayerMaxMana).toBe(manaBefore + 4);
+    expect((component as any).applyEnergyToSpellDamage(100)).toBeCloseTo(102, 5);
+  });
+
+  it("keeps worn gear inert until its requirements are met", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerLevel = 1;
+    component.equipment = {
+      weapon: null, helmet: null, shield: null, ringLeft: null, amulet: null,
+      ringRight: null, gloves: null, body: null, boots: null, belt: null,
+    } as any;
+    // A barbarian starts at 30 Strength; this plate asks for 32.
+    component.equipment.body = {
+      id: "field-plate", name: "Field Plate", baseName: "Field Plate", slot: "armor",
+      equipmentType: "body", requiredLevel: 1, stats: { armor: 100, requiresStrength: 32 },
+    } as any;
+
+    expect(component.equippedArmor).toBe(0);
+    expect(component.equipmentSlotRequirementsUnmet("body")).toBeTrue();
+
+    component.playerLevel = 2;
+    component.spendAttributePoint("strength");
+    expect(component.attributeStrength).toBe(31);
+    expect(component.equippedArmor).toBe(0);
+
+    component.spendAttributePoint("strength");
+    expect(component.attributeStrength).toBe(32);
+    expect(component.equippedArmor).toBe(100);
+    expect(component.equipmentSlotRequirementsUnmet("body")).toBeFalse();
+
+    // The level requirement gates the same way.
+    component.equipment.body = null;
+    component.equipment.helmet = {
+      id: "great-helm", name: "Great Helm", baseName: "Great Helm", slot: "armor",
+      equipmentType: "helmet", requiredLevel: 5, stats: { armor: 20 },
+    } as any;
+    expect(component.equippedArmor).toBe(0);
+    component.playerLevel = 5;
+    expect(component.equippedArmor).toBe(20);
+  });
+
+  it("lets wearable gear's Strength lift a heavier piece, never the piece's own", () => {
+    component.selectedClass = "barbarian";
+    component.runActive = true;
+    component.playerLevel = 1;
+    component.equipment = {
+      weapon: null, helmet: null, shield: null, ringLeft: null, amulet: null,
+      ringRight: null, gloves: null, body: null, boots: null, belt: null,
+    } as any;
+    component.equipment.body = {
+      id: "heavy-plate", name: "Ancient Armor", baseName: "Ancient Armor", slot: "armor",
+      equipmentType: "body", requiredLevel: 1,
+      stats: { armor: 100, requiresStrength: 32, plusStrength: 10 },
+    } as any;
+
+    // Its own +10 Strength cannot lift it, so it stays inert at 30 Strength.
+    expect(component.equippedArmor).toBe(0);
+
+    component.equipment.ringLeft = {
+      id: "plain-ring", name: "Ring", baseName: "Ring", slot: "armor",
+      equipmentType: "ring", stats: { plusStrength: 2 },
+    } as any;
+
+    // Another piece's +2 takes the hero to exactly 32 and the plate wakes up.
+    expect(component.equippedArmor).toBe(100);
+    expect(component.equipmentSlotRequirementsUnmet("body")).toBeFalse();
+    // 30 class Strength + the ring's 2 + the plate's own 10 once it is on.
+    expect(component.attributeStrength).toBe(42);
+
+    component.equipment.ringLeft = null;
+    expect(component.equippedArmor).toBe(0);
+  });
+
+  it("heals with Carrion Vine's corpses and speeds Solar Creeper's mana", () => {
+    component.selectedClass = "druid";
+    component.runActive = true;
+    component.enemies = [];
+    component.skillLevels = { "Carrion Vine": 1, "Solar Creeper": 1 };
+    (component as any).playerMaxHp = 1000;
+    (component as any).playerHp = 500;
+    (component as any).playerMaxMana = 1000;
+    (component as any).playerMana = 0;
+
+    (component as any).summonCompanion("Carrion Vine");
+    const victim = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 250, hp: 10, maxHp: 10, speed: 0, r: 14, dmg: 1, resistances: { cold: 0 }, immunities: [] } as any;
+    component.enemies.push(victim);
+    (component as any).queueEnemyDamage(victim, 9999);
+    (component as any).flushPendingDamage();
+    expect((component as any).playerHp).toBeCloseTo(540, 5);
+
+    (component as any).summonCompanion("Solar Creeper");
+    expect(component.enemies.filter((enemy) => enemy.summonSkill === "Carrion Vine")).toHaveSize(0);
+    // A rank 1 Solar Creeper adds 2% to the 3%-of-maximum-per-second trickle.
+    (component as any).updateManaRegeneration(1);
+    expect((component as any).playerMana).toBeCloseTo(1000 * 0.03 * 1.02, 5);
+  });
+
+  it("applies the curse tables to radius, duration and resistances", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.ownedSkills = ["Amplify Damage", "Decrepify", "Lower Resist", "Dim Vision", "Terror"];
+    component.skillLevels = { "Amplify Damage": 1, Decrepify: 1, "Lower Resist": 1, "Dim Vision": 1, Terror: 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 10_000, maxHp: 10_000, speed: 100, r: 14, dmg: 20, resists: {} } as any;
+    const boss = { kind: "boss", species: "andariel", spriteFrame: 0, x: 310, y: 250, hp: 10_000, maxHp: 10_000, speed: 100, r: 20, dmg: 40 } as any;
+    component.enemies = [target, boss];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Amplify Damage");
+    expect(target.curseName).toBe("Amplify Damage");
+    expect(target.curseRemaining).toBe(8);
+    // 100 physical resistance stripped: the physical multiplier doubles.
+    expect((component as any).enemyResistanceMultiplier(target, "physical")).toBeCloseTo(2, 5);
+    // And it works on bosses, unlike the blinding curses.
+    expect(boss.curseName).toBe("Amplify Damage");
+
+    component.activateOwnedSkill("Lower Resist");
+    expect((component as any).enemyResistanceMultiplier(target, "fire")).toBeCloseTo(1.31, 5);
+
+    component.activateOwnedSkill("Decrepify");
+    // Decrepify halves the monster's speed and adds 50 to its physical exposure.
+    expect((component as any).enemyMoveSpeed(target)).toBeCloseTo(50, 5);
+    expect((component as any).enemyResistanceMultiplier(target, "physical")).toBeCloseTo(1.5, 5);
+
+    component.activateOwnedSkill("Dim Vision");
+    expect(target.curseName).toBe("Dim Vision");
+    // Decrepify reaches bosses; the blinding curse just cast did not.
+    expect(boss.curseName).toBe("Decrepify");
+  });
+
+  it("returns Iron Maiden blows and heals with Life Tap", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.ownedSkills = ["Iron Maiden", "Life Tap"];
+    component.skillLevels = { "Iron Maiden": 1, "Life Tap": 1 };
+    component.playerHp = 100;
+    (component as any).playerMaxHp = 1000;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 20 } as any;
+    component.enemies = [target];
+    (component as any).rebuildEnemyGrid();
+
+    component.activateOwnedSkill("Iron Maiden");
+    expect(target.curseName).toBe("Iron Maiden");
+    expect(target.curseRemaining).toBe(12);
+    expect((component as any).getSkillRankStats("Iron Maiden", "curse", 1))
+      .toContain("Returns 200% of the melee damage it deals, as physical damage");
+
+    component.activateOwnedSkill("Life Tap");
+    const before = component.playerHp;
+    (component as any).queueEnemyDamage(target, 100, "#ef6476", "physical");
+    (component as any).flushPendingDamage();
+    expect(component.playerHp).toBeGreaterThan(before);
+  });
+
+  it("fires the guidebook's teeth and adds their bone synergies", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Teeth", "Bone Wall", "Bone Spear"];
+    component.skillLevels = { Teeth: 1, "Bone Wall": 1, "Bone Spear": 1 };
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 520, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any];
+    (component as any).rebuildEnemyGrid();
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Teeth");
+    // Two teeth at rank one, each 3 magic raised 15% by Bone Wall and Bone Spear.
+    expect(component.attackProjectiles.length).toBe(2);
+    expect(component.attackProjectiles[0].damage).toBeGreaterThan(0);
+    expect((component as any).necromancerBoneDamage("Teeth")).toBeCloseTo(3 * 1.3, 5);
+
+    component.skillLevels = { Teeth: 20, "Bone Wall": 1, "Bone Spear": 1 };
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Teeth");
+    expect(component.attackProjectiles.length).toBe(21);
+  });
+
+  it("absorbs with Bone Armor, rings a Bone Prison and blasts corpses", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.ownedSkills = ["Bone Armor", "Bone Wall", "Bone Prison", "Corpse Explosion", "Poison Nova"];
+    component.skillLevels = { "Bone Armor": 1, "Bone Wall": 2, "Bone Prison": 1, "Corpse Explosion": 1, "Poison Nova": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 320, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+
+    (component as any).boneArmorAbsorptionRemaining = 0;
+    component.activateOwnedSkill("Bone Armor");
+    // 20 from the table, plus 15 a rank of Bone Wall and Bone Prison.
+    expect((component as any).boneArmorAbsorptionRemaining).toBe(20 + 15 * 2 + 15);
+
+    expect((component as any).corpseExplosionRadiusForRank(1)).toBeCloseTo(52, 5);
+    expect((component as any).necromancerBoneDamage("Poison Nova")).toBeCloseTo(72.5, 5);
+
+    component.activateOwnedSkill("Bone Prison");
+    const cage = component.attackProjectiles.find((projectile: any) => projectile.bonePrison)!;
+    expect(cage).toBeTruthy();
+    expect(cage.life).toBe(24);
+    expect(cage.wallHealth).toBe(Math.round(22 * 8 * (1 + 0.08 * (1 + 2))));
+    expect(target.bonePrisonRemaining).toBe(24);
+
+    (component as any).rebuildEnemyGrid();
+    (component as any).updateAttackProjectiles(16);
+    expect(target.stunRemaining).toBeGreaterThan(0);
+  });
+
+  it("raises the guidebook's skeletons and applies Skeleton Mastery after base life", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.ownedSkills = ["Raise Skeleton", "Skeleton Mastery", "Skeletal Mage", "Summon Resist"];
+    component.skillLevels = { "Raise Skeleton": 1, "Skeleton Mastery": 1, "Skeletal Mage": 1, "Summon Resist": 1 };
+    component.enemies = [];
+
+    component.activateOwnedSkill("Raise Skeleton");
+    const skeleton = component.enemies.find((enemy: any) => enemy.summonSkill === "Raise Skeleton")!;
+    expect(skeleton).toBeTruthy();
+    expect(skeleton.maxHp).toBeGreaterThanOrEqual(21 + 8);
+    expect(skeleton.dmg).toBe(4);
+    expect(skeleton.summonResistPercent).toBe(28);
+    expect((component as any).summonLimitForSkill("Raise Skeleton")).toBe(1);
+
+    component.skillLevels = { "Raise Skeleton": 3, "Skeleton Mastery": 1, "Skeletal Mage": 1, "Summon Resist": 1 };
+    expect((component as any).summonLimitForSkill("Raise Skeleton")).toBe(3);
+
+    component.activateOwnedSkill("Skeletal Mage");
+    const mage = component.enemies.find((enemy: any) => enemy.summonSkill === "Skeletal Mage")!;
+    expect(mage.maxHp).toBeGreaterThanOrEqual(61 + 8);
+  });
+
+  it("builds the golems and revives with the guidebook's tables", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 5000;
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Iron Golem", "Fire Golem", "Revive", "Skeleton Mastery"];
+    component.skillLevels = { "Clay Golem": 1, "Golem Mastery": 1, "Iron Golem": 1, "Fire Golem": 1, Revive: 2, "Skeleton Mastery": 2 };
+    component.enemies = [];
+
+    // Only the best golem skill the hero owns can be cast, so each one is
+    // summoned before the next is learned.
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Skeleton Mastery"];
+    component.activateOwnedSkill("Clay Golem");
+    const clay = component.enemies.find((enemy: any) => enemy.summonSkill === "Clay Golem")!;
+    expect(clay.maxHp).toBeGreaterThanOrEqual(120);
+    expect(clay.dmg).toBe(4);
+    expect(clay.summonSlowPercent).toBe(11);
+
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Iron Golem", "Skeleton Mastery"];
+    component.activateOwnedSkill("Iron Golem");
+    // A new golem replaces the old one, never joining it.
+    expect(component.enemies.filter((enemy: any) => enemy.summonType === "golem").length).toBe(1);
+    const iron = component.enemies.find((enemy: any) => enemy.summonSkill === "Iron Golem")!;
+    expect(iron.summonThornsPercent).toBe(150);
+    expect(iron.maxHp).toBeGreaterThanOrEqual(321);
+
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Iron Golem", "Fire Golem", "Skeleton Mastery"];
+    component.activateOwnedSkill("Fire Golem");
+    const fire = component.enemies.find((enemy: any) => enemy.summonSkill === "Fire Golem")!;
+    expect(fire.dmg).toBe(67);
+    expect(fire.summonFireAbsorbPercent).toBe(36);
+
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Iron Golem", "Fire Golem", "Revive", "Skeleton Mastery"];
+    component.activateOwnedSkill("Revive");
+    const revive = component.enemies.find((enemy: any) => enemy.summonSkill === "Revive")!;
+    expect(revive.summonExpireSeconds).toBe(180);
+    expect(revive.maxHp).toBeGreaterThanOrEqual(480);
+    expect((component as any).summonLimitForSkill("Revive")).toBe(2);
+  });
+
+  it("plants sentries and blade traps with the guidebook's shot counts", () => {
+    component.selectedClass = "assassin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Charged Bolt Sentry", "Lightning Sentry", "Blade Fury", "Blade Shield", "Fire Blast"];
+    component.skillLevels = { "Charged Bolt Sentry": 1, "Lightning Sentry": 1, "Blade Fury": 1, "Blade Shield": 1, "Fire Blast": 1 };
+    component.attackProjectiles = [];
+    component.enemies = [{ kind: "normal", species: "fallen", spriteFrame: 0, x: 320, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any];
+
+    component.activateOwnedSkill("Charged Bolt Sentry");
+    const sentry = component.attackProjectiles.find((projectile: any) => projectile.chargedSentryTrap)!;
+    expect(sentry).toBeTruthy();
+    expect(sentry.ammoRemaining).toBe(5);
+    // 1-7 lightning, raised 6% by the Fire Blast and Lightning Sentry ranks here.
+    expect(sentry.trapDamage).toBeCloseTo(4.48, 5);
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Lightning Sentry");
+    const lightning = component.attackProjectiles.find((projectile: any) => projectile.lightningSentryTrap)!;
+    expect(lightning.ammoRemaining).toBe(10);
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Blade Fury");
+    expect(component.attackProjectiles.length).toBe(3);
+    expect(component.attackProjectiles[0].damage).toBeCloseTo(100 * 0.75 + 9, 5);
+
+    component.activateOwnedSkill("Blade Shield");
+    expect((component as any).bladeShieldRemaining).toBe(20);
+    expect((component as any).getSkillRankStats("Blade Shield", "aura", 1))
+      .toContain("Spins for 20s, cutting anything within two yards");
+  });
+
+  it("runs Burst of Speed and Fade one at a time and coats the claws with Venom", () => {
+    component.selectedClass = "assassin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.ownedSkills = ["Burst of Speed", "Fade", "Venom"];
+    component.skillLevels = { "Burst of Speed": 1, "Fade": 1, Venom: 1 };
+
+    component.activateOwnedSkill("Burst of Speed");
+    expect((component as any).burstOfSpeedRemaining).toBe(120);
+    expect((component as any).burstOfSpeedMoveMultiplier).toBeCloseTo(1.23, 5);
+
+    component.activateOwnedSkill("Fade");
+    expect((component as any).burstOfSpeedRemaining).toBe(0);
+    expect((component as any).fadeRemaining).toBe(120);
+    expect((component as any).fadeResistPercent).toBe(19);
+    expect((component as any).fadePhysicalPercent).toBe(1);
+
+    component.activateOwnedSkill("Burst of Speed");
+    expect((component as any).fadeRemaining).toBe(0);
+
+    component.activateOwnedSkill("Venom");
+    expect((component as any).venomRemaining).toBe(120);
+    expect((component as any).getSkillRankStats("Venom", "melee", 1))
+      .toContain("70 poison over 0.4s on every claw strike");
+  });
+
+  it("shrouds the battlefield, blocks with two claws and keeps one shadow", () => {
+    component.selectedClass = "assassin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 500;
+    component.equipment.weapon = {
+      id: "katar", name: "Katar", baseName: "Katar", slot: "weapon", equipmentType: "claw", stats: {},
+    } as any;
+    component.equipment.shield = {
+      id: "katar-2", name: "Katar", baseName: "Katar", slot: "weapon", equipmentType: "claw", stats: {},
+    } as any;
+    component.ownedSkills = ["Cloak of Shadows", "Weapon Block", "Shadow Warrior", "Shadow Master"];
+    component.skillLevels = { "Cloak of Shadows": 1, "Weapon Block": 1, "Shadow Warrior": 1, "Shadow Master": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 320, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+
+    component.activateOwnedSkill("Cloak of Shadows");
+    expect(target.cloakOfShadowsRemaining).toBe(8);
+    expect((component as any).cloakOfShadowsDefensePercent).toBe(10);
+    expect((component as any).weaponBlockChance).toBe(26);
+
+    component.activateOwnedSkill("Shadow Warrior");
+    expect(component.enemies.filter((enemy: any) => enemy.summonSkill === "Shadow Warrior").length).toBe(1);
+    expect(component.enemies.filter((enemy: any) => enemy.summonSkill === "Shadow Warrior")[0].maxHp).toBeGreaterThanOrEqual(376);
+
+    component.activateOwnedSkill("Shadow Master");
+    expect(component.enemies.filter((enemy: any) => enemy.summonSkill === "Shadow Warrior").length).toBe(0);
+    const master = component.enemies.find((enemy: any) => enemy.summonSkill === "Shadow Master")!;
+    expect(master.maxHp).toBeGreaterThanOrEqual(376);
+    expect(master.summonResistPercent).toBe(5);
+  });
+
+  it("banks martial charges and spends them on a finisher", () => {
+    component.selectedClass = "assassin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.equipment.weapon = {
+      id: "katar", name: "Katar", baseName: "Katar", slot: "weapon", equipmentType: "claw", stats: {},
+    } as any;
+    component.equipment.shield = {
+      id: "katar-2", name: "Katar", baseName: "Katar", slot: "weapon", equipmentType: "claw", stats: {},
+    } as any;
+    component.ownedSkills = ["Tiger Strike", "Dragon Claw", "Claws of Thunder", "Dragon Talon"];
+    component.skillLevels = { "Tiger Strike": 1, "Dragon Claw": 1, "Claws of Thunder": 1, "Dragon Talon": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 290, y: 250, hp: 500_000, maxHp: 500_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+
+    component.activateOwnedSkill("Tiger Strike");
+    expect((component as any).martialCharges.length).toBe(1);
+    component.activateOwnedSkill("Tiger Strike");
+    expect((component as any).martialCharges.length).toBe(2);
+    expect((component as any).martialChargeRemaining).toBe(10);
+
+    const before = target.hp;
+    component.activateOwnedSkill("Dragon Claw");
+    (component as any).flushPendingDamage();
+    expect((component as any).martialCharges.length).toBe(0);
+    // Two claw rakes plus the released Tiger Strike charge must beat one blow.
+    expect(before - target.hp).toBeGreaterThan((component as any).skillCastDamage("Dragon Claw"));
+    expect((component as any).martialChargeRemaining).toBe(0);
+  });
+
+  it("releases Claws of Thunder and Blades of Ice at their charge strength", () => {
+    component.selectedClass = "assassin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.equipment.weapon = {
+      id: "katar", name: "Katar", baseName: "Katar", slot: "weapon", equipmentType: "claw", stats: {},
+    } as any;
+    component.ownedSkills = ["Claws of Thunder", "Blades of Ice", "Dragon Talon"];
+    component.skillLevels = { "Claws of Thunder": 1, "Blades of Ice": 1, "Dragon Talon": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 290, y: 250, hp: 500_000, maxHp: 500_000, speed: 0, r: 14, dmg: 2 } as any;
+    const neighbour = { kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 262, hp: 500_000, maxHp: 500_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target, neighbour];
+
+    component.activateOwnedSkill("Claws of Thunder");
+    component.activateOwnedSkill("Claws of Thunder");
+    component.activateOwnedSkill("Claws of Thunder");
+    expect((component as any).martialCharges.length).toBe(3);
+
+    const neighbourBefore = neighbour.hp;
+    component.activateOwnedSkill("Dragon Talon");
+    (component as any).flushPendingDamage();
+    // The nova and the charged bolts reach the second monster.
+    expect(neighbourBefore - neighbour.hp).toBeGreaterThan(0);
+
+    component.activateOwnedSkill("Blades of Ice");
+    component.activateOwnedSkill("Blades of Ice");
+    component.activateOwnedSkill("Blades of Ice");
+    component.activateOwnedSkill("Dragon Talon");
+    (component as any).flushPendingDamage();
+    expect((component as any).enemyFreezeTimers?.get?.(target) ?? target.freezeRemaining ?? 0).toBeGreaterThan(0);
+  });
+
+  it("adds the bow tables' elemental damage and multiplies volleys by three quarters", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.equipment.weapon = {
+      id: "amazon-bow", name: "Short Bow", baseName: "Short Bow", slot: "weapon",
+      equipmentType: "weapon", stats: { damageMin: 4, damageMax: 9 },
+    } as any;
+    component.ownedSkills = ["Magic Arrow", "Fire Arrow", "Multiple Shot", "Ice Arrow", "Freezing Arrow"];
+    component.skillLevels = { "Magic Arrow": 1, "Fire Arrow": 1, "Multiple Shot": 1, "Ice Arrow": 1, "Freezing Arrow": 1 };
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 480, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.attackProjectiles = [];
+
+    expect((component as any).amazonBowFlatDamage("Magic Arrow")).toBe(1);
+    expect((component as any).amazonBowFlatDamage("Fire Arrow")).toBeCloseTo(2.5, 5);
+    expect((component as any).amazonBowFlatDamage("Ice Arrow")).toBeCloseTo(8, 5);
+    expect((component as any).amazonBowFlatDamage("Freezing Arrow")).toBeCloseTo(45, 5);
+    expect((component as any).amazonCombatDamageMultiplier("Multiple Shot", 1)).toBeCloseTo(0.75, 5);
+
+    component.activateOwnedSkill("Multiple Shot");
+    expect(component.attackProjectiles.length).toBe(2);
+    expect(component.attackProjectiles[0].damage)
+      .toBeCloseTo((component as any).skillCastDamage("Multiple Shot"), 4);
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Ice Arrow");
+    expect(component.attackProjectiles[0].freezeSeconds).toBe(2);
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Freezing Arrow");
+    expect(component.attackProjectiles[0].impactRadius).toBe(66);
+    expect((component as any).getSkillRankStats("Freezing Arrow", "projectile", 1))
+      .toContain("Freezes everything within 3.3 yards for 2s");
+  });
+
+  it("strafes at multiple monsters with the guidebook's minimum shots", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.equipment.weapon = {
+      id: "amazon-bow", name: "Short Bow", baseName: "Short Bow", slot: "weapon",
+      equipmentType: "weapon", stats: { damageMin: 4, damageMax: 9 },
+    } as any;
+    component.ownedSkills = ["Strafe"];
+    component.skillLevels = { Strafe: 1 };
+    const first = { kind: "normal", species: "fallen", spriteFrame: 0, x: 420, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    const second = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 430, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [first, second];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Strafe");
+    // Two targets each get an arrow, and the minimum of two is already met.
+    expect(component.attackProjectiles.length).toBe(2);
+    expect((component as any).amazonCombatDamageMultiplier("Strafe", 1)).toBeCloseTo(0.75 * 1.05, 5);
+
+    // A lone monster eats the minimum number of arrows: 2 + floor(rank / 4).
+    component.enemies = [first];
+    component.attackProjectiles = [];
+    component.skillLevels = { Strafe: 8 };
+    component.activateOwnedSkill("Strafe");
+    expect(component.attackProjectiles.length).toBe(4);
+    expect((component as any).getSkillRankStats("Strafe", "projectile", 1))
+      .toContain("Fires at up to 5 targets");
+  });
+
+  it("applies the amazon passive tables for crit, dodge and pierce", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.skillLevels = { "Critical Strike": 1, Penetrate: 18, Dodge: 1, Avoid: 1, Evade: 1, Pierce: 1 };
+    (component as any).playerMoveX = 0;
+    (component as any).playerMoveY = 0;
+
+    // Critical Strike rank 1 is 16%, and Penetrate rank 18 adds 205 AR read at 5%.
+    expect(component.amazonCriticalStrikeChance).toBeCloseTo(16 + 205 * 0.05, 5);
+    expect(component.amazonPierceChance).toBeCloseTo(23, 5);
+
+    spyOn(Math, "random").and.returnValue(0);
+    // Standing still: a melee blow meets Dodge, a missile meets Avoid.
+    expect((component as any).applyIncomingDamage(100)).toBe(0);
+    expect((component as any).applyIncomingDamage(100, undefined, "missile")).toBe(0);
+
+    (component as any).playerMoveX = 4;
+    component.skillLevels = { Dodge: 0, Avoid: 0, Evade: 1 };
+    expect((component as any).rollAmazonDodge("melee")).toBe("Evade");
+  });
+
+  it("casts Inner Sight on nearby monsters and slows enemy missiles", () => {
+    component.selectedClass = "amazon";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Inner Sight", "Slow Missiles"];
+    component.skillLevels = { "Inner Sight": 1, "Slow Missiles": 1 };
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
+    const far = { kind: "normal", species: "fallen", spriteFrame: 0, x: 900, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [near, far];
+
+    component.activateOwnedSkill("Inner Sight");
+    expect(near.innerSightRemaining).toBe(8);
+    expect(near.innerSightDefense).toBe(40);
+    expect(far.innerSightRemaining).toBeUndefined();
+
+    component.activateOwnedSkill("Slow Missiles");
+    expect((component as any).slowMissilesRemaining).toBe(12);
+    expect((component as any).getSkillRankStats("Inner Sight", "aura", 1))
+      .toContain("Lowers the Defense of monsters within 13.3 yards by 40");
+  });
+
+  it("summons a Valkyrie from her table and a stationary Decoy from yours", () => {
+    component.selectedClass = "amazon";
+    component.skillLevels = { Valkyrie: 1, Decoy: 1 };
+    component.playerMaxHp = 1000;
+    component.enemies = [];
+
+    (component as any).summonCompanion("Valkyrie");
+    const valkyrie = component.enemies.find((enemy) => enemy.summonSkill === "Valkyrie");
+    expect(valkyrie).toBeDefined();
+    // The guidebook's 528 base, raised by any summon-life bonus in play.
+    expect(valkyrie!.maxHp).toBeGreaterThanOrEqual(528);
+    expect(valkyrie!.hp).toBe(valkyrie!.maxHp);
+
+    (component as any).summonCompanion("Decoy");
+    const decoy = component.enemies.find((enemy) => enemy.summonSkill === "Decoy");
+    expect(decoy).toBeDefined();
+    expect(decoy!.maxHp).toBe(1100);
+    expect(decoy!.summonStationary).toBeTrue();
+    expect(decoy!.summonExpireSeconds).toBe(10);
+    expect(decoy!.dmg).toBe(0);
+  });
+
+  it("jabs twice and impales with the guidebook's spear tables", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Jab", "Impale", "Fend"];
+    component.skillLevels = { Jab: 1, Impale: 1, Fend: 1 };
+    component.equipment.weapon = {
+      id: "amazon-javelin", name: "Javelin", baseName: "Javelin", slot: "weapon",
+      equipmentType: "weapon", stats: { damageMin: 4, damageMax: 9 },
+    } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+
+    expect((component as any).amazonCombatDamageMultiplier("Jab", 1)).toBeCloseTo(0.85, 5);
+    expect((component as any).amazonCombatDamageMultiplier("Impale", 1)).toBeCloseTo(4, 5);
+    expect((component as any).amazonCombatDamageMultiplier("Fend", 1)).toBeCloseTo(1.7, 5);
+
+    component.activateOwnedSkill("Jab");
+    (component as any).flushPendingDamage();
+    // Jab is the amazon basic attack: one thrust carrying its rank's damage column.
+    expect(100_000 - target.hp).toBeCloseTo((component as any).skillCastDamage("Jab"), 4);
+    expect(component.floatingTexts.length).toBe(1);
+
+    // Fend turns on every monster in reach, not just the nearest one.
+    const second = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 274, hp: 10_000, maxHp: 10_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target, second];
+    component.activateOwnedSkill("Fend");
+    (component as any).flushPendingDamage();
+    expect(second.hp).toBeLessThan(10_000);
+
+    expect((component as any).getSkillRankStats("Impale", "strike", 1))
+      .toContain("+300% damage on a single thrust");
+  });
+
+  it("releases Charged Strike bolts and chains Lightning Strike", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charged Strike", "Lightning Strike", "Power Strike", "Lightning Bolt"];
+    component.skillLevels = { "Charged Strike": 1, "Lightning Strike": 1, "Power Strike": 1, "Lightning Bolt": 1 };
+    component.equipment.weapon = {
+      id: "amazon-javelin", name: "Javelin", baseName: "Javelin", slot: "weapon",
+      equipmentType: "weapon", stats: { damageMin: 4, damageMax: 9 },
+    } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    const neighbour = { kind: "normal", species: "fallen", spriteFrame: 0, x: 250, y: 276, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target, neighbour];
+    component.attackProjectiles = [];
+
+    component.activateOwnedSkill("Charged Strike");
+    expect(component.attackProjectiles.length).toBe(3);
+    expect(component.attackProjectiles.every((projectile) => projectile.kind === "lightning")).toBeTrue();
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Lightning Strike");
+    (component as any).flushPendingDamage();
+    // Lightning Strike hits the monster and arcs on to its neighbour.
+    expect(component.floatingTexts.some((text: any) => text.x === neighbour.x)).toBeTrue();
+  });
+
+  it("throws poison and lightning javelins from the guidebook tables", () => {
+    component.selectedClass = "amazon";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Lightning Bolt", "Poison Javelin", "Plague Javelin", "Lightning Fury"];
+    component.skillLevels = { "Lightning Bolt": 1, "Poison Javelin": 1, "Plague Javelin": 1, "Lightning Fury": 1 };
+    component.equipment.weapon = {
+      id: "amazon-javelin", name: "Javelin", baseName: "Javelin", slot: "weapon",
+      equipmentType: "weapon", stats: { damageMin: 4, damageMax: 9 },
+    } as any;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 420, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    const neighbour = { kind: "normal", species: "fallen", spriteFrame: 0, x: 440, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target, neighbour];
+    component.attackProjectiles = [];
+    (component as any).poisonClouds.length = 0;
+
+    component.activateOwnedSkill("Lightning Bolt");
+    // Rank 1 Lightning Bolt is 1-40, and the Lightning Fury point adds its 3%.
+    expect(component.attackProjectiles[0].damage).toBeCloseTo(20.5 * 1.03, 5);
+    expect(component.attackProjectiles[0].damageType).toBe("lightning");
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Poison Javelin");
+    expect((component as any).poisonClouds.length).toBe(3);
+    const poisonTotal = (component as any).poisonClouds
+      .reduce((total: number, cloud: any) => total + cloud.damagePerTick * cloud.life, 0);
+    // Rank 1 Poison Javelin is 25-37, raised 12% by the Plague Javelin point.
+    expect(poisonTotal).toBeCloseTo(31 * 1.12, 4);
+
+    component.attackProjectiles = [];
+    component.activateOwnedSkill("Lightning Fury");
+    (component as any).flushPendingDamage();
+    expect(component.attackProjectiles.length).toBeGreaterThan(1);
+    expect(100_000 - target.hp).toBeGreaterThan(0);
+  });
+
+  it("trades life for Sacrifice damage at the guidebook's 8%", () => {
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.playerHp = 500;
+    component.playerMaxHp = 500;
+    component.ownedSkills = ["Sacrifice"];
+    component.skillLevels = { Sacrifice: 1 };
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    const target = { kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250, hp: 100_000, maxHp: 100_000, speed: 0, r: 14, dmg: 2 } as any;
+    component.enemies = [target];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Sacrifice");
+    (component as any).flushPendingDamage();
+
+    const dealt = 100_000 - target.hp;
+    expect(dealt).toBeGreaterThan(0);
+    expect(component.playerHp).toBeCloseTo(500 - dealt * 0.08, 4);
+    expect(component.playerHp).toBeLessThan(500);
+    expect((component as any).getSkillRankStats("Sacrifice", "strike", 1))
+      .toContain("+180% damage, no mana");
+  });
+
+  it("converts a monster so it strikes its former comrades instead of the paladin", () => {
+    spyOn(Math, "random").and.returnValue(0);
+    component.selectedClass = "paladin";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Conversion"];
+    component.skillLevels = { Conversion: 1 };
+    const converted = { kind: "normal", species: "fallen", spriteFrame: 0, x: 268, y: 250, hp: 5000, maxHp: 5000, speed: 100, r: 14, dmg: 30 } as any;
+    const victim = { kind: "normal", species: "fallen", spriteFrame: 0, x: 286, y: 250, hp: 5000, maxHp: 5000, speed: 100, r: 14, dmg: 30 } as any;
+    component.enemies = [converted, victim];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Conversion");
+    (component as any).flushPendingDamage();
+
+    expect(converted.convertedRemaining).toBe(16);
+    expect((component as any).applyIncomingDamage(100, converted)).toBe(0);
+
+    (component as any).updateConvertedMonsters(1.1);
+    (component as any).flushPendingDamage();
+    expect(converted.convertedRemaining).toBeCloseTo(14.9, 5);
+    expect(victim.hp).toBeLessThan(5000);
+    expect((component as any).getSkillRankStats("Conversion", "strike", 1))
+      .toContain("7% chance to convert the monster struck");
   });
 
   it("applies item Energy to projectile spell damage", () => {
@@ -10265,11 +12792,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.equippedEnergyBonus).toBe(25);
     expect((component as any).getSkillRankStats("Fire Bolt", "projectile", 1))
-      .toContain("187 base damage per hit before skill-specific modifiers");
+      .toContain("3-6 fire damage");
     component.activateOwnedSkill("Fire Bolt");
 
     expect(component.attackProjectiles).toHaveSize(1);
-    expect(component.attackProjectiles[0].damage).toBe(187.5);
+    // 4.5 from the Fire Bolt table, 25% harder from the helm's Energy.
+    expect(component.attackProjectiles[0].damage).toBeCloseTo(4.5 * 1.25, 5);
   });
 
   it("applies item Energy to area spell damage", () => {
@@ -10298,7 +12826,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Frost Nova");
     (component as any).flushPendingDamage();
 
-    expect(target.hp).toBeCloseTo(843.75, 5);
+    // 3 cold from the Frost Nova table, 25% harder from the helm's Energy.
+    expect(target.hp).toBeCloseTo(1000 - 3 * 1.25, 5);
   });
 
   it("applies item Energy to ground spell damage", () => {
@@ -10321,7 +12850,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Fire Wall");
 
     expect(component.attackProjectiles).toHaveSize(1);
-    expect(component.attackProjectiles[0].damage).toBe(37.5);
+    // Half of the table's 70-94 per second, 25% harder from the helm's Energy.
+    expect(component.attackProjectiles[0].damage).toBeCloseTo((70 + 94) / 2 * 0.5 * 1.25, 5);
   });
 
   it("applies item Energy once to elemental trap damage", () => {
@@ -10350,13 +12880,15 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Wake of Inferno");
     const trap = component.attackProjectiles[0];
-    expect(trap.trapDamage).toBe(43.75);
+    // Wake of Inferno's table starts at 12-30 fire a second (21 average) and the
+    // helm's Energy scales it once.
+    expect(trap.trapDamage).toBe(26.25);
 
     trap.shotCooldown = 0;
     (component as any).updateAttackProjectiles(16);
     const cone = (component as any).skillVisualEffects.find((effect: any) => effect.inferno && effect.stationary);
     expect(cone).toBeDefined();
-    expect(cone.damagePerTick).toBeCloseTo(10.9375, 5);
+    expect(cone.damagePerTick).toBeCloseTo(6.5625, 5);
   });
 
   it("does not apply item Energy to melee attacks", () => {
@@ -10403,7 +12935,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Multiple Shot");
 
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
-    expect(component.attackProjectiles.every((projectile) => projectile.damage === 150)).toBeTrue();
+    // Multishot takes three quarters of the weapon's damage (150 -> 112.5).
+    expect(component.attackProjectiles.every((projectile) => projectile.damage === 112.5)).toBeTrue();
   });
 
   it("drops only named items whose required level fits the hero", () => {
@@ -10881,7 +13414,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.selectedClass = "necromancer";
     component.playerX = 250;
     component.playerY = 250;
-    component.skillLevels = { "Skeletal Mage": 4 };
+    // The mage table only allows four bodies from rank nine upward.
+    component.skillLevels = { "Skeletal Mage": 9 };
     component.enemies = [];
 
     for (let index = 0; index < 4; index += 1) (component as any).summonCompanion("Skeletal Mage");
@@ -11406,26 +13940,27 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).skillCastCooldowns = {};
 
     expect((component as any).weaponRequirementForSkill("Holy Shield")).toBe("shield");
-    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("+20 base Defense while active");
-    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("Active for 12.0s when cast");
+    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("+25% Defense while active (+0% from Defiance)");
+    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("Active for 30.0s when cast");
+    expect((component as any).getSkillRankStats("Holy Shield", "strike", 1)).toContain("+14% successful blocking");
 
     const baseArmor = component.equippedArmor;
     const baseDamage = (component as any).applyIncomingDamage(100);
     component.activateOwnedSkill("Holy Shield");
 
-    expect((component as any).holyShieldRemaining).toBe(12);
+    expect((component as any).holyShieldRemaining).toBe(30);
     expect(component.attackProjectiles).toHaveSize(0);
     expect(component.enemies[0].hp).toBe(100);
-    expect(component.equippedArmor).toBe(baseArmor + 20);
+    expect(component.equippedArmor).toBe(baseArmor + 25);
     expect((component as any).applyIncomingDamage(100)).toBeLessThan(baseDamage);
 
-    (component as any).updateSkillVisualEffects(12_100);
+    (component as any).updateSkillVisualEffects(30_100);
     expect((component as any).holyShieldRemaining).toBe(0);
     expect(component.equippedArmor).toBe(baseArmor);
     expect(component.skillCastCooldowns["Holy Shield"]).toBe(8);
 
     (component as any).updateAutomaticSkillCasts(8_100);
-    expect((component as any).holyShieldRemaining).toBe(12);
+    expect((component as any).holyShieldRemaining).toBe(30);
   });
 
   it("mounts the original D2R Holy Shield design over the paladin's shield while active", async () => {
@@ -11624,10 +14159,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.ownedSkills = ["Might", "Blessed Hammer"];
     (component as any).activePaladinAuras["Might"] = { remaining: 100, tick: 0 };
 
-    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(140);
+    // Might rank 5 is +80% melee damage from the guidebook table.
+    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(180);
     expect((component as any).applyPaladinAuraDamage(100)).toBe(100);
     expect((component as any).getSkillRankStats("Might", "aura", 5))
-      .toContain("While active: +40% melee damage");
+      .toContain("+80% melee damage to you and your servants");
 
     const enemy = {
       kind: "normal", species: "fallen", spriteFrame: 0, x: 260, y: 250,
@@ -11636,11 +14172,92 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.enemies = [enemy];
     (component as any).attackCooldown = 0;
     component.attackNearestEnemy();
-    expect(enemy.hp).toBe(860);
+    expect(enemy.hp).toBe(820);
 
     component.attackProjectiles.length = 0;
     component.activateOwnedSkill("Blessed Hammer");
-    expect(component.attackProjectiles[0].damage).toBe(150);
+    // Might is melee-only, and Blessed Hammer uses its own 12-16 spell table.
+    expect(component.attackProjectiles[0].damage).toBe(14);
+  });
+
+  it("follows the offensive aura tables for damage, speed and thorns", () => {
+    component.selectedClass = "paladin";
+    component.skillLevels = { Might: 1, Concentration: 1, Fanaticism: 1, "Blessed Aim": 4, Thorns: 1, "Holy Freeze": 1, Conviction: 1 };
+    const auras = (component as any).activePaladinAuras as Record<string, { remaining: number; tick: number }>;
+    for (const key of Object.keys(auras)) delete auras[key];
+
+    auras["Might"] = { remaining: 10, tick: 0 };
+    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(140);
+    expect((component as any).applyPaladinAuraDamage(100)).toBe(100);
+    delete auras["Might"];
+
+    // Concentration rank 1 is +60% to attacks, half of it to Blessed Hammer.
+    auras["Concentration"] = { remaining: 10, tick: 0 };
+    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(160);
+    expect((component as any).applyPaladinAuraDamage(100)).toBe(130);
+    delete auras["Concentration"];
+
+    // Fanaticism rank 1 is +50% damage, +14% attack speed and +40% attack.
+    auras["Fanaticism"] = { remaining: 10, tick: 0 };
+    expect((component as any).applyPaladinAuraDamage(100, true)).toBe(150);
+    const fanaticCooldown = (component as any).paladinAuraAttackCooldown();
+    expect(fanaticCooldown).toBeCloseTo(component.basicAttackCooldown * 0.86 / component.playerAttackSpeedMultiplier, 5);
+    delete auras["Fanaticism"];
+
+    // Blessed Aim's attack rating becomes critical-strike weight, and keeps a
+    // 5%-a-hard-point passive while switched off.
+    auras["Blessed Aim"] = { remaining: 10, tick: 0 };
+    // Rank 4 is +120% attack rating, read as 6% critical strike.
+    expect(component.paladinAuraCriticalBonus).toBeCloseTo(120 * 0.05);
+    expect(component.criticalStrikeChance).toBeCloseTo(6);
+    delete auras["Blessed Aim"];
+    expect(component.paladinAuraCriticalBonus).toBeCloseTo(4 * 5 * 0.05);
+
+    // Thorns rank 1 returns 250% of the melee damage taken.
+    auras["Thorns"] = { remaining: 10, tick: 0 };
+    expect(component.thornsDamagePercent).toBe(250);
+    delete auras["Thorns"];
+
+    // Holy Freeze rank 1 slows by 30%; Conviction rank 1 strips 49% Defense.
+    auras["Holy Freeze"] = { remaining: 10, tick: 0 };
+    component.playerX = 250;
+    component.playerY = 250;
+    const slowed = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    expect((component as any).enemyMoveSpeed(slowed)).toBeCloseTo(70);
+    delete auras["Holy Freeze"];
+    auras["Conviction"] = { remaining: 10, tick: 0 };
+    expect(component.convictionDefenseReductionPercent).toBe(49);
+    delete auras["Conviction"];
+  });
+
+  it("burns, shocks and redeems the undead with the aura ticks", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.runActive = true;
+    component.skillLevels = { "Holy Fire": 1, "Resist Fire": 2, Salvation: 1, Sanctuary: 1, Cleansing: 2 };
+    const auras = (component as any).activePaladinAuras as Record<string, { remaining: number; tick: number }>;
+    for (const key of Object.keys(auras)) delete auras[key];
+
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 270, y: 250, hp: 500, maxHp: 500, speed: 100, r: 14, dmg: 2 } as any;
+    const undead = { ...near, species: "skeleton" };
+    component.enemies = [near, undead];
+    (component as any).rebuildEnemyGrid();
+    (component as any).pendingDamage.clear();
+
+    auras["Holy Fire"] = { remaining: 10, tick: 0 };
+    (component as any).applyPaladinAuraTick("Holy Fire");
+    // 2 base at rank 1, +36% from two Resist Fire ranks and +6% from Salvation.
+    expect((component as any).pendingDamage.get(near)?.damage ?? 0).toBeCloseTo(2 * 1.42);
+
+    // Sanctuary rank 1 burns the undead for 150% of its 12 magic damage,
+    // plus 7% a rank of Cleansing.
+    (component as any).pendingDamage.clear();
+    (component as any).rebuildEnemyGrid();
+    auras["Sanctuary"] = { remaining: 10, tick: 0 };
+    (component as any).applyPaladinAuraTick("Sanctuary");
+    expect((component as any).pendingDamage.get(undead)?.damage ?? 0).toBeCloseTo(12 * 1.14 * 2.5);
+    expect((component as any).pendingDamage.get(near)?.damage ?? 0).toBeCloseTo(12 * 1.14);
   });
 
   it("scales Vigor's duration and movement speed with its rank", () => {
@@ -11664,11 +14281,109 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(rankOneDuration).toBe(10);
     expect(rankSixDuration).toBe(20);
-    expect(rankSixStep / rankOneStep).toBeCloseTo(1.24 / 1.04, 5);
+    // The guidebook's walk/run column: +13% at rank 1, +30% at rank 6.
+    expect(rankSixStep / rankOneStep).toBeCloseTo(1.30 / 1.13, 5);
 
     const stats = (component as any).getSkillRankStats("Vigor", "aura", 6) as string[];
     expect(stats).toContain("Active duration: 20.00s");
-    expect(stats).toContain("While active: +24% movement speed");
+    expect(stats).toContain("+30% walk and run speed");
+  });
+
+  it("follows the defensive aura tables for radius, resistance and Defense", () => {
+    component.selectedClass = "paladin";
+    component.skillLevels = {
+      "Resist Fire": 10, "Resist Cold": 1, Salvation: 1, Defiance: 5, Vigor: 20, VigorCheck: 0,
+    };
+    const auras = (component as any).activePaladinAuras as Record<string, { remaining: number; tick: number }>;
+    for (const key of Object.keys(auras)) delete auras[key];
+
+    // Radius columns, in the arena's 20-units-per-yard scale.
+    expect((component as any).paladinAuraRadius("Prayer", 1)).toBe(212);
+    expect((component as any).paladinAuraRadius("Prayer", 20)).toBe(720);
+    expect((component as any).paladinAuraRadius("Meditation", 1)).toBe(146);
+    expect((component as any).paladinAuraRadius("Vigor", 20)).toBe(960);
+
+    // Resist Fire rank 10 is +113% and +10 maximum resistance while it runs.
+    auras["Resist Fire"] = { remaining: 10, tick: 0 };
+    expect(component.paladinFireResistanceBonus).toBe(113);
+    // The aura's own +10 maximum resistance lifts the 75% cap to 85%.
+    expect(component.equippedFireResistance).toBe(85);
+    expect(component.paladinMaxFireResistanceBonus).toBe(10);
+
+    // Switched off, the paladin keeps half the maximum-resistance bonus.
+    delete auras["Resist Fire"];
+    expect(component.paladinFireResistanceBonus).toBe(0);
+    expect(component.paladinMaxFireResistanceBonus).toBe(5);
+
+    // Salvation covers fire, cold and lightning at +60% from rank 1.
+    auras["Salvation"] = { remaining: 10, tick: 0 };
+    expect(component.paladinFireResistanceBonus).toBe(60);
+    expect(component.paladinColdResistanceBonus).toBe(60);
+    expect(component.paladinLightningResistanceBonus).toBe(60);
+
+    // Defiance rank 5 is +110% Defense, which avoids 19.8% of hits.
+    auras["Defiance"] = { remaining: 10, tick: 0 };
+    expect(component.defianceDefensePercent).toBe(110);
+    expect(component.paladinAuraAvoidChance).toBeCloseTo(Math.min(45, 110 * 0.18) / 100);
+
+    // Vigor's walk/run table ends at +43%.
+    expect((component as any).vigorMovementSpeedMultiplier(1)).toBeCloseTo(1.13);
+    expect((component as any).vigorMovementSpeedMultiplier(20)).toBeCloseTo(1.43);
+  });
+
+  it("heals, cleanses and restores mana from the auras' own ticks", () => {
+    component.selectedClass = "paladin";
+    component.skillLevels = { Prayer: 5, Cleansing: 1, Meditation: 1, Vigor: 1 };
+    component.playerMaxHp = 500;
+    component.playerHp = 400;
+    component.playerMaxMana = 100;
+    component.playerMana = 50;
+    component.playerPoisonRemaining = 5;
+    (component as any).playerChilledRemaining = 5;
+    component.enemies = [];
+    const auras = (component as any).activePaladinAuras as Record<string, { remaining: number; tick: number }>;
+    for (const key of Object.keys(auras)) delete auras[key];
+
+    auras["Prayer"] = { remaining: 10, tick: 0 };
+    (component as any).applyPaladinAuraTick("Prayer");
+    // Rank 5 heals 6 a second and costs 1.7 mana a second.
+    expect(component.playerHp).toBe(406);
+    expect(component.playerMana).toBeCloseTo(48.3);
+
+    // Cleansing rank 1 shortens poison and chill by 39% and carries Prayer.
+    auras["Cleansing"] = { remaining: 10, tick: 0 };
+    (component as any).applyPaladinAuraTick("Cleansing");
+    expect(component.playerPoisonRemaining).toBeLessThan(5);
+    expect((component as any).playerChilledRemaining).toBeLessThan(5);
+    expect(component.playerHp).toBeGreaterThan(406);
+
+    // Meditation rank 1 restores 6% of the pool a second.
+    component.playerMana = 50;
+    auras["Meditation"] = { remaining: 10, tick: 0 };
+    (component as any).applyPaladinAuraTick("Meditation");
+    expect(component.playerMana).toBeCloseTo(56);
+
+    // Only one aura may burn: focusing Prayer drops the others.
+    auras["Vigor"] = { remaining: 10, tick: 0 };
+    (component as any).focusPaladinAura("Prayer");
+    expect(Object.keys(auras)).toEqual(["Prayer"]);
+  });
+
+  it("reads Redemption's chance and recovery from its table", () => {
+    component.selectedClass = "paladin";
+    component.skillLevels = { Redemption: 1 };
+    const auras = (component as any).activePaladinAuras as Record<string, { remaining: number; tick: number }>;
+    for (const key of Object.keys(auras)) delete auras[key];
+    expect(component.redemptionChancePercent).toBe(0);
+    expect(component.redemptionRecovery).toBe(0);
+
+    auras["Redemption"] = { remaining: 10, tick: 0 };
+    expect(component.redemptionChancePercent).toBe(23);
+    expect(component.redemptionRecovery).toBe(25);
+
+    component.skillLevels = { Redemption: 20 };
+    expect(component.redemptionChancePercent).toBe(85);
+    expect(component.redemptionRecovery).toBe(120);
   });
 
   it("extends a running Vigor aura when a skill point raises its rank", () => {
@@ -11714,16 +14429,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
   it("shows only the strongest learned armor aura, drawn from its own sheet", () => {
     component.selectedClass = "sorceress";
+    component.runActive = true;
     component.ownedSkills = ["Frozen Armor"];
     component.skillLevels = { "Frozen Armor": 1 };
+    expect((component as any).activeArmorAuraSkill()).toBeNull();
+
+    component.activateOwnedSkill("Frozen Armor");
     expect((component as any).activeArmorAuraSkill()).toBe("Frozen Armor");
 
     component.ownedSkills.push("Shiver Armor");
     component.skillLevels["Shiver Armor"] = 1;
+    component.activateOwnedSkill("Shiver Armor");
     expect((component as any).activeArmorAuraSkill()).toBe("Shiver Armor");
 
     component.ownedSkills.push("Chilling Armor");
     component.skillLevels["Chilling Armor"] = 1;
+    component.activateOwnedSkill("Chilling Armor");
     expect((component as any).activeArmorAuraSkill()).toBe("Chilling Armor");
 
     (component as any).runTime = 0.25;
@@ -12031,8 +14752,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillLevels = { "Static Field": 1 };
     const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
     const inside = { ...base };
-    const edge = { ...base, x: 362 };
-    const outside = { ...base, x: 390 };
+    // Rank one reaches 3.3 yards (66 units), so 64 units is in and 90 is out.
+    const edge = { ...base, x: 314 };
+    const outside = { ...base, x: 340 };
     component.enemies = [inside, edge, outside];
     component.attackProjectiles = [];
     (component as any).rebuildEnemyGrid();
@@ -12049,7 +14771,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.staticField);
     expect(effect).toBeTruthy();
     expect(effect.stationary).toBeTrue();
-    expect(effect.fieldRadius).toBe(112);
+    expect(effect.fieldRadius).toBe(66);
   });
 
   it("casts Lightning as a full-screen rail that damages every enemy on the line", () => {
@@ -12105,8 +14827,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Static Field");
 
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.staticField);
-    expect(effect.fieldRadius).toBe(140);
-    expect((component as any).getSkillRankStats("Static Field", "burst", 5)).toContain("Blast radius: 140 units");
+    expect(effect.fieldRadius).toBe(120);
+    expect((component as any).getSkillRankStats("Static Field", "burst", 5)).toContain("Blast radius: 6 yards");
     expect((component as any).getSkillRankStats("Static Field", "burst", 5)).toContain("Removes 25% of each hit enemy's current life");
   });
 
@@ -12147,6 +14869,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const height = 100;
     const blocked = new Uint8Array(width * height);
     for (let y = 0; y < height; y += 1) {
+      // A doorway further down the wall gives the detour somewhere to go. It is
+      // wider than the detour grid's cell so a node lands inside it.
+      if (y >= 52 && y <= 84) continue;
       blocked[y * width + 50] = 1;
       blocked[y * width + 51] = 1;
     }
@@ -12164,10 +14889,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     } as any;
 
     expect((component as any).campaignStepBlocked(wallContext, 45, 50, 10, 0)).toBeTrue();
+    (component as any).detourSearchesLeft = 4;
     const step = (component as any).enemyWallAwareStep(wallContext, enemy, 1, 0, 20, 100, 50);
 
-    expect(step.x).toBeLessThan(50);
+    // The monster walks a planned detour toward the doorway instead of grinding
+    // straight into the brickwork.
+    expect(step.x).not.toBe(40);
     expect(step.y).toBeGreaterThan(50);
+    expect((component as any).campaignBlockedSamples(wallContext, step.x, step.y)).toBe(0);
   });
 
   it("does not let a melee monster attack through a wall", () => {
@@ -12240,7 +14969,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(blast.missileId).toBe("d2-iceblast");
     expect(blast.target).toBeUndefined();
     expect(blast.impactRadius).toBe(48);
-    expect(blast.freezeSeconds).toBe(1.6);
+    expect(blast.freezeSeconds).toBe(3);
     expect(blast.color).toBe("#8bdcff");
     for (let frame = 0; frame < 40; frame += 1) (component as any).updateAttackProjectiles(16);
     (component as any).flushPendingDamage();
@@ -12248,8 +14977,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(primary.hp).toBeLessThan(100);
     expect(nearby.hp).toBeLessThan(100);
     expect(outside.hp).toBe(100);
-    expect(primary.freezeRemaining).toBeCloseTo(1.6);
-    expect(nearby.freezeRemaining).toBeCloseTo(1.6);
+    // Rank-one Ice Blast freezes for the guidebook's 3 seconds.
+    expect(primary.freezeRemaining).toBeCloseTo(3);
+    expect(nearby.freezeRemaining).toBeCloseTo(3);
     expect(outside.freezeRemaining).toBeUndefined();
 
     primary.animationState = "attack";
@@ -12338,11 +15068,11 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).playerFacingY = 0;
     component.ownedSkills = ["Inferno"];
     component.skillLevels = { Inferno: 1 };
-    const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 350, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
+    const base = { kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 250, hp: 1000, maxHp: 1000, speed: 100, r: 14, dmg: 2 } as any;
     const inside = { ...base };
     // At 32 degrees off-centre this was outside the old 15-degree beam but is
     // inside the new close, wide breath.
-    const wide = { ...base, x: 330, y: 300 };
+    const wide = { ...base, x: 300, y: 284 };
     const far = { ...base, x: 430, y: 250 };
     const behind = { ...base, x: 30 };
     const offCone = { ...base, x: 280, y: 370 };
@@ -12356,7 +15086,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const effect = (component as any).skillVisualEffects.find((entry: any) => entry.inferno);
     expect(effect).toBeTruthy();
     expect(effect.duration).toBeCloseTo(1);
-    expect(effect.coneRange).toBe(128);
+    expect(effect.coneRange).toBe(66);
     expect(effect.coneHalfAngle).toBeCloseTo(Math.PI / 5);
 
     (component as any).updateSkillVisualEffects(0.6);
@@ -12424,7 +15154,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(component.attackProjectiles.length).toBe(0);
     expect((component as any).playerAttackLockRemaining).toBe(0);
-    expect((component as any).blazeRemaining).toBeGreaterThanOrEqual(5);
+    expect((component as any).blazeRemaining).toBeCloseTo(4.6, 5);
     expect((component as any).blazeFirePatches.length).toBe(1);
     const patch = (component as any).blazeFirePatches[0];
     expect(patch.life).toBe(5);
@@ -12976,7 +15706,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles.length).toBe(1);
     const wall = component.attackProjectiles[0] as any;
     expect(wall.fireWall).toBeTrue();
-    expect(wall.life).toBe(4);
+    expect(wall.life).toBeCloseTo(3.6, 5);
     expect(wall.missileId).toBe("d2-groundfirebig");
     expect(wall.wallHalfLength).toBeGreaterThan(0);
     expect(wall.wallNormalX).toBeCloseTo(1);
@@ -13037,10 +15767,42 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Fire Wall");
     const wall = component.attackProjectiles[0];
-    (component as any).updateAttackProjectiles(3900);
+    (component as any).updateAttackProjectiles(3500);
     expect(component.attackProjectiles).toContain(wall);
     (component as any).updateAttackProjectiles(200);
     expect(component.attackProjectiles).not.toContain(wall);
+  });
+
+  it("flies the shaman's fireball nose-first and turns its blue cels orange", () => {
+    const frames = Array.from({ length: 3 }, () => ({ width: 51, height: 38 }));
+    (component as any).missileOverlayImages.set("d2-shamanfireball", frames);
+    (component as any).worldZoom = 1;
+    (component as any).projectionDpr = 1;
+    (component as any).projectionCenterX = 400;
+    (component as any).projectionCenterY = 400;
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const drawImage = jasmine.createSpy("drawImage");
+    const rotate = jasmine.createSpy("rotate");
+    const ctx = {
+      save: () => undefined, restore: () => undefined, translate: () => undefined, rotate,
+      drawImage, globalAlpha: 1, filter: "", shadowColor: "", shadowBlur: 0,
+      globalCompositeOperation: "source-over",
+    } as any;
+    const fireball = {
+      x: 300, y: 260, startX: 200, startY: 260, targetX: 300, targetY: 260,
+      speed: 235, damage: 4, life: 2, age: 0.1, radius: 7,
+      color: "#ff7433", kind: "fire", missileId: "d2-shamanfireball",
+    } as any;
+    component.attackProjectiles = [fireball];
+
+    (component as any).drawAttackProjectile(ctx, fireball);
+
+    expect(drawImage).toHaveBeenCalled();
+    // The cel's head sits lower-left, so the flight vector needs Fire Ball's
+    // own -135 degree correction or the fireball travels tail-first.
+    expect(rotate).toHaveBeenCalledWith(-3 * Math.PI / 4);
+    // The DCC's blue palette is recoloured to the missile's fire orange.
+    expect(ctx.filter).toBe("hue-rotate(180deg) saturate(1.45) brightness(1.12)");
   });
 
   it("draws the original 37-frame groundFireBig strip and advances its animation", () => {
@@ -13126,7 +15888,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const fireballs = component.attackProjectiles.filter((projectile) => !projectile.wakeOfFireTrap);
     expect(fireballs).toHaveSize(5);
     expect(fireballs.every((projectile) => projectile.missileId === "d2-fireball")).toBeTrue();
-    expect(fireballs.every((projectile) => projectile.damage === 30)).toBeTrue();
+    // The guidebook's rank one wave: 5-10 fire, a 7.5 average a fireball.
+    expect(fireballs.every((projectile) => projectile.damage === 7.5)).toBeTrue();
     expect(fireballs.every((projectile) => projectile.pathHit)).toBeTrue();
     const angles = fireballs.map((projectile) => Math.atan2(projectile.targetY - trap.y, projectile.targetX - trap.x));
     expect(new Set(angles.map((angle) => angle.toFixed(3))).size).toBe(5);
@@ -13435,6 +16198,99 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     mask.blocked[50 * 100 + 50] = 0;
     expect((component as any).campaignTerrainBlocks(5, 0)).toBeTrue();
     expect((component as any).campaignTerrainBlocks(0, 5)).toBeFalse();
+  });
+
+  it("plans a short detour around a house instead of grinding on its wall", () => {
+    const mask = { width: 160, height: 160, blocked: new Uint8Array(160 * 160) };
+    for (let y = 60; y <= 100; y += 1) {
+      for (let column = 70; column <= 90; column += 1) mask.blocked[y * 160 + column] = 1;
+    }
+    (component as any).campaignCollisionMasks[2] = mask;
+    (component as any).currentAct = 2;
+    component.playerX = 120;
+    component.playerY = 80;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const context = (component as any).campaignCollisionContext();
+
+    const route = (component as any).planEnemyDetour(context, { x: 40, y: 80 }, { x: 120, y: 80 });
+
+    expect(route).not.toBeNull();
+    expect(route.length).toBeGreaterThan(0);
+    for (const point of route) {
+      expect((component as any).campaignBlockedSamples(context, point.x, point.y)).toBe(0);
+    }
+    const last = route[route.length - 1];
+    expect(Math.hypot(last.x - 120, last.y - 80)).toBeLessThan(30);
+    expect(route.some((point: { y: number }) => point.y < 60 || point.y > 100)).toBeTrue();
+  });
+
+  it("keeps a boxed-in monster idle when no detour reaches the hero", () => {
+    const mask = { width: 160, height: 160, blocked: new Uint8Array(160 * 160) };
+    for (let y = 60; y <= 100; y += 1) {
+      for (let column = 40; column <= 80; column += 1) {
+        const border = column <= 43 || column >= 77 || y <= 63 || y >= 97;
+        if (border) mask.blocked[y * 160 + column] = 1;
+      }
+    }
+    (component as any).campaignCollisionMasks[2] = mask;
+    (component as any).currentAct = 2;
+    component.playerX = 140;
+    component.playerY = 80;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    const context = (component as any).campaignCollisionContext();
+
+    const enemy = (component as any).makeEnemy("normal", false, "fallen");
+    enemy.x = 60;
+    enemy.y = 80;
+    enemy.detourPoints = undefined;
+    enemy.detourRetry = 0;
+    (component as any).detourSearchesLeft = 2;
+
+    const step = (component as any).enemyWallAwareStep(context, enemy, 1, 0, 40, 140, 80, 0.016);
+
+    expect(step.x).toBe(60);
+    expect(step.y).toBe(80);
+    expect(enemy.detourPoints).toBeUndefined();
+    expect(enemy.detourRetry).toBeGreaterThan(0);
+  });
+
+  it("clears monster spawns against the wall mask in every act", () => {
+    const mask = { width: 100, height: 100, blocked: new Uint8Array(100 * 100) };
+    mask.blocked[60 * 100 + 60] = 1;
+    (component as any).campaignCollisionMasks[1] = mask;
+    (component as any).currentAct = 1;
+    component.playerX = 50;
+    component.playerY = 50;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(Math, "random").and.returnValue(0.42);
+
+    const enemy = (component as any).makeEnemy("normal", false, "fallen");
+    const context = (component as any).campaignCollisionContext();
+
+    expect((component as any).campaignBlockedSamples(context, enemy.x, enemy.y)).toBe(0);
+  });
+
+  it("moves a hatchling placed near its parent out of the wall", () => {
+    const mask = { width: 100, height: 100, blocked: new Uint8Array(100 * 100) };
+    mask.blocked[60 * 100 + 60] = 1;
+    (component as any).campaignCollisionMasks[2] = mask;
+    (component as any).currentAct = 2;
+    component.playerX = 50;
+    component.playerY = 50;
+    spyOn(component as any, "campaignAreaBackdropGeometry").and.returnValue({ scale: 1, left: 0, top: 0 } as any);
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+
+    const young = (component as any).makeEnemy("normal", false, "sandMaggotYoung");
+    young.x = 60;
+    young.y = 60;
+    (component as any).placeSpawnedEnemy(young);
+
+    const context = (component as any).campaignCollisionContext();
+    expect((component as any).campaignBlockedSamples(context, young.x, young.y)).toBe(0);
+    expect({ x: young.x, y: young.y }).not.toEqual({ x: 60, y: 60 });
   });
 
   it("moves Act III monster spawns out of blocked jungle cells", () => {
@@ -14459,55 +17315,40 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const stats = (component as any).getSkillRankStats("Enchant", "aura", 1);
 
-    expect(stats).toEqual(["your fire skills burn 10% harder"]);
+    expect(stats[0]).toContain("+8-10 fire damage on the weapon");
+    expect(stats[1]).toContain("+20% Attack Rating");
+    expect(stats[2]).toBe("Lasts 144s");
     expect(stats.join(" ")).not.toContain("No numeric per-rank combat bonus");
   });
 
   it("uses actual spell text for aura ranks without a bespoke numeric line", () => {
     component.selectedClass = "sorceress";
-    for (const name of ["Shiver Armor", "Chilling Armor"]) {
-      const description = component.getSkillDescription(name);
-      const stats = (component as any).getSkillRankStats(name, "aura", 4);
+    const shiverDescription = component.getSkillDescription("Shiver Armor");
+    const shiverStats = (component as any).getSkillRankStats("Shiver Armor", "aura", 4);
+    expect(shiverDescription).toBeTruthy();
+    expect(shiverStats[0]).toContain("+63% Defense");
+    expect(shiverStats[1]).toContain("13-16 cold damage to melee attackers");
+    expect(shiverStats[1]).toContain("chilled 4s");
 
-      expect(description).toBeTruthy();
-      expect(stats).toEqual([description!]);
-      expect(stats.join(" ")).not.toContain("No numeric per-rank combat bonus");
-    }
+    const chillingStats = (component as any).getSkillRankStats("Chilling Armor", "aura", 4);
+    expect(chillingStats[0]).toContain("+60% Defense");
+    expect(chillingStats[1]).toContain("7-11 cold damage to ranged attackers");
 
     component.selectedClass = "necromancer";
     const lowerResist = component.getSkillDescription("Lower Resist");
     const lowerResistStats = (component as any).getSkillRankStats("Lower Resist", "aura", 4);
     expect(lowerResist).toBeTruthy();
-    expect(lowerResistStats).toEqual([lowerResist!]);
+    expect(lowerResistStats[0]).toContain("Resist all -44%");
+    expect(lowerResistStats[1]).toContain("Radius 6.6 yards");
 
     // Warmth states its own running total instead of its flat spell text, so the
     // upgrade card cannot print "15% faster" at every rank.
     component.selectedClass = "sorceress";
     const rankFour = (component as any).getSkillRankStats("Warmth", "passive", 4) as string[];
     const rankFive = (component as any).getSkillRankStats("Warmth", "passive", 5) as string[];
-    expect(rankFour).toContain("All equipped skills recharge 60% faster");
-    expect(rankFive).toContain("All equipped skills recharge 75% faster");
+    expect(rankFour).toContain("Mana regenerates 66% faster");
+    expect(rankFive).toContain("Mana regenerates 78% faster");
     expect(rankFive).not.toEqual(rankFour);
-
-    // And the number is real: five ranks of Warmth shorten the cast interval.
-    component.skillLevels = {};
-    const plain = (component as any).getSkillCastIntervalForRank("Fire Bolt", 1) as number;
-    component.skillLevels = { Warmth: 5 };
-    const warmed = (component as any).getSkillCastIntervalForRank("Fire Bolt", 1) as number;
-    expect(warmed).toBeCloseTo(plain / 1.75, 3);
-  });
-
-  it("uses actual spell text for paladin auras whose effects do not scale", () => {
-    component.selectedClass = "paladin";
-    for (const name of ["Cleansing", "Meditation", "Redemption", "Thorns"]) {
-      const description = component.getSkillDescription(name);
-      const stats = (component as any).getSkillRankStats(name, "aura", 4);
-
-      expect(description).toBeTruthy();
-      expect(stats[0]).toContain("Active duration:");
-      expect(stats).toContain(description!);
-      expect(stats.join(" ")).not.toContain("No additional rank-scaled gameplay effect");
-    }
   });
 
   it("gives Plated Belts and Sigon's Wrap four potion rows", () => {
@@ -14804,7 +17645,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // Poison, magic and physical are outside Conviction's schools.
     expect((component as any).enemyResistanceMultiplier(enemy, "poison")).toBe(0.5);
     expect((component as any).getSkillRankStats("Conviction", "aura", 4))
-      .toContain("While active: -45% fire, cold and lightning resistance nearby");
+      .toContain("-45% fire, cold and lightning resistance nearby (never poison or magic)");
   });
 
   it("breaks a 120% Pandemonium immunity only once Conviction shaves it under 100%", () => {
@@ -15345,11 +18186,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const plain = (component as any).skillCastDamage("Molten Boulder");
     component.skillLevels = { "Molten Boulder": 1, Volcano: 2, Firestorm: 3 };
 
-    expect((component as any).skillCastDamage("Molten Boulder") / plain).toBeCloseTo(1 + 0.24 + 0.24, 5);
+    // Volcano adds 10% and Firestorm 8% per rank to Molten Boulder.
+    expect((component as any).skillCastDamage("Molten Boulder") / plain).toBeCloseTo(1 + 0.10 * 2 + 0.08 * 3, 5);
 
     // The synergy is the druid's own: those ranks mean nothing to a sorceress.
     component.selectedClass = "sorceress";
-    expect((component as any).skillCastDamage("Molten Boulder")).toBeCloseTo(plain, 5);
+    const sorceressPlain = (component as any).skillCastDamage("Molten Boulder");
+    component.skillLevels = { "Molten Boulder": 1 };
+    expect((component as any).skillCastDamage("Molten Boulder")).toBeCloseTo(sorceressPlain, 5);
   });
 
   it("pays Molten Boulder ranks back into the other druid fire skills", () => {
@@ -15360,8 +18204,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const claws = (component as any).skillCastDamage("Fire Claws");
     component.skillLevels = { Volcano: 1, Armageddon: 1, "Fire Claws": 1, "Molten Boulder": 5 };
 
-    expect((component as any).skillCastDamage("Volcano") / volcano).toBeCloseTo(1 + 5 * 0.16, 5);
-    expect((component as any).skillCastDamage("Armageddon") / armageddon).toBeCloseTo(1 + 5 * 0.14, 5);
+    // Armageddon's rank was already in the baseline synergy, so it cancels out.
+    expect((component as any).skillCastDamage("Volcano") / volcano).toBeCloseTo((1 + 0.12 * 6) / (1 + 0.12 * 1), 5);
+    expect((component as any).skillCastDamage("Armageddon") / armageddon).toBeCloseTo((1 + 0.14 * 6) / (1 + 0.14 * 1), 5);
     expect((component as any).skillCastDamage("Fire Claws") / claws).toBeCloseTo(1 + 5 * 0.22, 5);
   });
 
@@ -15377,7 +18222,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.skillLevels = { Firestorm: 1, "Molten Boulder": 5 };
     (component as any).castFirestorm(1);
 
-    expect((component as any).firestormTrails[0].damagePerTick / plain).toBeCloseTo(1 + 5 * 0.08, 3);
+    expect((component as any).firestormTrails[0].damagePerTick / plain).toBeCloseTo(1 + 5 * 0.23, 3);
   });
 
   it("ships a reachable affix catalogue for every supported base category", () => {
