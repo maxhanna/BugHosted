@@ -358,6 +358,10 @@
         <span *ngFor="let line of portal.lines">{{ line }}</span>
       </div>
       <div class="d2s-model-hint" *ngIf="modelLoadError">3D character model could not load.</div>
+      <div class="d2s-hero-speech" *ngIf="heroSpeech as speech" role="status" aria-live="polite">
+        <span class="d2s-hero-speech-speaker">{{ speech.speaker }}</span>
+        <p class="d2s-hero-speech-text">{{ speech.text }}</p>
+      </div>
       <div class="d2s-classic-hud" aria-label="Life and mana orbs, potion belt, skill icons and experience">
         <div class="d2s-orb d2s-health-orb" [class.poisoned]="playerPoisonRemaining > 0" [style.--orb-fill]="healthOrbFill">
           <div class="d2s-orb-liquid" [style.height.%]="healthOrbFill * 100"></div>

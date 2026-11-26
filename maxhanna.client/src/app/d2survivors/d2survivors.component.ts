@@ -43,6 +43,7 @@ import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 // tools/import_d2r_missiles.py. The runtime needs them to preload every strip.
 import { D2_MISSILE_FRAME_COUNTS } from "./d2-missile-assets.generated";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
+import { AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, heroVoiceLine } from "./d2-hero-voice";
 import { D2_LOOT_ART, D2_LOOT_ART_SIZE } from "./d2-loot-assets.generated";
 import { D2_BLUE_PORTAL_ART, D2_PORTAL_ART } from "./d2-portal-assets.generated";
 import {
@@ -454,6 +455,9 @@ interface MiniBossSchedule {
 
 // One named super unique per act. Act II's Sand Maggot Queen surfaces at the
 // halfway mark of the act; Nihlathak waits until two thirds of the way to Baal.
+/** How long the hero's spoken line stays on screen, in seconds. */
+const HERO_SPEECH_SECONDS = 6;
+
 const MINI_BOSSES: Partial<Record<number, MiniBossSchedule>> = {
   2: { species: "sandMaggotQueen", time: ACT_BOSS_TIME_SECONDS / 2, announcement: "THE SAND MAGGOT QUEEN SURFACES", color: "#e6c168", health: 110, damage: 5, radius: 22, speed: 62 },
   5: { species: "nihlathak", time: 90, announcement: "NIHLATHAK APPEARS", color: "#a9d8ff", health: 90, damage: 5, radius: 20, speed: 74 },
@@ -3645,6 +3649,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   currentAreaIndex = 0;
   /** Campaign bosses defeated this act (Pandemonium areas send three). */
   campaignBossKills = 0;
+  /** The hero's line for the area or boss just reached, shown as a subtitle. */
+  heroSpeech: { speaker: string; text: string } | null = null;
+  private heroSpeechTimer: number | null = null;
+  private heroVoiceAudio: HTMLAudioElement | null = null;
 
   /**
    * The area the hero is standing in. Diablo II's area tables advance the act in
@@ -3750,6 +3758,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         life: 2.6,
       });
     }
+    this.speakHeroVoice(area ? AREA_VOICE_EVENTS[area.name] : undefined);
     this.persistRunProgress(true);
   }
 
@@ -6105,6 +6114,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   returnToMenu(): void {
     this.stopActivityPing();
     this.persistRunProgress(true);
+    this.stopHeroVoice();
     this.activeTab = "menu";
     this.menuPanel = "main";
     this.runActive = false;
@@ -16329,6 +16339,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.currentAreaIndex = 0;
     this.campaignBossKills = 0;
     this.switchCampaignWorld();
+    this.speakHeroVoice(AREA_VOICE_EVENTS[this.currentArea.name]);
     this.currentChunkCoordX = 0;
     this.currentChunkCoordY = 0;
     this.currentChunkLocalX = this.chunkTileColumns * CAMPAIGN_TILE_WORLD_SIZE / 2;
@@ -20732,6 +20743,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateBaalEffigyLinks();
     let defeatedCount = 0;
     let defeatedCampaignBoss = false;
+    let defeatedBossSpecies: string | null = null;
     const nihlathakAlive = this.enemies.some((enemy) => enemy.species === "nihlathak" && enemy.hp > 0);
     for (const enemy of this.enemies) {
       if (enemy.summonType || enemy.hp > 0) continue;
@@ -20757,7 +20769,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         defeatedCampaignBoss = true;
         this.campaignBossKills += 1;
       }
+      if (enemy.campaignBoss || enemy.species === "nihlathak") defeatedBossSpecies = enemy.species;
     }
+    // The line belongs to the boss that just fell, not to whoever is next.
+    if (defeatedBossSpecies) this.speakHeroVoice(BOSS_VOICE_EVENTS[defeatedBossSpecies]);
     const redemptionRank = this.activePaladinAuraRank(["Redemption"]);
     if (redemptionRank > 0 && defeatedCount > 0) {
       this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + redemptionRank * 2 * defeatedCount);
@@ -25760,6 +25775,42 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return { x: best.x, y: best.y };
   }
 
+  /**
+   * Says the class's own line for an area or boss event. The lines are the game's
+   * real voice files, so a class that recorded nothing for an event (most of the
+   * outdoor stretches) simply stays quiet, as it does in Diablo II.
+   */
+  private speakHeroVoice(eventKey: string | undefined): void {
+    const line = heroVoiceLine(this.selectedClass, eventKey);
+    if (!line) return;
+    // A few lines ship as audio only, so they play without a subtitle.
+    if (line.text) {
+      this.heroSpeech = { speaker: this.selectedClassName, text: line.text };
+      if (this.heroSpeechTimer !== null) window.clearTimeout(this.heroSpeechTimer);
+      this.heroSpeechTimer = window.setTimeout(() => {
+        this.heroSpeech = null;
+        this.heroSpeechTimer = null;
+      }, HERO_SPEECH_SECONDS * 1000);
+    }
+    // The menu's Sound switch mutes the hero too; the subtitle still shows.
+    if (!this.menuSoundPreferred) return;
+    const audio = this.heroVoiceAudio ??= new Audio();
+    audio.pause();
+    audio.src = line.path;
+    audio.volume = Math.min(1, Math.max(0.2, this.ambientVolumePercent / 100));
+    void audio.play().catch(() => undefined);
+  }
+
+  /** Cuts the hero's line short when the run it belongs to goes away. */
+  private stopHeroVoice(): void {
+    if (this.heroSpeechTimer !== null) {
+      window.clearTimeout(this.heroSpeechTimer);
+      this.heroSpeechTimer = null;
+    }
+    this.heroSpeech = null;
+    this.heroVoiceAudio?.pause();
+  }
+
   advanceAct(): void {
     if (!this.actTransitionReady || !this.actPortalOpen || this.campaignVictory) return;
     if (this.currentAct >= CAMPAIGN_ACTS.length) {
@@ -25787,6 +25838,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.campaignBossKills = 0;
     // The new act opens on its first area's map; the last act's ground goes.
     this.switchCampaignWorld();
+    this.speakHeroVoice(AREA_VOICE_EVENTS[this.currentArea.name]);
     this.actTransitionReady = false;
     this.actPortalOpen = false;
     this.zonePortalOpen = false;

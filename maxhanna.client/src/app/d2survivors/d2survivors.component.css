@@ -1865,6 +1865,37 @@
   z-index: 5;
 }
 
+/* The hero's line for an area or boss, set like the quest speech banner. */
+.d2s-hero-speech {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: 268px;
+  width: min(640px, 78vw);
+  padding: 9px 18px 12px;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  background: linear-gradient(180deg, #120f0ad9 0%, #000000d9 100%);
+  border: 1px solid #8a7442;
+  box-shadow: 0 0 18px #000a, inset 0 0 22px #0008;
+}
+
+.d2s-hero-speech-speaker {
+  display: block;
+  color: #d9b662;
+  font: 600 11px/1.4 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.d2s-hero-speech-text {
+  margin: 2px 0 0;
+  color: #f1e3c3;
+  font: italic 400 16px/1.45 "Palatino Linotype", "Book Antiqua", serif;
+  text-shadow: 0 1px 3px #000;
+}
+
 .d2s-classic-hud {
   position: absolute;
   z-index: 7;
@@ -2324,7 +2355,38 @@
 
 @media (max-width: 620px) {
 
-  .d2s-classic-hud {
+  /* The hero's line for an area or boss, set like the quest speech banner. */
+.d2s-hero-speech {
+  position: absolute;
+  z-index: 8;
+  left: 50%;
+  bottom: 268px;
+  width: min(640px, 78vw);
+  padding: 9px 18px 12px;
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+  background: linear-gradient(180deg, #120f0ad9 0%, #000000d9 100%);
+  border: 1px solid #8a7442;
+  box-shadow: 0 0 18px #000a, inset 0 0 22px #0008;
+}
+
+.d2s-hero-speech-speaker {
+  display: block;
+  color: #d9b662;
+  font: 600 11px/1.4 "Trebuchet MS", sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.d2s-hero-speech-text {
+  margin: 2px 0 0;
+  color: #f1e3c3;
+  font: italic 400 16px/1.45 "Palatino Linotype", "Book Antiqua", serif;
+  text-shadow: 0 1px 3px #000;
+}
+
+.d2s-classic-hud {
     height: 194px;
     grid-template-columns: minmax(66px, 0.8fr) minmax(160px, 1.8fr) minmax(66px, 0.8fr);
     gap: 2px;
