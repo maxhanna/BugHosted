@@ -613,6 +613,10 @@ interface ThunderStormStrike {
 // Zeal lands one blow per rank. The beat is short enough to read as a flurry
 // while still letting each weapon strike animate before the next one starts.
 const ZEAL_STRIKE_INTERVAL_SECONDS = 0.14;
+// Double Swing lands two blows, one per fist: each is a share of the skill's
+// hit plus the weapon in that hand, so the second weapon adds real damage.
+const DOUBLE_SWING_HIT_SHARE = 0.7;
+const DOUBLE_SWING_SECOND_SWING_DELAY_SECONDS = 0.26;
 // Assassin wake traps sit on the floor and only fire while monsters are in
 // range. Five may stand at once, and every trap type counts toward that cap.
 const TRAP_LIMIT = 5;
@@ -3513,6 +3517,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private zealStrikeTimer = 0;
   private zealStrikeDamage = 0;
   private zealStrikeColor = "#fff0a8";
+  private doubleSwingTarget?: Enemy;
+  private doubleSwingRemaining = 0;
+  private doubleSwingTimer = 0;
+  private doubleSwingDamage = 0;
+  private doubleSwingColor = "#fff0a8";
+  private doubleSwingSide: -1 | 1 = -1;
   readonly skillCastCooldowns: Record<string, number> = {};
 
   xpToNextLevel = 5;
@@ -5565,6 +5575,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.pendingDamage.clear();
     this.pendingDamageTimer = 0;
     this.clearZealSequence();
+    this.clearDoubleSwingSequence();
     this.closeSkillTree();
     this.arenaW = numberValue(saved.arenaW, 500, 100, 5000);
     this.arenaH = numberValue(saved.arenaH, 500, 100, 5000);
@@ -10273,6 +10284,19 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.hideSkillTooltip();
   }
 
+  trackBySkillName(_index: number, skill: { name: string }): string {
+    return skill.name;
+  }
+
+  /**
+   * The socket's corner badge: the points spent once the skill is learned,
+   * otherwise the character level that unlocks it.
+   */
+  skillSocketBadge(name: string, unlockLevel: number): string {
+    const rank = this.getSkillLevel(name);
+    return `${rank > 0 ? rank : unlockLevel}`;
+  }
+
   trackBySectionName(_index: number, section: { name: string }): string {
     return section.name;
   }
@@ -11588,15 +11612,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }, 0);
   }
 
+  /** Average damage of one equipped weapon; 0 for an empty or non-weapon slot. */
+  private weaponDamageOf(item: D2InventoryItem | null | undefined): number {
+    if (!item || item.slot !== "weapon") return 0;
+    return ((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2;
+  }
+
   get equippedWeaponDamage(): number {
-    const weaponDamage = (item: D2InventoryItem | null): number => {
-      if (!item || item.slot !== "weapon") return 0;
-      return ((item.stats?.damageMin ?? 0) + (item.stats?.damageMax ?? 0)) / 2;
-    };
     const offhandWeapon = this.selectedClass === "barbarian" && this.equipment.shield?.slot === "weapon"
       ? this.equipment.shield
       : null;
-    const base = weaponDamage(this.equipment.weapon) + weaponDamage(offhandWeapon);
+    const base = this.weaponDamageOf(this.equipment.weapon) + this.weaponDamageOf(offhandWeapon);
     const enhanced = this.equipmentStatTotal("enhancedDamagePercent");
     const flat = (this.equipmentStatTotal("plusDamageMin") + this.equipmentStatTotal("plusDamage")) / 2
       + (this.equipmentStatTotal("elementalDamageMin") + this.equipmentStatTotal("elementalDamageMax")) / 2
@@ -12604,6 +12630,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           const tailDamage = enemy === nearest ? damage : damage * 0.75;
           this.queueEnemyDamage(enemy, tailDamage, attack.color, this.damageTypeForSkill(skill), true);
         }
+      } else if (skill === "Double Swing" && this.selectedClass === "barbarian") {
+        // Double Swing is two blows, one with each fist, so the hero visibly
+        // swings both weapons instead of repeating a single strike.
+        this.addSkillVisualEffect(skill, nearest);
+        this.startDoubleSwing(nearest, damage, attack.color);
+        // The sequence drives both weapon swings; the shared cast animation at
+        // the end of this block would replace the first swing with a hand gesture.
+        return;
       } else {
         this.addSkillVisualEffect(skill, nearest);
         if (this.isMeleeDamageSkill(skill)) {
@@ -13558,7 +13592,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.audioContext = undefined;
   }
 
-  private triggerAttackAnimation(style?: AttackAnimationStyle, suppressTrail = false): void {
+  private triggerAttackAnimation(style?: AttackAnimationStyle, suppressTrail = false, side?: -1 | 1): void {
     const classDefault = style ?? CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
     const isExplicitSkillAnimation = style !== undefined
       && (style === "chestKick" || style === "spin" || style === "assassinKick" || style === "leap" || style === "cast" || style === "necromancerCast" || style === "sorceressCast" || style === "weaponThrow" || style === "amazonJab");
@@ -13569,9 +13603,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Remember how much of the lock is this animation's, so a move order can
     // drop it without also cancelling a stun the enemy put on the hero.
     this.attackAnimationLockRemaining = this.playerAttackLockRemaining;
-    this.attackAnimationSide = this.equippedWeaponVisual || this.playerWeaponMeshes.length > 0
+    // An explicit side names the fist a sequence swings; otherwise an armed
+    // hero always swings the main hand.
+    this.attackAnimationSide = side ?? (this.equippedWeaponVisual || this.playerWeaponMeshes.length > 0
       ? -1
-      : this.attackAnimationSide === -1 ? 1 : -1;
+      : this.attackAnimationSide === -1 ? 1 : -1);
     this.attackAnimationFacing.set(this.playerFacingX, this.playerFacingY).normalize();
     this.attackAnimationTurn = 0;
     const clip = ATTACK_CLIP_INFO[attackStyle];
@@ -13638,7 +13674,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (this.zealStrikeRemaining <= 0) this.clearZealSequence();
   }
 
-  private zealTargetInReach(enemy: Enemy): boolean {
+  private enemyInMeleeReach(enemy: Enemy): boolean {
     return enemy.hp > 0 && !enemy.summonType
       && Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) <= enemy.r + 28;
   }
@@ -13647,7 +13683,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     let nearest: Enemy | undefined;
     let nearestDistance = Number.POSITIVE_INFINITY;
     for (const enemy of this.enemies) {
-      if (!this.zealTargetInReach(enemy)) continue;
+      if (!this.enemyInMeleeReach(enemy)) continue;
       const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY);
       if (distance < nearestDistance) {
         nearest = enemy;
@@ -13658,7 +13694,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private nextZealTarget(): Enemy | undefined {
-    if (this.zealStrikeTarget && this.zealTargetInReach(this.zealStrikeTarget)) return this.zealStrikeTarget;
+    if (this.zealStrikeTarget && this.enemyInMeleeReach(this.zealStrikeTarget)) return this.zealStrikeTarget;
     return this.nearestZealTargetInReach();
   }
 
@@ -13666,6 +13702,87 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.zealStrikeTarget = undefined;
     this.zealStrikeRemaining = 0;
     this.zealStrikeTimer = 0;
+  }
+
+  /**
+   * Double Swing: two blows, one with each fist. The first lands immediately
+   * and the second follows while the first swing is still playing, so the hero
+   * swings both weapons. Each blow is a share of the skill's damage plus the
+   * weapon in that hand, which is where the dual-wield bonus comes from; the
+   * skill itself is gated on a weapon in each hand.
+   */
+  private startDoubleSwing(target: Enemy, damage: number, color: string): void {
+    this.doubleSwingTarget = target;
+    this.doubleSwingDamage = damage;
+    this.doubleSwingColor = color;
+    this.doubleSwingRemaining = 2;
+    this.doubleSwingTimer = 0;
+    this.doubleSwingSide = -1;
+    this.performDoubleSwingStrike();
+  }
+
+  private updateDoubleSwingStrikes(dt: number): void {
+    if (this.doubleSwingRemaining <= 0) return;
+    this.doubleSwingTimer -= dt / 1000;
+    if (this.doubleSwingTimer <= 0) this.performDoubleSwingStrike();
+  }
+
+  private performDoubleSwingStrike(): void {
+    if (this.doubleSwingRemaining <= 0) return;
+    // The skill needs a weapon in each hand; losing the second one mid-flurry
+    // ends the second half instead of swinging an empty fist.
+    if (!this.hasWeaponInEachHand) {
+      this.clearDoubleSwingSequence();
+      return;
+    }
+    const target = this.nextDoubleSwingTarget();
+    if (!target) {
+      this.clearDoubleSwingSequence();
+      return;
+    }
+    this.doubleSwingTarget = target;
+    const distance = Math.hypot(target.x - this.playerX, target.y - this.playerY) || 1;
+    this.playerFacingX = (target.x - this.playerX) / distance;
+    this.playerFacingY = (target.y - this.playerY) / distance;
+    const hand = this.doubleSwingSide === -1 ? this.equipment.weapon : this.equipment.shield;
+    const hitDamage = this.doubleSwingDamage * DOUBLE_SWING_HIT_SHARE + this.weaponDamageOf(hand);
+    if (!this.isEnemyImmuneTo(target, "physical")) {
+      this.dealMeleeDamage(target, hitDamage);
+      this.floatingTexts.push({
+        x: target.x,
+        y: target.y - target.r - 8,
+        text: this.floatingDamageText(hitDamage),
+        color: this.doubleSwingColor,
+        life: 0.65,
+      });
+    }
+    this.triggerAttackAnimation("barbarianCleave", false, this.doubleSwingSide);
+    this.doubleSwingSide = this.doubleSwingSide === -1 ? 1 : -1;
+    this.doubleSwingRemaining -= 1;
+    this.doubleSwingTimer = DOUBLE_SWING_SECOND_SWING_DELAY_SECONDS / this.playerAttackSpeedMultiplier;
+    if (this.doubleSwingRemaining <= 0) this.clearDoubleSwingSequence();
+  }
+
+  private nextDoubleSwingTarget(): Enemy | undefined {
+    if (this.doubleSwingTarget && this.enemyInMeleeReach(this.doubleSwingTarget)) return this.doubleSwingTarget;
+    let nearest: Enemy | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    for (const enemy of this.enemies) {
+      if (!this.enemyInMeleeReach(enemy)) continue;
+      const distance = Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY);
+      if (distance < nearestDistance) {
+        nearest = enemy;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  private clearDoubleSwingSequence(): void {
+    this.doubleSwingTarget = undefined;
+    this.doubleSwingRemaining = 0;
+    this.doubleSwingTimer = 0;
+    this.doubleSwingSide = -1;
   }
 
   private attackStyleForEquippedWeapon(classDefault: AttackAnimationStyle): AttackAnimationStyle {
@@ -14158,6 +14275,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // while the walk waits for them to finish.
     this.cancelChannelingSpells();
     this.clearZealSequence();
+    this.clearDoubleSwingSequence();
     this.cancelAttackAnimation();
   }
 
@@ -16282,6 +16400,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.pendingDamage.clear();
     this.pendingDamageTimer = 0;
     this.clearZealSequence();
+    this.clearDoubleSwingSequence();
     this.closeSkillTree();
     this.attackAnimationTime = Number.POSITIVE_INFINITY;
     this.attackAnimationStyle = CLASS_ATTACK_ANIMATION[this.selectedClass] ?? "amazonJab";
@@ -16453,6 +16572,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateBasicAttack();
     this.updateAutomaticSkillCasts(dt);
     this.updateZealStrikes(dt);
+    this.updateDoubleSwingStrikes(dt);
 
     this.updateSummonAttacks(dt);
     this.updateEnemies(dt);
@@ -27602,7 +27722,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const bundleCel = /javelin/.test(heldName);
     const grip = kind === "shield" || type === "orb" ? 0.5
       : carriedCel ? 0.5
-        : /staff|polearm|spear|pike|javelin/.test(heldName) ? 0.36
+        : /staff|polearm|spear|\bpike\b|javelin/.test(heldName) ? 0.36
           : 0.12;
     // A bow is drawn on the diagonal with its riser near the cel's edge, so
     // hanging the frame's centre off the fist left the whole bow beside the

@@ -502,9 +502,9 @@
             <div class="d2s-skill-tree-panel">
               <div class="d2s-skill-tree-tab-art" *ngIf="skillTreeSectionArt(activeSection.name) as sectionArt" [style.background-image]="'url(' + sectionArt + ')'" aria-hidden="true"></div>
               <div class="d2s-skill-tree-sockets">
-                <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills" [class]="'d2s-tree-skill ' + skill.state + (skill.canSpend ? ' spendable' : '')" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason + (skill.canSpend ? ', click to spend a skill point' : '')" (click)="spendSkillPoint(skill.name)" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
+                <article class="d2s-tree-skill" *ngFor="let skill of activeSection.skills; trackBy: trackBySkillName" [class]="'d2s-tree-skill ' + skill.state + (skill.canSpend ? ' spendable' : '')" [style.left.%]="skill.socket.x" [style.top.%]="skill.socket.y" [attr.aria-label]="skill.name + ', ' + skill.state + ', unlock level ' + skill.level + '. ' + skill.reason + (skill.canSpend ? ', click to spend a skill point' : '')" (click)="spendSkillPoint(skill.name)" (mouseenter)="showSkillTooltip($event, skill, activeSection.name)" (mousemove)="showSkillTooltip($event, skill, activeSection.name)" (mouseleave)="onSkillTooltipLeave()">
                   <img *ngIf="hasSkillIconImage(skill.name)" class="d2s-tree-skill-art" [src]="skillIconPath(skill.name)" alt="" />
-                  <span class="d2s-tree-level">{{ skill.level }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
+                  <span class="d2s-tree-level" [attr.title]="getSkillLevel(skill.name) ? 'Points spent' : 'Level required'">{{ skillSocketBadge(skill.name, skill.level) }}</span><strong>{{ skill.name }}</strong><small *ngIf="getSkillLevel(skill.name)">Rank {{ getSkillLevel(skill.name) }}/20</small><small>{{ getSkillTreeReason(skill) }}</small>
                 </article>
               </div>
             </div>

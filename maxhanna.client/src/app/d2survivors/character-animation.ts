@@ -1050,7 +1050,10 @@ export function heldItemShare(item: HeldItem): number {
   // A staff is carried upright beside the hero, so it stops short of the bows;
   // polearms still hang on their full length.
   if (/staff/i.test(item.name)) return 0.78 * offhandScale;
-  if (/polearm|spear|pike/i.test(item.name)) return 0.85 * offhandScale;
+  // "Spiked" contains "pike", so the pike test is bounded: an unbounded match
+  // gave every Spiked Club the polearm share and hung it down to the hero's
+  // head in the preview.
+  if (/polearm|spear|\bpike\b/i.test(item.name)) return 0.85 * offhandScale;
   // A bundle of shafts reads oversized beside the fist, so it sits a little
   // smaller than a polearm's share.
   if (/javelin/i.test(item.name)) return 0.32 * offhandScale;

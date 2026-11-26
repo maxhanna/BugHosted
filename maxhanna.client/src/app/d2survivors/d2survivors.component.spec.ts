@@ -2683,6 +2683,80 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.getSkillRequirementLabel("Double Throw")).toBe("Requires a throwing weapon in each hand");
   });
 
+  it("swings twice for Double Swing, adding each hand's weapon damage", () => {
+    component.selectedClass = "barbarian";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Bash", "Double Swing"];
+    component.skillLevels = { Bash: 1, "Double Swing": 1 };
+    component.equipment.weapon = {
+      name: "Short Sword", baseName: "Short Sword", slot: "weapon",
+      stats: { damageMin: 4, damageMax: 8 },
+    } as any;
+    component.equipment.shield = {
+      name: "Hand Axe", baseName: "Hand Axe", slot: "weapon",
+      stats: { damageMin: 3, damageMax: 6 },
+    } as any;
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 276, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [enemy];
+    component.floatingTexts = [];
+
+    component.activateOwnedSkill("Double Swing", enemy);
+
+    // A rank-1 Double Swing is 150 before Strength; the opening blow is 70% of
+    // that plus the main-hand sword, and the off hand is still queued.
+    expect(enemy.hp).toBeCloseTo(1000 - (150 * 0.7 + 6), 5);
+    expect((component as any).doubleSwingRemaining).toBe(1);
+    expect((component as any).doubleSwingSide).toBe(1);
+    expect((component as any).attackAnimationStyle).toBe("swordSlash");
+
+    (component as any).updateDoubleSwingStrikes(400);
+
+    // The second swing lands with the off-hand axe, so both weapons hit and the
+    // cast out-damages a single-hand blow.
+    expect(enemy.hp).toBeCloseTo(1000 - (150 * 0.7 + 6) - (150 * 0.7 + 4.5), 5);
+    expect((component as any).doubleSwingRemaining).toBe(0);
+    expect((component as any).attackAnimationSide).toBe(1);
+    expect(component.floatingTexts).toHaveSize(2);
+  });
+
+  it("does not cast Double Swing with a weapon in only one hand", () => {
+    component.selectedClass = "barbarian";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.basicAttackDamage = 100;
+    component.ownedSkills = ["Bash", "Double Swing"];
+    component.skillLevels = { Bash: 1, "Double Swing": 1 };
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 276, y: 250, hp: 1000, maxHp: 1000, speed: 0, r: 14, dmg: 0,
+    } as any;
+
+    for (const weapon of [
+      null,
+      { name: "Short Sword", baseName: "Short Sword", slot: "weapon" },
+    ]) {
+      component.equipment.weapon = weapon as any;
+      // A shield is not a second weapon, and neither is an empty off hand.
+      component.equipment.shield = weapon
+        ? { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any
+        : null;
+      component.enemies = [enemy];
+      enemy.hp = 1000;
+      component.floatingTexts = [];
+
+      component.activateOwnedSkill("Double Swing", enemy);
+
+      expect(enemy.hp).toBe(1000);
+      expect((component as any).doubleSwingRemaining).toBe(0);
+      expect(component.floatingTexts).toHaveSize(0);
+    }
+  });
+
   it("knocks back and stuns enemies hit by Smite", () => {
     component.selectedClass = "paladin";
     component.playerX = 250;
@@ -10512,6 +10586,22 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(skillFor("sorceress", "Lightning Spells", "Teleport").prerequisites).toContain("Telekinesis");
   });
 
+  it("tracks skill sockets by name so a hover cannot rebuild the socket mid-click", () => {
+    // The sockets used to be re-created on every change detection, so a click's
+    // mousedown and mouseup landed on different nodes and no point was ever
+    // spent. Tracking by name keeps one element per skill.
+    expect(component.trackBySkillName(0, { name: "Fire Bolt" })).toBe("Fire Bolt");
+    expect(component.trackBySkillName(4, { name: "Ice Bolt" })).toBe("Ice Bolt");
+  });
+
+  it("shows the points spent in the socket badge once a skill is learned", () => {
+    component.skillLevels = {};
+    expect(component.skillSocketBadge("Fire Bolt", 1)).toBe("1");
+    expect(component.skillSocketBadge("Frozen Orb", 30)).toBe("30");
+    component.skillLevels = { "Fire Bolt": 3 };
+    expect(component.skillSocketBadge("Fire Bolt", 1)).toBe("3");
+  });
+
   it("tracks skill tree tabs by name so redraws reuse their buttons", () => {
     expect(component.trackBySectionName(0, { name: "Combat Skills" })).toBe("Combat Skills");
     expect(component.trackBySectionName(1, { name: "Combat Masteries" })).toBe("Combat Masteries");
@@ -15355,6 +15445,19 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect(share("War Spear")).toBeCloseTo(0.85, 5);
       expect(share("War Javelin")).toBeLessThan(share("Broad Sword"));
       expect(share("Broad Sword")).toBeCloseTo(0.42, 5);
+    });
+
+    it("sizes a spiked club as a one-handed mace instead of a pike", () => {
+      const share = (name: string) => heldItemShare({ name, kind: "weapon" } as never);
+      // "Spiked" contains "pike", so an unbounded pike test handed the club the
+      // polearm share: Stoutnail hung from the fist to the hero's head in the
+      // character preview, almost as tall as the character.
+      expect(share("Spiked Club Stoutnail")).toBeCloseTo(0.4, 5);
+      expect(share("Spiked Club")).toBeCloseTo(0.4, 5);
+      expect(share("Barbed Club")).toBeCloseTo(0.4, 5);
+      // A real pike keeps the polearm share.
+      expect(share("War Pike")).toBeCloseTo(0.85, 5);
+      expect(share("Maiden Pike")).toBeCloseTo(0.85, 5);
     });
   });
   it("gives every rune its own extracted inventory cel", () => {
