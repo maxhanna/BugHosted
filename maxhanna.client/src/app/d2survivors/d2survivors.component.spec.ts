@@ -26,7 +26,7 @@ import { ATTACK_CLIP_INFO, buildCharacterRig, gaitForClass, heldItemShare, heldM
 import { D2_AFFIXES, eligibleAffixes, itemAffixTypes, rollAffix } from "./d2-item-affixes";
 import { D2_RUNE_BY_NAME } from "./d2-runes";
 import { socketCapacityForBase } from "./d2-socket-caps";
-import { AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, HERO_VOICE_LINES, heroVoiceLine } from "./d2-hero-voice";
+import { AREA_COMPLETE_VOICE_EVENTS, AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, HERO_VOICE_LINES, heroVoiceLine } from "./d2-hero-voice";
 
 describe("D2SurvivorsComponent combat and equipment", () => {
   let fixture: ComponentFixture<D2SurvivorsComponent>;
@@ -13972,10 +13972,50 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       for (const boss of Object.keys(BOSS_VOICE_EVENTS)) {
         expect(heroVoiceLine(classId, BOSS_VOICE_EVENTS[boss])?.path).withContext(`${classId} ${boss}`).toContain("/voice/");
       }
+      // Only the druid and the assassin recorded a Durance of Hate line, so
+      // the object zones are the ones every class has to answer for.
+      for (const area of ["Stony Field", "Dark Wood"]) {
+        expect(heroVoiceLine(classId, AREA_VOICE_EVENTS[area])?.path).withContext(`${classId} ${area}`).toContain("/voice/");
+      }
+      for (const area of Object.keys(AREA_COMPLETE_VOICE_EVENTS)) {
+        expect(heroVoiceLine(classId, AREA_COMPLETE_VOICE_EVENTS[area])?.path).withContext(`${classId} ${area}`).toContain("/voice/");
+      }
       expect(heroVoiceLine(classId, AREA_VOICE_EVENTS["Blood Moor"])).withContext(classId).toBeTruthy();
       expect(heroVoiceLine(classId, AREA_VOICE_EVENTS["Catacombs"])).withContext(classId).toBeTruthy();
       expect(Object.keys(HERO_VOICE_LINES[classId]).length).toBeGreaterThan(30);
     }
+  });
+
+  it("finds the Cairn Stones and the Tree of Inifuss in the zones that hold them", () => {
+    component.selectedClass = "barbarian";
+    (component as any).menuSoundPreferred = false;
+    (component as any).speakHeroVoice(AREA_VOICE_EVENTS["Stony Field"]);
+    expect(component.heroSpeech?.text).toBe("These magic stones are ancient.");
+
+    (component as any).speakHeroVoice(AREA_VOICE_EVENTS["Dark Wood"]);
+    expect(component.heroSpeech?.text).toBe("This tree is one of a kind!");
+
+    (component as any).stopHeroVoice();
+  });
+
+  it("says the quest line when the hero leaves a zone whose objective it belongs to", () => {
+    const speak = spyOn(component as any, "speakHeroVoice");
+    spyOn(component as any, "draw");
+
+    component.currentAct = 2;
+    component.currentAreaIndex = 0;
+    (component as any).openZonePortal(1);
+    expect(speak).toHaveBeenCalledWith("act2_complete_radamentlair");
+
+    component.currentAct = 4;
+    component.currentAreaIndex = 1;
+    (component as any).openZonePortal(2);
+    expect(speak).toHaveBeenCalledWith("act4_free_izual");
+
+    component.currentAct = 5;
+    component.currentAreaIndex = 0;
+    (component as any).openZonePortal(1);
+    expect(speak).toHaveBeenCalledWith("act5_complete_stopsiege");
   });
 
   it("brings the title theme back by itself when a run returns to a menu screen", () => {

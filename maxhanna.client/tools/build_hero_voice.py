@@ -122,10 +122,14 @@ export const HERO_VOICE_LINES: Record<string, Record<string, HeroVoiceLine>> = {
 /**
  * Areas whose entry has a class line in the original game. The areas this game
  * walks through that had no entry line (most of the outdoor stretches) stay
- * silent, exactly as they do in Diablo II.
+ * silent, exactly as they do in Diablo II. Stony Field and Dark Wood hold the
+ * Cairn Stones and the Tree of Inifuss, so entering them plays the line the
+ * class says on finding those objects.
  */
 export const AREA_VOICE_EVENTS: Record<string, string> = {
   "Blood Moor": "act1_entry_wilderness",
+  "Stony Field": "act1_find_cairnstones",
+  "Dark Wood": "act1_find_treeofinifuss",
   Catacombs: "act1_entry_catacombs",
   Tristram: "act1_find_tristram",
   "Claw Viper Temple": "act2_entry_clawviperlair",
@@ -135,6 +139,18 @@ export const AREA_VOICE_EVENTS: Record<string, string> = {
   "Nihlathak's Temple": "act5_entry_nihlathaksland",
   "Arreat Summit": "act5_entry_mountaintop",
   "Worldstone Keep": "act5_entry_worldstone",
+};
+
+/**
+ * Areas that hold a quest object with a class line. This game has no clickable
+ * quest props, so each line plays as the hero leaves the zone whose objective it
+ * belongs to: Radament's lair in the Sewers, Izual in the Plains of Despair and
+ * Shenk in the Bloody Foothills.
+ */
+export const AREA_COMPLETE_VOICE_EVENTS: Record<string, string> = {
+  Sewers: "act2_complete_radamentlair",
+  "Plains of Despair": "act4_free_izual",
+  "Bloody Foothills": "act5_complete_stopsiege",
 };
 
 /** Bosses whose death has a class line, keyed by the enemy species. */

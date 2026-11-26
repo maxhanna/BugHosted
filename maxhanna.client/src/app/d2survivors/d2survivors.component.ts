@@ -43,7 +43,7 @@ import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 // tools/import_d2r_missiles.py. The runtime needs them to preload every strip.
 import { D2_MISSILE_FRAME_COUNTS } from "./d2-missile-assets.generated";
 import { D2_SKILL_ICON_PATHS } from "./d2-skill-icons.generated";
-import { AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, heroVoiceLine } from "./d2-hero-voice";
+import { AREA_COMPLETE_VOICE_EVENTS, AREA_VOICE_EVENTS, BOSS_VOICE_EVENTS, heroVoiceLine } from "./d2-hero-voice";
 import { D2_LOOT_ART, D2_LOOT_ART_SIZE } from "./d2-loot-assets.generated";
 import { D2_BLUE_PORTAL_ART, D2_PORTAL_ART } from "./d2-portal-assets.generated";
 import {
@@ -3722,6 +3722,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.zonePortalY = spawn.y;
     this.zonePortalAreaIndex = areaIndex;
     this.zonePortalOpen = true;
+    // The zone is finished, so this is where its quest-object line belongs.
+    this.speakHeroVoice(AREA_COMPLETE_VOICE_EVENTS[this.currentArea.name]);
     this.floatingTexts.push({
       x: this.playerX,
       y: this.playerY - 48,
