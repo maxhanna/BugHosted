@@ -27,7 +27,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
 import d2r_dcc as dcc
 
@@ -42,6 +42,7 @@ SPECIES: dict[str, tuple[str, str, int, int, int, str]] = {
     "bloodGolem": ("G2", "blood-golem.png", 16, 112, 88, "walk_attack"),
     "fireGolem": ("G3", "fire-golem.png", 17, 96, 104, "walk_attack"),
     "ironGolem": ("G4", "iron-golem.png", 16, 96, 112, "walk_attack"),
+
     "oakSage": ("XW", "oak-sage.png", 7, 120, 120, "walk_only"),
     "heartOfWolverine": ("X3", "heart-of-wolverine.png", 7, 120, 120, "walk_only"),
     "spiritOfBarbs": ("X4", "spirit-of-barbs.png", 7, 120, 120, "walk_only"),
@@ -69,6 +70,27 @@ WALK_ONLY_ROWS: tuple[tuple[int, int | None], ...] = (
 # crisp; at full opacity the two views read as a double exposure.
 WALK_ONLY_TURN_SQUEEZE = 0.8
 WALK_ONLY_TURN_WEIGHT = 0.6
+
+# The assassin's two doubles have no usable legacy art in this extraction: the
+# `k9` (Shadow Warrior / Shadow Master) monster cels are 1x1 placeholders and
+# D2R only ships the minions as HD models. D2 renders both shadows from the
+# assassin's own body, so the sheets composite her light-armour player layers
+# (torso, legs, arms, head) and grade the result into a shadow. Rows keep the
+# source DCC direction order, like every other monster atlas.
+# species -> (character code, output file, rim light colour)
+SHADOWS: dict[str, tuple[str, str, str]] = {
+    "shadowWarrior": ("ai", "shadow-warrior.png", "#7fd8ff"),
+    "shadowMaster": ("ai", "shadow-master.png", "#c39bff"),
+}
+# Player layers composited bottom-up, in (folder, DCC name prefix) order.
+SHADOW_LAYERS: tuple[tuple[str, str], ...] = (
+    ("tr", "trlit"), ("lg", "lglit"), ("la", "lalit"), ("ra", "ralit"), ("hd", "hdbhm"),
+)
+# The picked-up cels are small player art, so bake them at double size; the
+# columns cover the twelve-frame A2 attack while the eight-frame walk leaves the
+# tail empty, which `ENEMY_ROW_BLOCK_FRAMES` in the game already accounts for.
+SHADOW_COLUMNS = 12
+SHADOW_SCALE = 2
 
 # The Assassin sentry turret: one row of idle (`nu`) cels above one row of the
 # firing (`s1`) loop, both single-direction like the other trap art.
@@ -164,6 +186,124 @@ def turn_view(vertical: Image.Image, side: Image.Image) -> Image.Image:
     return turned
 
 
+def shadow_grade(image: Image.Image, rim: str) -> Image.Image:
+    """Bake a shadow silhouette: dark violet body under a glowing rim.
+
+    The living assassin's cels are her normal reds and greys; a shadow minion in
+    D2 is the same model rendered as a dark, translucent afterimage. The body is
+    graded down to a violet near-black that keeps the pose readable, and the
+    border pixels that touch transparency take the species' rim light so the
+    figure still separates from a dark arena floor.
+    """
+    pixels = image.load()
+    alpha = image.getchannel("A")
+    # Erode the coverage mask so the rim lands on the outer shell of the figure
+    # rather than only on pixels with a fully transparent neighbour, which the
+    # soft player cels almost never have.
+    interior = alpha.filter(ImageFilter.MinFilter(3)).load()
+    coverage = alpha.load()
+    width, height = image.size
+    rim_colour = tuple(int(rim[index:index + 2], 16) for index in (1, 3, 5))
+    for y in range(height):
+        for x in range(width):
+            visible = coverage[x, y]
+            if visible == 0:
+                continue
+            red, green, blue = pixels[x, y][:3]
+            luma = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+            # A violet afterimage: dark enough to read as a shadow, bright enough
+            # that the hood, sash and claws still separate from one another.
+            body = (int(30 + 86 * luma), int(20 + 60 * luma), int(56 + 120 * luma))
+            if interior[x, y] < 40:
+                body = tuple(int(body[channel] * 0.2 + rim_colour[channel] * 0.8) for channel in range(3))
+            pixels[x, y] = (*body, min(visible, 235))
+    return image
+
+
+def composite_player_frame(layers: list[dict], direction: int, frame_index: int) -> Image.Image:
+    """Stack the assassin's body layers for one direction and frame.
+
+    Every layer's cel carries its own position in the shared D2 unit space, so
+    the parts line up when each one is drawn at its own `xmin`/`ymin` offset.
+    """
+    canvas = Image.new("RGBA", (512, 512), (0, 0, 0, 0))
+    for animation in layers:
+        direction_data = animation["dirs"][direction]
+        frame = direction_data["frames"][frame_index]
+        image = dcc.frame_image(direction_data["bitmaps"][frame_index], frame["width"], frame["height"], PALETTE)
+        canvas.alpha_composite(image, (frame["xmin"] + 256, frame["ymin"] + 256))
+    return canvas
+
+
+def build_shadow(source: Path, species: str) -> str:
+    code, out_name, rim = SHADOWS[species]
+    character_dir = source / "global" / "chars" / code
+
+    def load(folder: str, prefix: str, sequence: str) -> dict:
+        path = character_dir / folder / f"ai{prefix}{sequence}.dcc"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        return dcc.parse(path.read_bytes())
+
+    try:
+        walk_layers = [load(folder, prefix, "wlhth") for folder, prefix in SHADOW_LAYERS]
+        # MonStats gives both shadows the A2 attack, which is the assassin's
+        # unarmed strike rather than the claw swing.
+        attack_layers = [load(folder, prefix, "a2hth") for folder, prefix in SHADOW_LAYERS]
+    except FileNotFoundError as error:
+        return f"skip {species}: {error.filename} is missing"
+
+    directions = min(8, *(animation["directions"] for animation in walk_layers + attack_layers))
+    walk_frames = min(animation["frames_per_dir"] for animation in walk_layers)
+    attack_frames = min(animation["frames_per_dir"] for animation in attack_layers)
+    if not directions or not walk_frames or not attack_frames:
+        return f"skip {species}: the assassin layers carry an empty animation"
+    columns = max(SHADOW_COLUMNS, walk_frames, attack_frames)
+
+    # One crop window for the whole sheet keeps the figure from jittering between
+    # cels: the union of every composited frame the two clips use.
+    frames: dict[str, list[list[Image.Image]]] = {}
+    union: tuple[int, int, int, int] | None = None
+    for name, layers, counts in (("walk", walk_layers, walk_frames), ("attack", attack_layers, attack_frames)):
+        clip: list[list[Image.Image]] = []
+        for direction in range(directions):
+            row = []
+            for frame_index in range(counts):
+                image = composite_player_frame(layers, direction, frame_index)
+                bounds = image.getbbox()
+                if bounds:
+                    union = bounds if union is None else (
+                        min(union[0], bounds[0]), min(union[1], bounds[1]),
+                        max(union[2], bounds[2]), max(union[3], bounds[3]))
+                row.append(image)
+            clip.append(row)
+        frames[name] = clip
+    if union is None:
+        return f"skip {species}: the composited layers are empty"
+
+    box_w, box_h = union[2] - union[0], union[3] - union[1]
+    cell_width, cell_height = box_w * SHADOW_SCALE + 8, box_h * SHADOW_SCALE + 8
+    sheet = Image.new("RGBA", (columns * cell_width, 16 * cell_height), (0, 0, 0, 0))
+
+    def paste(image: Image.Image, column: int, row: int) -> None:
+        cel = image.crop(union)
+        cel = cel.resize((cel.width * SHADOW_SCALE, cel.height * SHADOW_SCALE), Image.LANCZOS)
+        sheet.alpha_composite(cel, (column * cell_width + (cell_width - cel.width) // 2,
+                                    row * cell_height + (cell_height - cel.height) // 2))
+
+    for direction in range(directions):
+        for frame_index in range(walk_frames):
+            paste(frames["walk"][direction][frame_index], frame_index, direction)
+        for frame_index in range(attack_frames):
+            paste(frames["attack"][direction][frame_index], frame_index, 8 + direction)
+
+    sheet = shadow_grade(sheet, rim)
+    destination = ASSET_ROOT / out_name
+    sheet.save(destination)
+    return (f"{species:16s} {code:3s} {out_name:24s} {sheet.width}x{sheet.height} "
+            f"cell {cell_width}x{cell_height} rows 16 walk {walk_frames}f attack {attack_frames}f")
+
+
 def build(source: Path, species: str) -> str:
     code, out_name, columns, cell_width, cell_height, mode = SPECIES[species]
     monster_dir = source / "global" / "monsters" / code
@@ -248,6 +388,8 @@ def main(argv: list[str]) -> int:
     if args.list:
         for species in sorted(SPECIES):
             print(species, SPECIES[species][0], SPECIES[species][5])
+        for species in sorted(SHADOWS):
+            print(species, SHADOWS[species][0], "player shadow")
         return 0
 
     global PALETTE
@@ -258,10 +400,11 @@ def main(argv: list[str]) -> int:
     if args.sentry:
         print(build_sentry(args.source))
         return 0
-    wanted = sorted(SPECIES) if not args.only else [name for name in args.only if name in SPECIES]
+    names = sorted(SPECIES) + sorted(SHADOWS)
+    wanted = names if not args.only else [name for name in args.only if name in names]
     failures = 0
     for species in wanted:
-        message = build(args.source, species)
+        message = build_shadow(args.source, species) if species in SHADOWS else build(args.source, species)
         print(message)
         if message.startswith("skip"):
             failures += 1

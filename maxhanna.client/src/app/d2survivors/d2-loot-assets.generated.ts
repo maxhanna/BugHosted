@@ -8,6 +8,7 @@ export const D2_LOOT_ART = {
   chestOpen: "assets/d2survivors/loot/chest-open.png",
   gold: "assets/d2survivors/loot/gold.png",
   healthPotion: "assets/d2survivors/loot/health-potion.png",
+  manaPotion: "assets/d2survivors/loot/mana-potion.png",
   rejuvenationPotion: "assets/d2survivors/loot/rejuvenation-potion.png",
 };
 
@@ -18,5 +19,6 @@ export const D2_LOOT_ART_SIZE = {
   chestOpen: { width: 47, height: 41 },
   gold: { width: 24, height: 7 },
   healthPotion: { width: 8, height: 14 },
+  manaPotion: { width: 8, height: 14 },
   rejuvenationPotion: { width: 8, height: 14 },
 } as const;

@@ -47,7 +47,10 @@ export type AttackAnimationStyle =
   | "leap"
   | "clawFlurry"
   | "unarmedStrike"
-  | "chestKick";
+  | "chestKick"
+  | "warcryShout"
+  | "warcryWarCry"
+  | "warcryGrimWard";
 
 const DEG = Math.PI / 180;
 const FORWARD = new THREE.Vector3(0, 0, 1);
@@ -137,6 +140,11 @@ export const ATTACK_CLIP_INFO: Record<AttackAnimationStyle, AttackClipInfo> = {
   // Matches the D2R barbarian leap states: wind-up, a long airborne beat and a
   // planted landing. The actual air height is driven by the arena, not the clip.
   leap: { duration: 1.02 },
+  // Warcries are shouts, not swings, so they carry no weapon trail and are
+  // allowed to hold their shape longer than a strike.
+  warcryShout: { duration: 0.82 },
+  warcryWarCry: { duration: 0.92 },
+  warcryGrimWard: { duration: 0.88 },
   clawFlurry: { duration: 0.42, trail: "#a8cfff", trailArc: 1.6 },
   unarmedStrike: { duration: 0.32, trail: "#f0e2c8", trailArc: 0.9 },
   chestKick: { duration: 0.7 },
@@ -488,13 +496,22 @@ const ATTACK_CLIPS: Record<AttackAnimationStyle, ClipKey[]> = {
     key(0.78, arm(14, -44, 60), arm(12, -62, 32), { chestYaw: 2, lunge: 0.02 }),
     key(1, arm(22, -50, 62), arm(16, -64, 34), {}),
   ],
+  // A spear thrust, not a swing: the hand draws back beside the ribs without
+  // lifting the shoulder, then snaps straight with the hips, and the spear holds
+  // its point for a beat so the reach reads. The amazon's javelin work — the
+  // basic jab and her melee skills alike — uses this clip.
   amazonJab: [
-    key(0, arm(14, -46, 54), arm(20, -52, 66), { chestYaw: -6 }),
-    key(0.16, arm(30, -30, 92), arm(24, -46, 84), { chestYaw: -18, crouch: -0.02, lunge: -0.04 }),
-    key(0.3, arm(2, -10, 4), arm(10, -40, 40), { chestYaw: 20, chestPitch: 10, lunge: 0.11, crouch: -0.03, frontLeg: 20, backLeg: -14, frontKnee: 22, backKnee: 12 }),
-    key(0.52, arm(4, -24, 26), arm(14, -46, 52), { chestYaw: 12, lunge: 0.05, frontLeg: 12, backLeg: -8, frontKnee: 16 }),
-    key(0.8, arm(10, -42, 48), arm(18, -50, 62), { chestYaw: 2 }),
-    key(1, arm(14, -46, 54), arm(20, -52, 66), {}),
+    key(0, arm(12, -40, 68), arm(20, -52, 66), { chestYaw: -6 }),
+    // Cocked: elbow folds back at chest height, weight shifts onto the back foot.
+    key(0.16, arm(10, -38, 114), arm(24, -46, 84), { chestYaw: -22, pelvisYaw: -8, crouch: 0.02, lunge: -0.06, frontKnee: 14 }),
+    // Contact: the arm goes straight at the shoulder's height and the body
+    // follows the point forward.
+    key(0.3, arm(2, -10, 4), arm(10, -40, 40), { chestYaw: 20, pelvisYaw: 10, chestPitch: 10, lunge: 0.12, crouch: -0.04, frontLeg: 20, backLeg: -14, frontKnee: 24, backKnee: 12 }),
+    // Hold the extension briefly; a jab that retracts instantly reads as a blur.
+    key(0.4, arm(2, -8, 3), arm(12, -42, 44), { chestYaw: 16, pelvisYaw: 8, chestPitch: 8, lunge: 0.09, crouch: -0.03, frontLeg: 18, backLeg: -12, frontKnee: 22 }),
+    key(0.7, arm(6, -28, 34), arm(14, -46, 52), { chestYaw: 8, lunge: 0.04, frontLeg: 10, backLeg: -8, frontKnee: 14 }),
+    key(0.86, arm(10, -38, 54), arm(18, -50, 62), { chestYaw: 2 }),
+    key(1, arm(12, -40, 68), arm(20, -52, 66), {}),
   ],
   staffStrike: [
     key(0, arm(16, -52, 50), arm(14, -56, 54), { chestYaw: -6 }),
@@ -616,6 +633,41 @@ const ATTACK_CLIPS: Record<AttackAnimationStyle, ClipKey[]> = {
     key(0.48, arm(8, 14, 24), arm(6, 10, 30), { chestYaw: 8, chestPitch: 8, lunge: 0.05, crouch: -0.02, frontLeg: 10, backLeg: -8, frontKnee: 12 }),
     key(0.72, arm(8, 0, 44), arm(6, -6, 48), { chestYaw: 4, lunge: 0.02 }),
     key(1, arm(16, -44, 60), arm(14, -48, 64), {}),
+  ],
+  warcryShout: [
+    key(0, arm(16, -46, 58), arm(14, -48, 62), { chestYaw: -2 }),
+    // The breath comes in: shoulders close, chin dips and the chest loads.
+    key(0.2, arm(22, -30, 92), arm(18, -34, 96), { chestYaw: -8, chestPitch: 8, crouch: 0.05, headPitch: 8, frontLeg: 4, backLeg: -8, frontKnee: 10 }),
+    // The call goes out with the chest open and the chin up: the lead hand sits
+    // at the mouth while the off arm braces out to the side.
+    key(0.38, arm(6, 12, 118), arm(38, 4, 84), { chestYaw: 6, chestPitch: -10, chestRoll: 3, crouch: -0.03, lunge: 0.03, headPitch: -10, frontLeg: 10, backLeg: -8, frontKnee: 12 }),
+    // Hold it. The pose barely moves between these keys, which is what reads as
+    // a sustained yell instead of a swing.
+    key(0.62, arm(8, 16, 116), arm(40, 6, 82), { chestYaw: 8, chestPitch: -12, chestRoll: 3, crouch: -0.04, lunge: 0.03, headPitch: -12, frontLeg: 10, backLeg: -8, frontKnee: 12 }),
+    key(0.86, arm(10, -18, 80), arm(22, -30, 72), { chestYaw: 4, chestPitch: 2, headPitch: -2 }),
+    key(1, arm(16, -46, 58), arm(14, -48, 62), {}),
+  ],
+  warcryWarCry: [
+    key(0, arm(16, -46, 60), arm(14, -50, 64), { chestYaw: -2 }),
+    // Both arms draw in while he sucks in the breath.
+    key(0.18, arm(10, -26, 110), arm(12, -30, 112), { chestYaw: -4, chestPitch: 10, crouch: 0.07, headPitch: 10, frontLeg: 6, backLeg: -10, frontKnee: 14, backKnee: 8 }),
+    // The roar throws both arms wide and the whole body opens up.
+    key(0.42, arm(74, 22, 26), arm(72, 18, 30), { chestPitch: -16, crouch: -0.05, lunge: 0.04, headPitch: -16, frontLeg: 16, backLeg: -14, frontKnee: 18, backKnee: 12 }),
+    // Hold the wide shape so the shout reaches both sides of the arena.
+    key(0.66, arm(78, 26, 22), arm(76, 22, 26), { chestPitch: -18, crouch: -0.06, lunge: 0.04, headPitch: -18, frontLeg: 16, backLeg: -14, frontKnee: 18, backKnee: 12 }),
+    key(0.88, arm(40, -10, 56), arm(34, -16, 60), { chestPitch: -2, chestYaw: 2 }),
+    key(1, arm(16, -46, 60), arm(14, -50, 64), {}),
+  ],
+  warcryGrimWard: [
+    key(0, arm(16, -46, 58), arm(14, -50, 62), { chestYaw: -4 }),
+    // Crouching, the lead hand drives the totem into the ground beside his feet.
+    key(0.24, arm(-8, -58, 34), arm(26, -34, 74), { chestYaw: -10, chestPitch: 18, crouch: 0.12, headPitch: 14, frontLeg: 26, backLeg: -16, frontKnee: 46, backKnee: 22 }),
+    // The ward is planted: he stays low with his weight over the stake.
+    key(0.42, arm(-4, -72, 18), arm(30, -40, 68), { chestYaw: -8, chestPitch: 22, crouch: 0.16, headPitch: 16, frontLeg: 30, backLeg: -18, frontKnee: 52, backKnee: 26 }),
+    // Then the off arm points straight at it, so the placement reads.
+    key(0.64, arm(12, -46, 44), arm(4, -6, 6), { chestYaw: 6, chestPitch: 12, crouch: 0.04, lunge: 0.05, headPitch: 6, frontLeg: 18, backLeg: -12, frontKnee: 26 }),
+    key(0.84, arm(14, -46, 52), arm(12, -34, 40), { chestPitch: 3 }),
+    key(1, arm(16, -46, 58), arm(14, -50, 62), {}),
   ],
   spin: [
     key(0, arm(24, -40, 62), arm(20, -42, 66), { chestYaw: -8, pelvisYaw: -6 }),
@@ -1020,6 +1072,14 @@ export function heldMeshLength(visualId: string, size: { x: number; y: number; z
     : Math.abs(size.y);
 }
 
+/**
+ * The long-hafted weapon families: spears, pikes and the polearms (bardiche,
+ * voulge, scythe, poleaxe, halberd, partizan, thresher, plus the elite Ogre Axe
+ * and Cryptic Axe). Names carry the base ahead of any prefix or unique name, so
+ * a "Partizan Pierre Tombale Couant" still reads as a polearm.
+ */
+const LONG_HAFTED_WEAPON = /polearm|spear|\bpike\b|bardiche|\bvoulge\b|\bscythe\b|\bpoleaxe\b|\bhalberd\b|partizan|lochaber axe|bec-de-corbin|\bbill\b|thresher|ogre axe|cryptic axe/;
+
 /** Share of the hero's height one held cel should cover. Cels include padding. */
 export function heldItemShare(item: HeldItem): number {
   // Item names arrive capitalised ("Short Staff"), so every family test here
@@ -1052,8 +1112,9 @@ export function heldItemShare(item: HeldItem): number {
   if (/staff/i.test(item.name)) return 0.78 * offhandScale;
   // "Spiked" contains "pike", so the pike test is bounded: an unbounded match
   // gave every Spiked Club the polearm share and hung it down to the hero's
-  // head in the preview.
-  if (/polearm|spear|\bpike\b/i.test(item.name)) return 0.85 * offhandScale;
+  // head in the preview. The named polearms used to fall past this line into
+  // the one-handed sword default, which carried a Partizan like a short sword.
+  if (LONG_HAFTED_WEAPON.test(name)) return 0.85 * offhandScale;
   // A bundle of shafts reads oversized beside the fist, so it sits a little
   // smaller than a polearm's share.
   if (/javelin/i.test(item.name)) return 0.32 * offhandScale;

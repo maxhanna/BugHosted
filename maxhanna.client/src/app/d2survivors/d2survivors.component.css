@@ -11,45 +11,60 @@
 }
 
 
-.d2s-asset-indicator {
+/* Diablo II's loading cel, played over the arena while the run's own art
+   (class model, aura sheets, act tiles) streams in. */
+.d2s-loading-screen {
   position: fixed;
-  left: 50%;
-  bottom: 6px;
-  transform: translateX(-50%);
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: min(320px, calc(100vw - 24px));
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(214, 176, 106, 0.22);
-  background: rgba(8, 9, 12, 0.62);
-  color: #9d8f74;
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  opacity: 0.85;
-  pointer-events: none;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  background: #000;
 }
 
-.d2s-asset-indicator-label { white-space: nowrap; }
+.d2s-loading-cel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(72vh, 700px);
+}
 
-.d2s-asset-indicator-track {
+.d2s-loading-viewport {
   position: relative;
-  width: 64px;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  box-shadow: 0 0 90px rgba(0, 0, 0, 0.85);
+}
+
+.d2s-loading-strip {
+  display: block;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  image-rendering: pixelated;
+  animation-name: d2s-loading-frames;
+  animation-iteration-count: infinite;
+}
+
+@keyframes d2s-loading-frames {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.d2s-loading-track {
+  position: relative;
   height: 3px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
 
-.d2s-asset-indicator-track i {
+.d2s-loading-track i {
   position: absolute;
   inset: 0;
   transform-origin: left center;
   background: linear-gradient(90deg, #b8452c, #e0b463);
-  transition: transform 120ms linear;
+  transition: transform 140ms linear;
 }
 
 .d2s-in-menu {
@@ -3281,6 +3296,23 @@
   box-shadow: inset 0 1px 1px #ffffff26, inset 0 -1px 2px #000000e6, 0 1px 2px #000000d9;
   pointer-events: none;
   z-index: 2;
+}
+
+/* A filled socket keeps its gem, rune or jewel drawn in the hole, so a glance
+   at a hovered item shows which holes are spent and which are still open. */
+.d2s-socket-hole.filled {
+  background: radial-gradient(ellipse at 50% 38%,
+    #000 0%, #05060a 58%, #4a4c56 88%, #16171d 95%, transparent 98%);
+}
+
+.d2s-socket-hole-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 1px #000000cc);
 }
 
 @media (max-width: 620px) {

@@ -13,6 +13,7 @@ Outputs:
   `chest-opening-2.png` and `chest-open.png`;
 * `assets/d2survivors/loot/gold.png`;
 * `assets/d2survivors/loot/health-potion.png`;
+* `assets/d2survivors/loot/mana-potion.png`;
 * `assets/d2survivors/loot/rejuvenation-potion.png`;
 * `src/app/d2survivors/d2-loot-assets.generated.ts` - asset paths and sizes.
 
@@ -39,6 +40,7 @@ CHEST_FRAME_KEYS = ("chestClosed", "chestOpening1", "chestOpening2", "chestOpen"
 ITEM_CELS = {
     "gold": "flpgld",
     "healthPotion": "flprps",
+    "manaPotion": "flpbps",
     "rejuvenationPotion": "flpvps",
 }
 ASSET_NAMES = {
@@ -48,6 +50,7 @@ ASSET_NAMES = {
     "chestOpen": "chest-open",
     "gold": "gold",
     "healthPotion": "health-potion",
+    "manaPotion": "mana-potion",
     "rejuvenationPotion": "rejuvenation-potion",
 }
 

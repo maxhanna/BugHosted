@@ -337,6 +337,7 @@
               [class.dragging]="beltDrag?.slotIndex === i && beltDrag?.moved"
               [attr.data-belt-slot-index]="i"
               [class.health-potion]="slot.kind === 'health'"
+              [class.mana-potion]="slot.kind === 'mana'"
               [class.rejuvenation-potion]="slot.kind === 'rejuvenation'"
               [attr.aria-label]="slot.kind ? slot.kind + ' potion, belt slot ' + (i + 1) + (heldBeltPotionSlot === i ? ', picked up' : '') : 'Empty belt slot ' + (i + 1)"
               (click)="onBeltSlotClick(i)"
@@ -592,9 +593,13 @@
               (mouseleave)="onItemPreviewLeave()">
               <img class="d2s-equipment-art" [class.empty]="!getEquipmentItem(slot.slot)" [src]="getEquipmentItem(slot.slot) ? inventoryItemImage(getEquipmentItem(slot.slot)!) : equipmentSlotImage(slot.slot)" [alt]="getEquipmentItem(slot.slot) ? '' : 'Empty ' + equipmentSlotLabel(slot.slot) + ' slot'" />
               <ng-container *ngIf="hoveredEquipmentSlot === slot.slot">
-                <i *ngFor="let hole of equipmentSocketHoles" class="d2s-socket-hole equipment"
+                <i *ngFor="let hole of equipmentSocketHoles; let holeIndex = index" class="d2s-socket-hole equipment"
+                  [class.filled]="!!socketedArt(getEquipmentItem(slot.slot), holeIndex)"
                   [style.left.px]="hole.left" [style.top.px]="hole.top"
-                  [style.width.px]="hole.size" [style.height.px]="hole.size" aria-hidden="true"></i>
+                  [style.width.px]="hole.size" [style.height.px]="hole.size" aria-hidden="true">
+                  <img *ngIf="socketedArt(getEquipmentItem(slot.slot), holeIndex) as socketArt"
+                    class="d2s-socket-hole-art" [src]="socketArt" alt="" draggable="false" />
+                </i>
               </ng-container>
               <span class="d2s-equipment-label">{{ getEquipmentItem(slot.slot)?.name || equipmentSlotLabel(slot.slot) }}</span>
             </button>
@@ -643,8 +648,12 @@
           (contextmenu)="onInventoryContextMenu(slot.slotIndex, $event)">
           <img *ngIf="slot.item as inventoryItem" class="d2s-inv-art" [src]="inventoryItemImage(inventoryItem)" alt="" draggable="false" />
           <ng-container *ngIf="slot.slotIndex === hoveredSlotIndex">
-            <i *ngFor="let hole of socketHoles(slot.item)" class="d2s-socket-hole"
-              [style.left.%]="hole.left" [style.top.%]="hole.top" aria-hidden="true"></i>
+            <i *ngFor="let hole of socketHoles(slot.item); let holeIndex = index" class="d2s-socket-hole"
+              [class.filled]="!!socketedArt(slot.item, holeIndex)"
+              [style.left.%]="hole.left" [style.top.%]="hole.top" aria-hidden="true">
+              <img *ngIf="socketedArt(slot.item, holeIndex) as socketArt"
+                class="d2s-socket-hole-art" [src]="socketArt" alt="" draggable="false" />
+            </i>
           </ng-container>
           <span class="d2s-inv-name">{{ slot.item?.name || '' }}</span>
         </div>
@@ -728,7 +737,7 @@
   </section>
 
   <div class="d2s-belt-drag-ghost" *ngIf="beltDrag?.moved" [style.left.px]="beltDragGhostX" [style.top.px]="beltDragGhostY" aria-hidden="true">
-    <img class="d2s-belt-potion-art ghost" [src]="beltPotionArt(beltDrag?.kind === 'rejuvenation' ? 'rejuvenation' : 'health')" alt="" draggable="false" />
+    <img class="d2s-belt-potion-art ghost" [src]="beltPotionArt(beltDrag?.kind ?? 'health')" alt="" draggable="false" />
   </div>
 
   <ng-container *ngIf="activeTab === 'menu' && menuPanel === 'shop'">
@@ -761,8 +770,17 @@
   </ng-container>
   <div #d2Cursor class="d2s-d2-cursor" [attr.data-quest-tool]="questRewardConfirm ? null : questRewardMode" aria-hidden="true"><span></span></div>
 
-  <div class="d2s-asset-indicator" *ngIf="!assetsReady && activeTab !== 'run'" role="status" aria-live="polite">
-    <span class="d2s-asset-indicator-label">Preparing assets {{ assetsLoaded }} / {{ assetsTotal }}</span>
-    <span class="d2s-asset-indicator-track" aria-hidden="true"><i [style.transform]="'scaleX(' + assetsLoadingProgress + ')'"></i></span>
+  <div class="d2s-loading-screen" *ngIf="loadingScreenActive" role="status" aria-label="Loading">
+    <div class="d2s-loading-cel">
+      <div class="d2s-loading-viewport">
+        <img
+          class="d2s-loading-strip"
+          [src]="loadingScreenArt.path"
+          [style.animation-duration.s]="loadingScreenArt.frames / loadingScreenArt.frameRate"
+          [style.animation-timing-function]="'steps(' + loadingScreenArt.frames + ', end)'"
+          alt="" />
+      </div>
+      <span class="d2s-loading-track" aria-hidden="true"><i [style.transform]="'scaleX(' + assetsLoadingProgress + ')'"></i></span>
+    </div>
   </div>
 </div>

@@ -84,8 +84,12 @@ def wall_cells(layers: list[tristram.Layer], count: int) -> set[int]:
         if layer.kind != "wall":
             continue
         for index, cell in enumerate(layer.cells):
-            if cell and not cell & 0x80000000:
-                walls.add(index)
+            if not cell or cell & 0x80000000:
+                continue
+            # A roof hangs over the floor instead of standing on it.
+            if layer.orientations and (layer.orientations[index] & 0xFF) == 15:
+                continue
+            walls.add(index)
     return walls
 
 
@@ -244,9 +248,15 @@ ACT1_WORLDS: tuple[WorldSpec, ...] = (
 # the oasis and the tomb presets are 17-cell squares; and the sewers, Sanctuary
 # and Durance rooms are 13-cell presets whose only piece with a doorway on all
 # four sides is their junction room (sewnsew, sanctnsew, mephnsew), so those
-# areas repeat it.  The tombs are sealed rooms - Diablo II joins them with
-# corridors it lays out at run time - so Tal Rasha's Tomb and the Claw Viper
-# Temple stay 2x2 quads.
+# areas repeat it.  The tomb preset set works the same way: most pieces are
+# sealed rooms with a single doorway (tombn, tombe, tombstalrasha, ...), and
+# Diablo II joins them with corridors laid out at run time.  The four nsew
+# variants are the set's four-way rooms: their doorways all sit on the same
+# boundary cells, so a 3x3 grid of them joins every hall to its neighbours and
+# the level is one connected tomb instead of a scatter of sealed chambers around
+# black rock.  Their collision comes from the wall art itself, because fencing
+# whole cells put invisible walls across doorway cells the ground clearly opens.
+# The Claw Viper Temple keeps its 2x2 quad of separately themed rooms.
 ACT2_WORLDS: tuple[WorldSpec, ...] = (
     WorldSpec("Sewers", "a2-sewers", 2,
               ds1("act2/sewer", "sewnsew", "sewnsew2", "sewnsew",
@@ -286,7 +296,10 @@ ACT2_WORLDS: tuple[WorldSpec, ...] = (
                   "sanctnsew", "sanctnsew", "sanctnsew",
                   "sanctnsew", "sanctnsew", "sanctnsew"), 3, 3),
     WorldSpec("Tal Rasha's Tomb", "a2-tal-rashas-tomb", 2,
-              ds1("act2/tomb", "talrasha", "tombetalrasha", "tombntalrasha", "tombstalrasha"), 2, 2),
+              ds1("act2/tomb", "tombnsew", "tombnsew2", "tombnsew3",
+                  "tombnsewtheme", "tombnsew2", "tombnsew",
+                  "tombnsew3", "tombnsewtheme", "tombnsew2"), 3, 3,
+              wall_footprint=True),
 )
 
 # Act III: the jungle quarters are 33-cell presets, so each jungle area is the
@@ -731,34 +744,65 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
                  spawn_cell: tuple[int, int]) -> tuple[Image.Image, dict]:
     """Pack every upper-wall tile once and list the cells that use it.
 
-    Orientation 15 is a wall tile that faces no direction (the stone faces and
-    railings Kurast builds along its streets).  It is a full-height sprite like
-    any other upper wall, so it is packed here instead of being dropped.
+    Orientation 15 marks a roof: the thatch a hut hangs over its own floor.  It
+    is a full-height sprite like any other upper wall, so it is packed here, but
+    it is not drawn at its own cell's depth.  Sorting a roof by its own cell
+    puts the hut's front wall over the thatch, which reads as a roof sunk into
+    the house, so every roof cell takes the depth of the front-most cell of the
+    cluster of touching roofs it belongs to.  The cluster id travels with the
+    instance as well, so the client can lift one hut's roof while the hero is
+    standing under it.
     """
     left, top, width, height = crop_origin(scene)
     origin_x = scene.height * TILE_WIDTH // 2
     origin_y = 512
 
-    placements_by_cell: list[tuple[float, float, tuple[int, int, int], int, int]] = []
-    for layer_index, layer in enumerate(scene.layers):
+    placements_by_cell: list[tuple[float, float, tuple[int, int, int], int, int, bool]] = []
+    for layer in scene.layers:
         if layer.kind != "wall" or not layer.orientations:
             continue
         for index, cell in enumerate(layer.cells):
             if cell & 0x80000000 or cell & 0xFF == 0:
                 continue
             orientation = layer.orientations[index] & 0xFF
+            # A lower wall is drawn beneath the floor, never on it.
             if orientation >= 16:
                 continue
             key = tristram.cell_key(cell, orientation)
             if key not in catalogue:
                 continue
             column, row = index % scene.width, index // scene.width
-            placements_by_cell.append((float(row + column), float(column), key, column, row))
+            placements_by_cell.append((float(row + column), float(column), key, column, row,
+                                       orientation == 15))
     placements_by_cell.sort(key=lambda entry: entry[:2])
+
+    # Roofs are overhead, so a hut's thatch has to draw above every wall of that
+    # hut instead of interleaving with them, and the roof of one hut has to come
+    # off as a whole when the hero walks in.  Touching roof cells are one hut.
+    roof_cells = {(column, row) for _, _, _, column, row, roof
+                  in placements_by_cell if roof}
+    hut_of: dict[tuple[int, int], int] = {}
+    hut_base: dict[int, float] = {}
+    for cell in sorted(roof_cells):
+        if cell in hut_of:
+            continue
+        hut = len(hut_base)
+        hut_of[cell] = hut
+        stack = [cell]
+        base = 0.0
+        while stack:
+            column, row = stack.pop()
+            base = max(base, float(origin_y + (column + row) * TILE_HEIGHT // 2 - top + TILE_HEIGHT))
+            for neighbour in ((column - 1, row), (column + 1, row),
+                              (column, row - 1), (column, row + 1)):
+                if neighbour in roof_cells and neighbour not in hut_of:
+                    hut_of[neighbour] = hut
+                    stack.append(neighbour)
+        hut_base[hut] = base
 
     sprites: dict[tuple[int, int, int], Image.Image] = {}
     boxes: dict[tuple[int, int, int], tuple[int, int, int, int]] = {}
-    for _, _, key, _, _ in placements_by_cell:
+    for _, _, key, _, _, _ in placements_by_cell:
         if key in sprites:
             continue
         sprite, bbox = tristram.render_wall_sprite(catalogue[key], palette)
@@ -786,12 +830,12 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
         atlas = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
 
     instances = []
-    for order, (_, _, key, column, row) in enumerate(placements_by_cell):
+    for order, (_, _, key, column, row, roof) in enumerate(placements_by_cell):
         x0, y0, sprite_width, sprite_height = boxes[key]
         atlas_x, atlas_y = positions[key]
         tile_x = origin_x + (column - row) * TILE_WIDTH // 2
         tile_y = origin_y + (column + row) * TILE_HEIGHT // 2
-        instances.append({
+        instance = {
             "x": tile_x - left + x0,
             "y": tile_y - top + y0,
             "w": sprite_width,
@@ -800,7 +844,24 @@ def export_walls(scene: tristram.Scene, catalogue: dict[tuple[int, int, int], tr
             "sy": atlas_y,
             "depth": tile_y - top + TILE_HEIGHT,
             "order": order,
-        })
+        }
+        if roof:
+            hut = hut_of[(column, row)]
+            instance["roof"] = 1
+            instance["hut"] = hut
+            instance["depth"] = hut_base[hut]
+            # The cell's diamond centre, in the layout's pixel space, so the
+            # client can tell whether the hero is standing under this roof.
+            instance["hx"] = tile_x - left + TILE_WIDTH // 2
+            instance["hy"] = tile_y - top + TILE_HEIGHT // 2
+            # Roof cells with roofs on all four sides are the hut's inside.  The
+            # client takes a hut's roof off only for those, so brushing past the
+            # eaves on the street does not make a roof flicker.
+            inside = all((column + dc, row + dr) in roof_cells
+                         for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)))
+            if inside:
+                instance["core"] = 1
+        instances.append(instance)
 
     half_step_x = TILE_WIDTH // 2
     half_step_y = TILE_HEIGHT // 2
@@ -964,7 +1025,9 @@ def wall_footprint_collision(scene: tristram.Scene,
             if cell & 0x80000000 or cell & 0xFF == 0:
                 continue
             orientation = layer.orientations[index] & 0xFF
-            if orientation >= 16:
+            # A roof hangs over the floor and a lower wall is drawn beneath it;
+            # neither stands on the ground the hero walks on.
+            if orientation >= 16 or orientation == 15:
                 continue
             key = tristram.cell_key(cell, orientation)
             tile = catalogue.get(key)
@@ -1047,6 +1110,31 @@ def export_collision(scene: tristram.Scene,
     stamps: dict[tuple[int, int, int], tuple[Image.Image, float]] = {}
     origin_x = scene.height * TILE_WIDTH // 2
     origin_y = 512
+
+    # The walls of a roofed hut.  Its doorway is painted as a gap in that wall
+    # art, so those cells are stamped by their art instead of as whole cells:
+    # the hero walks in through the door the picture shows.  Every wall the
+    # roof does not belong to stays cell-sized, which is what keeps the seams
+    # between street walls tight.
+    roof_cells = set()
+    for layer in scene.layers:
+        if layer.kind != "wall" or not layer.orientations:
+            continue
+        for index, cell in enumerate(layer.cells):
+            if cell and not cell & 0x80000000 and cell & 0xFF \
+                    and (layer.orientations[index] & 0xFF) == 15:
+                roof_cells.add(index)
+    carries_roof: dict[int, bool] = {}
+
+    def hut_wall(index: int) -> bool:
+        if index not in carries_roof:
+            row, column = divmod(index, scene.width)
+            carries_roof[index] = any(
+                nr * scene.width + nc in roof_cells
+                for nr in range(max(0, row - 1), min(scene.height, row + 2))
+                for nc in range(max(0, column - 1), min(scene.width, column + 2))
+            )
+        return carries_roof[index]
     for layer in scene.layers:
         if layer.kind != "wall" or not layer.orientations:
             continue
@@ -1054,7 +1142,9 @@ def export_collision(scene: tristram.Scene,
             if cell & 0x80000000 or cell & 0xFF == 0:
                 continue
             orientation = layer.orientations[index] & 0xFF
-            if orientation >= 16:
+            # A roof hangs over the floor and a lower wall is drawn beneath it;
+            # neither stands on the ground the hero walks on.
+            if orientation >= 16 or orientation == 15:
                 continue
             key = tristram.cell_key(cell, orientation)
             tile = catalogue.get(key)
@@ -1068,8 +1158,11 @@ def export_collision(scene: tristram.Scene,
             tile_y = origin_y + (column + row) * TILE_HEIGHT // 2 - top
             # A wall that fills its cell blocks the cell.  Anything thinner -
             # a railing, an arch top, a rubble pile - blocks only the body it
-            # paints, so open floor beside it stays walkable.
-            if block_full_cells or stamp[1] >= CELL_SOLID_SHARE:
+            # paints, so open floor beside it stays walkable.  A hut wall is the
+            # same rule even in a town, because its door is a gap in the art.
+            if hut_wall(index) and stamp[1] < CELL_SOLID_SHARE:
+                mask.paste(solid, (tile_x, tile_y), stamp[0])
+            elif block_full_cells or stamp[1] >= CELL_SOLID_SHARE:
                 draw_diamond(draw, tile_x, tile_y)
             else:
                 mask.paste(solid, (tile_x, tile_y), stamp[0])

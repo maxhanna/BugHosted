@@ -1233,17 +1233,56 @@ export function itemAffixTypes(item: {
   return ["charm", "smallCharm"];
 }
 
+export type D2AffixClassId = "amazon" | "assassin" | "barbarian" | "druid" | "necromancer" | "paladin" | "sorceress";
+
+/**
+ * Bases only one class can wear. Group keywords such as `helms` reach these
+ * bases too, so their affix pool has to be pruned to the owning class: a
+ * Barbarian helm must never roll Shadow Disciplines, whatever a plain helm may.
+ */
+const CLASS_LOCKED_TYPES: Partial<Record<D2AffixItemType, D2AffixClassId>> = {
+  barbarianHelm: "barbarian",
+  druidPelt: "druid",
+  paladinShield: "paladin",
+  necromancerHead: "necromancer",
+  katar: "assassin",
+  orb: "sorceress",
+};
+
+const CLASS_SKILL_STAT = /^(amazon|assassin|barbarian|druid|necromancer|paladin|sorceress)(SkillLevels|TreeSkillLevels|ClassSkillLevel)$/;
+
+/** The class whose skills an affix names, or undefined for a neutral affix. */
+export function affixClass(affix: D2Affix): D2AffixClassId | undefined {
+  for (const roll of affix.rolls) {
+    const match = CLASS_SKILL_STAT.exec(String(roll.stat));
+    if (match) return match[1] as D2AffixClassId;
+  }
+  return undefined;
+}
+
+/** The class a base is locked to, read off its affix categories. */
+export function classLockedBase(types: Iterable<D2AffixItemType>): D2AffixClassId | undefined {
+  for (const type of types) {
+    const owner = CLASS_LOCKED_TYPES[type];
+    if (owner) return owner;
+  }
+  return undefined;
+}
+
 export function eligibleAffixes(
   item: Parameters<typeof itemAffixTypes>[0],
   itemLevel: number,
   kind?: D2AffixKind,
 ): D2Affix[] {
   const types = new Set(itemAffixTypes(item));
+  const owner = classLockedBase(types);
   const level = Math.max(1, Math.floor(itemLevel));
   return D2_AFFIXES.filter((affix) => (
     (!kind || affix.kind === kind)
     && affix.level <= level
     && affix.targets.some((target) => types.has(target))
+    // A character-specific base only carries its own class's skill bonuses.
+    && (!owner || (affixClass(affix) ?? owner) === owner)
   ));
 }
 
