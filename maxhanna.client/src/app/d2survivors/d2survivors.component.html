@@ -164,7 +164,6 @@
 
         <section class="d2s-menu-subpanel d2s-gheeds-shop" *ngIf="menuPanel === 'shop'" [attr.data-quest-tool]="questRewardConfirm ? null : questRewardMode">
           <div class="d2s-panel-heading"><button type="button" class="d2s-back-button" (click)="closeGheedsShop()">‹ Main menu</button><span>Gheed's Shop</span><strong class="d2s-shop-wallet">✦ {{ sanctuaryGold | number:'1.0-0' }} GOLD</strong><small *ngIf="hasSavedRun">Saved pack {{ playerGold | number:'1.0-0' }} G</small></div>
-          <p class="d2s-shop-intro">“Heh. The price is the price. Unless you have something worth my time.” — Gheed</p>
           <p class="d2s-shop-greeting" *ngIf="gheedSpeech as greeting" role="status" aria-live="polite"><strong>Gheed</strong>“{{ greeting }}”</p>
           <div class="d2s-shop-columns">
             <section class="d2s-shop-section" aria-labelledby="d2s-shop-stock-title">
