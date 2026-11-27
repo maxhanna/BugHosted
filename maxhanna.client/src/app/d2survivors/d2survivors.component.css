@@ -563,7 +563,6 @@
 .d2s-gheeds-shop > .d2s-panel-heading { gap: 12px; font-size: 17px; }
 .d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
 .d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
-.d2s-shop-intro { margin: 0; color: #a99572; text-align: center; font: italic 12px Georgia, serif; }
 .d2s-shop-greeting { display: flex; align-items: baseline; justify-content: center; gap: 7px; margin: 0; color: #e6cf9c; text-align: center; font: italic 12px Georgia, serif; }
 .d2s-shop-greeting strong { color: #c9a45f; font: 700 9px Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
 /* Gheed's stand has two halves: what he sells on the left, the hero's own pack

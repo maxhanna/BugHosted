@@ -21,7 +21,8 @@ import { D2_PALADIN_AURA_HIT_ART } from "./d2-paladin-aura-hits.generated";
 import { ARMOR_AURA_ART } from "./d2-armor-auras.generated";
 import { BARBARIAN_WARCRY_AURA_ART } from "./d2-barbarian-auras.generated";
 import { WARCRY_VOICE_LINES, hasWarcryVoice } from "./d2-warcry-voice";
-import { SKILL_SOUNDS } from "./d2-skill-sounds.generated";
+import { SKILL_IMPACT_SOUNDS, SKILL_SOUNDS } from "./d2-skill-sounds.generated";
+import { ITEM_GOLD_SOUNDS } from "./d2-ui-sounds.generated";
 import { BONE_ARMOR_ART } from "./d2-bone-armor.generated";
 import { FROST_NOVA_ART } from "./d2-frost-nova.generated";
 import { NOVA_RING_ART } from "./d2-nova-ring.generated";
@@ -177,7 +178,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).updateBasicAttack();
 
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
-    expect((component as any).skillCastCooldowns["Fire Bolt"]).toBeGreaterThan(0);
+    expect((component as any).skillCastCooldowns["Fire Bolt"] ?? 0).withContext("Fire Bolt has no recharge").toBe(0);
     expect(target.hp).toBe(100);
   });
 
@@ -3557,13 +3558,70 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(cast).not.toHaveBeenCalled();
   });
 
-  it("drops a held attack order when the mouse button comes up", () => {
+  it("keeps a clicked monster named after the mouse button comes up", () => {
     const near = { kind: "normal", species: "fallen", x: 120, y: 100, hp: 10, r: 14 } as any;
     (component as any).heldAttackTarget = { enemy: near, hand: "basic" };
+    (component as any).heldMouseButton = 0;
 
     component.onArenaPointerEnd({ pointerType: "mouse", buttons: 0, pointerId: 9 } as any);
 
+    // Diablo II: one click chases and attacks that monster until it dies. The
+    // release ends the button hold, not the name-lock.
+    expect((component as any).heldAttackTarget).toEqual({ enemy: near, hand: "basic" });
+    expect((component as any).heldMouseButton).toBeNull();
+  });
+
+  it("keeps swinging through a pack while the left button is held", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const dead = { kind: "normal", species: "fallen", spriteFrame: 0, x: 120, y: 100, hp: 0, maxHp: 10, r: 14, dmg: 1 } as any;
+    const next = { kind: "normal", species: "fallen", spriteFrame: 0, x: 130, y: 100, hp: 40, maxHp: 40, r: 14, dmg: 1 } as any;
+    component.enemies = [dead, next];
+    (component as any).heldAttackTarget = { enemy: dead, hand: "basic" };
+    (component as any).heldMouseButton = 0;
+    const swing = spyOn(component as any, "performBasicAttack").and.returnValue(true);
+
+    (component as any).updateHeldAttackCommand();
+
+    expect((component as any).heldAttackTarget.enemy).toBe(next);
+    expect(swing).toHaveBeenCalledWith(next);
+  });
+
+  it("swings at a monster in reach when the button is held with nothing named", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const near = { kind: "normal", species: "fallen", spriteFrame: 0, x: 125, y: 100, hp: 40, maxHp: 40, r: 14, dmg: 1 } as any;
+    component.enemies = [near];
+    (component as any).heldAttackTarget = null;
+    (component as any).heldMouseButton = 0;
+    const swing = spyOn(component as any, "performBasicAttack").and.returnValue(true);
+
+    expect((component as any).updateHeldAttackCommand()).toBeTrue();
+    expect(swing).toHaveBeenCalledWith(near);
+  });
+
+  it("stops the held hand when nothing is left in reach", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const dying = { kind: "normal", species: "fallen", spriteFrame: 0, x: 900, y: 900, hp: 0, maxHp: 40, r: 14, dmg: 1 } as any;
+    component.enemies = [dying];
+    (component as any).heldAttackTarget = { enemy: dying, hand: "basic" };
+    (component as any).heldMouseButton = 0;
+    const swing = spyOn(component as any, "performBasicAttack").and.returnValue(true);
+
+    (component as any).updateHeldAttackCommand();
+
+    // The click's monster died and the pack is clear: the hero stops instead of
+    // walking onto the corpse's ground.
     expect((component as any).heldAttackTarget).toBeNull();
+    expect((component as any).clickMoveTarget).toBeNull();
+    expect(swing).not.toHaveBeenCalled();
   });
 
   it("leaps to a clicked floor spot beyond a monster", () => {
@@ -4050,6 +4108,44 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.floatingTexts.some((entry) => entry.text === "CORPSE EXPLOSION")).toBeTrue();
   });
 
+  it("leaves a corpse for every monster that falls", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const fallen = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 300, y: 250, hp: 0, maxHp: 60, speed: 0, r: 14, dmg: 2, cd: 1,
+      facingX: 1, facingY: 0, championTint: undefined,
+    } as any;
+    component.enemies = [fallen];
+    (component as any).corpses = [];
+
+    component.updateEnemies(16);
+
+    expect(component.enemies).toHaveSize(0);
+    const corpses = (component as any).corpses as any[];
+    expect(corpses).toHaveSize(1);
+    expect(corpses[0].species).toBe("fallen");
+    expect(corpses[0].maxHp).toBe(60);
+    expect(corpses[0].facingX).toBe(1);
+    // No Nihlathak and no Death Sentry: the body is still there to be blown up.
+    (component as any).updateCorpses(1);
+    expect((component as any).corpses).toHaveSize(1);
+  });
+
+  it("reads each corpse from the death block appended to its sheet", () => {
+    // The goatman atlas is eight walk rows, eight attack rows, eight idle rows and
+    // the death block this session appended below them.
+    expect(enemySpriteDirectionRow("goatman", "death", 32, 7)).toBe(31);
+    expect(enemySpriteDirectionRow("goatman", "move", 32, 7)).toBe(7);
+    expect(enemySpriteDirectionRow("goatman", "attack", 32, 7)).toBe(15);
+    // Fallen is a one-row strip: the walk row stays 0 and the death block is 1-8.
+    expect(enemySpriteDirectionRow("fallen", "move", 9, 0)).toBe(0);
+    expect(enemySpriteDirectionRow("fallen", "death", 9, 0)).toBe(1);
+    // The appended block does not change the facing maths of the living blocks.
+    expect(enemySpriteRow("goatman", 1, 0)).toBe(7);
+  });
+
   it("casts an enemy-owned Arctic Blast that chills the hero but never hits monsters", () => {
     component.runActive = true;
     component.selectedClass = "amazon";
@@ -4350,6 +4446,56 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.keysDown.delete("d");
   });
 
+  it("stops the hero walking through a monster's body", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    // Screen-right is world (+x, -y), so this body sits directly on the step.
+    const blocker = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 266, y: 234, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2, cd: 1,
+    } as any;
+    component.enemies = [blocker];
+    (component as any).rebuildEnemyGrid();
+    component.keysDown.add("d");
+
+    component.movePlayer(100);
+
+    // 22 px away is inside the 30 px body, so neither axis may move.
+    expect(blocker.x).toBe(266);
+    expect((component as any).playerMoveX).toBe(0);
+    expect((component as any).playerMoveY).toBe(0);
+
+    blocker.x = 400;
+    blocker.y = 250;
+    (component as any).rebuildEnemyGrid();
+    component.movePlayer(100);
+
+    expect((component as any).playerMoveX).toBeGreaterThan(0);
+    component.keysDown.delete("d");
+  });
+
+  it("pushes stacked monsters apart instead of letting them share a spot", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    component.arenaW = 500;
+    component.arenaH = 500;
+    const first = {
+      kind: "normal", species: "fallen", spriteFrame: 0,
+      x: 380, y: 250, hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2, cd: 1,
+    } as any;
+    const second = { ...first, x: 384 };
+    component.enemies = [first, second];
+
+    for (let frame = 0; frame < 30; frame += 1) (component as any).separateEnemyBodies();
+
+    // Two 14 px bodies end up a gap apart instead of drawing as one monster.
+    expect(Math.hypot(first.x - second.x, first.y - second.y)).toBeGreaterThanOrEqual(29.5);
+    expect(first.x).toBeLessThan(second.x);
+  });
+
   it("always lands Fist of the Heavens lightning through a Bone Wall", () => {
     component.selectedClass = "paladin";
     component.playerX = 100;
@@ -4527,7 +4673,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     component.activateOwnedSkill("Leap Attack", target);
     expect((component as any).playerLeapRemaining).toBeGreaterThan(0);
-    expect(component.skillCastCooldowns["Leap Attack"] ?? 0).toBeGreaterThan(0);
+    expect(component.skillCastCooldowns["Leap Attack"] ?? 0).withContext("no recharge on the leap").toBe(0);
     expect(target.hp).withContext("the blow waits for the landing").toBe(5000);
 
     let xBeforeLanding = target.x;
@@ -5144,6 +5290,101 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(sound).toHaveBeenCalledWith("Fire Bolt");
   });
 
+  it("ships a recorded landing sound for the spells that blast or strike", () => {
+    const blasts: Array<[string, readonly string[]]> = [
+      ["Fire Ball", SKILL_IMPACT_SOUNDS["sorceress"]?.["Fire Ball"] ?? []],
+      ["Frozen Orb", SKILL_IMPACT_SOUNDS["sorceress"]?.["Frozen Orb"] ?? []],
+      ["Blessed Hammer", SKILL_IMPACT_SOUNDS["paladin"]?.["Blessed Hammer"] ?? []],
+    ];
+    for (const [name, takes] of blasts) {
+      expect(takes.length).withContext(`${name} landing takes`).toBeGreaterThan(0);
+      for (const path of takes) {
+        expect(path).withContext(`${name} landing path`).toMatch(/^assets\/d2survivors\/audio\/impacts\//);
+        expect(path.endsWith(".ogg")).withContext(`${name} landing take is encoded`).toBeTrue();
+      }
+    }
+    // A cast-only spell such as Teleport has no do/target/hit sound of its own.
+    expect(SKILL_IMPACT_SOUNDS["sorceress"]?.["Teleport"]).toBeUndefined();
+  });
+
+  it("plays a spell's landing sound once where its missile hits", () => {
+    const realAudio = (window as any).Audio;
+    const play = jasmine.createSpy("play").and.returnValue(Promise.resolve());
+    const created: any[] = [];
+    (window as any).Audio = function AudioStub(this: any) {
+      const element = { pause: jasmine.createSpy("pause"), play, volume: 1, src: "" };
+      created.push(element);
+      return element;
+    } as any;
+    try {
+      (component as any).menuSoundPreferred = true;
+      component.selectedClass = "sorceress";
+      const fireBall = { skill: "Fire Ball" } as any;
+      (component as any).playProjectileImpactSound(fireBall);
+      (component as any).playProjectileImpactSound(fireBall);
+      expect(play.calls.count()).withContext("one blast is heard once").toBe(1);
+      expect(created[0].src).toContain("assets/d2survivors/audio/impacts/");
+
+      (component as any).playProjectileImpactSound({ skill: "Frozen Orb" } as any);
+      expect(play.calls.count()).withContext("the next blast is heard").toBe(2);
+
+      (component as any).playProjectileImpactSound({ skill: "Teleport" } as any);
+      expect(play.calls.count()).withContext("no landing take, no sound").toBe(2);
+    } finally {
+      (window as any).Audio = realAudio;
+    }
+  });
+
+
+  it("ships Diablo II's own coin sound for gold changing hands", () => {
+    expect(ITEM_GOLD_SOUNDS.length).toBeGreaterThan(0);
+    for (const path of ITEM_GOLD_SOUNDS) {
+      expect(path).toMatch(/^assets\/d2survivors\/audio\/ui\/item-gold\.ogg$/);
+    }
+  });
+
+  it("rattles the coins when an item is sold", () => {
+    const realAudio = (window as any).Audio;
+    const play = jasmine.createSpy("play").and.returnValue(Promise.resolve());
+    const created: any[] = [];
+    (window as any).Audio = function AudioStub(this: any) {
+      const element = { pause: jasmine.createSpy("pause"), play, volume: 1, src: "" };
+      created.push(element);
+      return element;
+    } as any;
+    try {
+      const sword = {
+        id: "sold-sword", name: "Sabre", baseName: "Sabre", rarity: "normal",
+        slot: "weapon", equipmentType: "weapon", requiredLevel: 1,
+        stats: { damageMin: 3, damageMax: 7 }, desc: "An old sabre.", affixes: [],
+      } as any;
+      component.activeTab = "run";
+      component.runActive = true;
+      component.inventoryOpen = true;
+      (component as any).menuSoundPreferred = true;
+      component.inventory = Array.from({ length: component.inventoryColumns * component.inventoryRows }, () => null);
+      component.equipment = {
+        weapon: null, helmet: null, shield: null, ringLeft: null, amulet: null,
+        ringRight: null, gloves: null, body: null, boots: null, belt: null,
+      } as any;
+      spyOn(component as any, "persistRunProgress");
+
+      component.inventory[0] = sword;
+      (component as any).rebuildInventoryGrid();
+      component.sellInventoryItem(0);
+
+      expect(play).toHaveBeenCalled();
+      expect(created[0].src).toContain("assets/d2survivors/audio/ui/item-gold.ogg");
+
+      // Muted audio sells silently, exactly like casts and impacts.
+      component.inventory[0] = { ...sword, id: "sold-sword-2" };
+      (component as any).menuSoundPreferred = false;
+      component.sellInventoryItem(0);
+      expect(play.calls.count()).withContext("muted audio is silent").toBe(1);
+    } finally {
+      (window as any).Audio = realAudio;
+    }
+  });
 
   it("makes feared enemies run away and prevents their attacks", () => {
     component.playerX = 250;
@@ -12433,13 +12674,18 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(frozenArmor.join(" ")).toContain("Freezes a melee attacker");
   });
 
-  it("enforces the guidebook casting delays before the next cast", () => {
+  it("enforces skills.txt's casting delays before the next cast", () => {
+    // Every non-zero localdelay in skills.txt, in seconds (frames / 25). These
+    // are the only spells in the game with a recharge.
     const delays: [string, number][] = [
       ["Fire Wall", 1.4],
       ["Blizzard", 1.8],
       ["Meteor", 1.2],
       ["Frozen Orb", 1],
-      ["Hydra", 1.6],
+      ["Molten Boulder", 1],
+      ["Volcano", 4],
+      ["Fist of the Heavens", 0.4],
+      ["Firestorm", 0.6],
     ];
     component.selectedClass = "sorceress";
     component.runActive = true;
@@ -12477,6 +12723,31 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       expect((component as any).skillCastCooldowns[skill]).toBe(0);
       expect((component as any).tryAttackSlotSpell("secondary", undefined, ground)).withContext(`${skill}: cast after delay`).toBeTrue();
     }
+
+    // The rest of the book has no recharge: the next cast is ready immediately,
+    // and only mana and the cast animation stand in its way.
+    for (const skill of ["Fire Bolt", "Hydra", "Nova", "Ice Bolt", "Teeth"]) {
+      expect(component.getSkillCastInterval(skill)).withContext(`${skill} has no cast delay`).toBe(0);
+    }
+  });
+
+  it("shortens the cast animation with Faster Cast Rate instead of inventing a recharge", () => {
+    component.selectedClass = "sorceress";
+    let fasterCast = 0;
+    spyOnProperty(component, "equippedFasterCastPercent").and.callFake(() => fasterCast);
+
+    (component as any).triggerAttackAnimation("sorceressCast");
+    const unhurried = (component as any).playerAttackLockRemaining;
+
+    fasterCast = 50;
+    (component as any).triggerAttackAnimation("sorceressCast");
+    const hurried = (component as any).playerAttackLockRemaining;
+
+    expect(hurried).withContext("cast rate shortens the cast itself").toBeLessThan(unhurried);
+    expect((component as any).attackAnimationRate).toBeCloseTo(1.5, 5);
+    // Cast rate never touches a real casting delay, and never creates one.
+    expect(component.getSkillCastInterval("Frozen Orb")).toBe(1);
+    expect(component.getSkillCastInterval("Fire Bolt")).toBe(0);
   });
 
   it("uses the guidebook's lightning tables, synergies and Lightning Mastery", () => {
@@ -15638,7 +15909,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).isCycloneArmorActive()).toBeFalse();
   });
 
-  it("runs Cyclone Armor as a timed, rank-scaling damage shield with a recast delay", () => {
+  it("runs Cyclone Armor as a timed, rank-scaling damage shield with no recast delay", () => {
     component.selectedClass = "druid";
     component.ownedSkills = ["Cyclone Armor"];
     component.skillLevels = { "Cyclone Armor": 1 };
@@ -15661,12 +15932,14 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     const shielded = (component as any).applyIncomingDamage(100, undefined, "melee", "cold");
     expect(shielded).toBeLessThan(unshielded);
 
+    // The hero's hands are free again: the cast animation had finished.
+    (component as any).playerAttackLockRemaining = 0;
     (component as any).updateAutomaticSkillCasts((duration + 0.05) * 1000);
     expect((component as any).cycloneArmorRemaining).toBe(0);
-    const recastDelay = component.getSkillCastInterval("Cyclone Armor");
-    expect(recastDelay).toBeGreaterThan(0);
-
-    (component as any).updateAutomaticSkillCasts((recastDelay + 0.05) * 1000);
+    // No recast delay: the shield goes straight back up, paying its mana.
+    expect(component.getSkillCastInterval("Cyclone Armor")).toBe(0);
+    (component as any).playerAttackLockRemaining = 0;
+    (component as any).updateAutomaticSkillCasts(16);
     expect((component as any).cycloneArmorRemaining).toBe(durationFor(1));
   });
 
@@ -15704,9 +15977,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).updateSkillVisualEffects(30_100);
     expect((component as any).holyShieldRemaining).toBe(0);
     expect(component.equippedArmor).toBe(baseArmor);
-    expect(component.skillCastCooldowns["Holy Shield"]).toBe(8);
+    expect(component.skillCastCooldowns["Holy Shield"] ?? 0).withContext("no recast delay").toBe(0);
 
-    (component as any).updateAutomaticSkillCasts(8_100);
+    (component as any).playerAttackLockRemaining = 0;
+    (component as any).updateAutomaticSkillCasts(16);
     expect((component as any).holyShieldRemaining).toBe(30);
   });
 
