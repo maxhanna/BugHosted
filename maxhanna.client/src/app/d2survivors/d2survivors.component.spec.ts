@@ -66,6 +66,10 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // device default is the desktop scheme. These tests describe the touch
     // caster's behaviour unless they are about the desktop one.
     component.spellsAutoCastOnDevice = true;
+    // Melee verification (D2's Attack Rating and block rolls) is pinned to a
+    // clean hit: these tests describe what a blow does, not whether dice land.
+    (component as any).accuracyRoll = () => 0;
+    (component as any).blockRoll = () => 99;
   });
 
   afterEach(() => fixture.destroy());
@@ -1007,6 +1011,21 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // ...and the basic attack it hands off to casts at that same monster instead
     // of the one that merely happens to be nearer.
     (component as any).updateBasicAttack();
+    console.warn("DBG", JSON.stringify({
+      basic: component.basicAttackSpell,
+      held: !!(component as any).heldAttackTarget,
+      btn: (component as any).heldMouseButton,
+      chasing: (component as any).playerChasingClickedTarget,
+      reach: (component as any).heldAttackReach("basic", clicked),
+      dist: Math.hypot(clicked.x - component.playerX, clicked.y - component.playerY),
+      can: (component as any).canBasicAttackCastSpell("Fire Bolt"),
+      cd: component.skillCastCooldowns["Fire Bolt"],
+      stop: (component as any).clickedTargetStopDistance(clicked),
+      ranged: component.rangedBasicAttackRange,
+      clickMove: !!(component as any).clickMoveTarget,
+      leap: component.playerLeapRemaining,
+      proj: component.attackProjectiles.length,
+    }));
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
     expect(component.attackProjectiles[0].target).toBe(clicked);
   });

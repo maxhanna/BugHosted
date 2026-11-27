@@ -18403,7 +18403,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const dx = enemy.x - this.playerX;
     const dy = enemy.y - this.playerY;
     const distance = Math.hypot(dx, dy) || 1;
-    if (distance > this.heldAttackReach(hand, enemy)) {
+    // Melee reach already counts the monster's body in sub-tiles; a missile
+    // still needs the target's radius added to its travel.
+    const reach = this.heldAttackReach(hand, enemy)
+      + (this.heldAttackIsMelee(hand) ? 0 : enemy.r);
+    if (distance > reach) {
       // Out of reach: walk in on the normal click-to-move chase instead of
       // casting at the floor. Leap and the other gap closers returned an
       // unlimited reach above, so they fire from here.
@@ -18936,6 +18940,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * action frame, the Attack Rating against Defense roll (skipped by always-hit
    * skills), and the defender's block.
    */
+  /** The two melee rolls, kept separable so a spec can pin their outcomes. */
+  private accuracyRoll: () => number = () => Math.random() * 100;
+  private blockRoll: () => number = () => Math.random() * 100;
+
   private dealMeleeDamage(enemy: Enemy, damage: number, autoHit = false): number {
     // Step 0: the swing is re-checked in sub-tiles when it actually lands. A
     // monster that stepped out of reach during the startup frames is a whiff.
@@ -18956,7 +18964,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const chance = this.chanceToHitPercent(
         this.inventoryAttackRating, this.enemyDefense(enemy), this.playerLevel, this.enemyLevel(enemy),
       );
-      if (Math.random() * 100 >= chance) {
+      if (this.accuracyRoll() >= chance) {
         if (this.floatingTexts.length < 64) {
           this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "MISS", color: "#cfe0f2", life: 0.55 });
         }
@@ -18965,7 +18973,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     // Step 3: a blocked blow deals nothing, whether or not it auto-hit.
     const block = this.enemyBlockChance(enemy);
-    if (block > 0 && Math.random() * 100 < block) {
+    if (block > 0 && this.blockRoll() < block) {
       if (this.floatingTexts.length < 64) {
         this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "BLOCKED", color: "#d9d3c4", life: 0.6 });
       }
@@ -19010,6 +19018,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (enemy.campaignBoss || enemy.miniBoss || enemy.r >= 22) return 3;
     if (enemy.r <= 12) return 1;
     return 2;
+  }
+
+  /** True when this hand swings a weapon rather than launching something. */
+  private heldAttackIsMelee(hand: "basic" | "secondary"): boolean {
+    const skill = hand === "basic" ? this.basicAttackSpell : this.secondaryAttackSpell;
+    if (skill && this.canBasicAttackCastSpell(skill)) return this.isMeleeDamageSkill(skill);
+    return !this.bowWeaponEquipped && !this.thrownWeaponKind;
   }
 
   /** The equipped weapon's hidden Rangeadder, D2's Range 1 to Range 5. */
@@ -30222,7 +30237,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const chance = this.chanceToHitPercent(
         this.enemyAttackRating(attacker), defense, this.enemyLevel(attacker), this.playerLevel,
       );
-      if (Math.random() * 100 >= chance) {
+      if (this.accuracyRoll() >= chance) {
         if (this.floatingTexts.length < 64) {
           this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "MISS", color: "#cfe0f2", life: 0.6 });
         }
@@ -30273,7 +30288,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const blockChance = this.actualBlockChance(
         displayedBlock, this.attributeDexterity, this.playerLevel, this.playerRunning,
       );
-      if (Math.random() * 100 < blockChance) {
+      if (this.blockRoll() < blockChance) {
         if (this.floatingTexts.length < 64) {
           this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "BLOCKED", color: "#d9d3c4", life: 0.6 });
         }

@@ -3,16 +3,11 @@
   src: url('../../assets/d2survivors/ui/exocet-blizzard.otf') format('opentype');
   font-display: swap;
 }
-
 .d2s {
   max-width: 900px;
   margin: 0 auto;
   padding: 1rem;
 }
-
-
-/* Diablo II's loading cel, played over the arena while the run's own art
-   (class model, aura sheets, act tiles) streams in. */
 .d2s-loading-screen {
   position: fixed;
   inset: 0;
@@ -21,21 +16,18 @@
   place-items: center;
   background: #000;
 }
-
 .d2s-loading-cel {
   display: flex;
   flex-direction: column;
   gap: 14px;
   width: min(72vh, 700px);
 }
-
 .d2s-loading-viewport {
   position: relative;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   box-shadow: 0 0 90px rgba(0, 0, 0, 0.85);
 }
-
 .d2s-loading-strip {
   display: block;
   height: 100%;
@@ -45,12 +37,10 @@
   animation-name: d2s-loading-frames;
   animation-iteration-count: infinite;
 }
-
 @keyframes d2s-loading-frames {
   from { transform: translateX(0); }
   to { transform: translateX(-100%); }
 }
-
 .d2s-loading-track {
   position: relative;
   height: 3px;
@@ -58,7 +48,6 @@
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
-
 .d2s-loading-track i {
   position: absolute;
   inset: 0;
@@ -66,7 +55,6 @@
   background: linear-gradient(90deg, #b8452c, #e0b463);
   transition: transform 140ms linear;
 }
-
 .d2s-in-menu {
   width: 100%;
   max-width: none;
@@ -76,26 +64,20 @@
   padding: 0;
   background: #08090c;
 }
-
 .d2s-in-character-select .d2s-menu-scene {
   place-items: start center;
 }
-
 .d2s-in-character-select .d2s-menu-title {
   padding-top: clamp(12px, 2.4vh, 24px);
   padding-bottom: 4px;
 }
-
-
 .d2s-in-character-select .d2s-menu-title > p { display: none; }
-
 .d2s-in-character-select .d2s-logo-mark {
   width: clamp(130px, 22vw, 168px);
   margin-top: 6px;
   margin-bottom: 2px;
 }
 .d2s-in-character-select .d2s-menu-content { padding-top: 8px; padding-bottom: 12px; }
- 
 .d2s-character-select {
   grid-column: 1 / -1;
   width: 100%;
@@ -105,23 +87,19 @@
   align-items: stretch;
   gap: 12px 24px;
 }
-
 .d2s-character-select > .d2s-panel-heading {
   grid-column: 1 / -1;
 }
-
 .d2s-character-details {
   display: grid;
   align-content: start;
   gap: 13px;
   padding: 6px 4px 0;
 }
-
 .d2s-character-select .d2s-class-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
 }
-
 .d2s-character-select .d2s-class-choice {
   display: flex;
   min-height: 44px;
@@ -130,23 +108,19 @@
   gap: 10px;
   font-size: 13px;
 }
-
 .d2s-character-select .d2s-class-choice .d2s-class-gem {
   flex: 0 0 22px;
   width: 22px;
   height: 22px;
   margin: 0 4px 0 2px;
 }
-
 .d2s-class-description {
   margin: 0;
   color: #c9b98f;
   font: 15px/1.4 Georgia, serif;
 }
-
 .d2s-class-description p { margin: 0 0 4px; }
 .d2s-class-description small { color: #997f5a; font-size: 10px; letter-spacing: 0.14em; }
-
 .d2s-hero-stats {
   display: grid;
   gap: 8px;
@@ -155,7 +129,6 @@
   background: linear-gradient(135deg, #171313, #0c0b0d);
   box-shadow: inset 0 0 0 2px #0a0909;
 }
-
 .d2s-stat-row {
   display: grid;
   grid-template-columns: 1fr 30px;
@@ -167,7 +140,6 @@
 .d2s-stat-row b { color: #ead6a6; text-align: right; }
 .d2s-stat-meter { grid-column: 1 / -1; height: 4px; background: #080808; border: 1px solid #40331f; }
 .d2s-stat-meter i { display: block; height: 100%; background: linear-gradient(90deg, #6c301c, #d89b4d); box-shadow: 0 0 5px #b7783b7a; }
-
 .d2s-derived-stats {
   display: flex;
   flex-wrap: wrap;
@@ -179,7 +151,6 @@
   font: 11px Georgia, serif;
 }
 .d2s-derived-stats b { padding-left: 3px; color: #e2c98c; }
-
 .d2s-class-preview {
   position: relative;
   grid-column: 2;
@@ -192,7 +163,6 @@
   background: radial-gradient(ellipse at 50% 58%, #58261d 0, #281719 29%, #121014 65%, #08080a 100%);
   box-shadow: inset 0 0 0 5px #0b090a, inset 0 0 0 6px #57442d, inset 0 0 60px #000;
 }
-
 .d2s-class-preview::before {
   position: absolute;
   inset: 10px;
@@ -201,7 +171,6 @@
   border: 1px solid #82674280;
   background: radial-gradient(ellipse at 50% 100%, #e2672a36, transparent 53%);
 }
-
 .d2s-class-preview-canvas {
   position: absolute;
   inset: 0;
@@ -211,9 +180,7 @@
   cursor: grab;
   touch-action: none;
 }
-
 .d2s-class-preview-canvas.dragging { cursor: grabbing; }
-
 .d2s-preview-controls {
   position: absolute;
   z-index: 2;
@@ -222,7 +189,6 @@
   display: grid;
   gap: 6px;
 }
-
 .d2s-preview-controls button {
   display: grid;
   width: 34px;
@@ -236,10 +202,8 @@
   cursor: pointer;
   font: 20px Georgia, serif;
 }
-
 .d2s-preview-controls button:hover,
 .d2s-preview-controls button:focus-visible { color: #fff0c7; border-color: #e1bd76; outline: 1px solid #e1bd76; }
-
 .d2s-preview-hint {
   position: absolute;
   top: 20px;
@@ -250,20 +214,16 @@
   letter-spacing: 0.16em;
   pointer-events: none;
 }
-
 .d2s-class-preview:not(.loading) .d2s-class-preview-canvas {
   animation: d2s-hero-arrival 520ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
-
 @keyframes d2s-hero-arrival {
   from { opacity: 0; transform: translateY(14px) scale(0.96); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .d2s-class-preview:not(.loading) .d2s-class-preview-canvas { animation: none; }
 }
-
 .d2s-preview-loading,
 .d2s-preview-error {
   position: absolute;
@@ -275,7 +235,6 @@
   font: 13px Georgia, serif;
   text-shadow: 0 2px 4px #000;
 }
-
 .d2s-preview-loading span {
   display: block;
   width: 36px;
@@ -286,9 +245,7 @@
   border-radius: 50%;
   animation: d2s-preview-spin 1.2s linear infinite;
 }
-
 @keyframes d2s-preview-spin { to { transform: rotate(360deg); } }
-
 .d2s-preview-plaque {
   position: absolute;
   pointer-events: none;
@@ -303,12 +260,10 @@
   background: linear-gradient(90deg, #100d0def, #2c1a17ef, #100d0def);
   box-shadow: inset 0 0 0 2px #100d0c, 0 3px 8px #000;
 }
-
 .d2s-preview-plaque > div { display: grid; gap: 2px; }
 .d2s-preview-plaque small { color: #8f7756; font: 9px Georgia, serif; letter-spacing: 0.19em; }
 .d2s-preview-plaque strong { color: #e6d1a4; font: 18px Georgia, serif; }
 .d2s-preview-plaque > div > span { color: #b7a683; font: 11px Georgia, serif; }
-
 .d2s-menu-scene {
   position: relative;
   isolation: isolate;
@@ -327,7 +282,6 @@
     url('../../assets/d2survivors/ui/menu-background.webp') center / cover no-repeat,
     radial-gradient(ellipse at 50% 42%, #2a1715 0%, #171116 28%, #0c0c10 59%, #06070a 100%);
 }
-
 .d2s-menu-scene::before,
 .d2s-menu-scene::after {
   position: absolute;
@@ -335,7 +289,6 @@
   content: "";
   pointer-events: none;
 }
-
 .d2s-menu-scene::before {
   inset: 0;
   opacity: 0.28;
@@ -343,13 +296,11 @@
     radial-gradient(ellipse at 50% 100%, #a73512 0, transparent 42%),
     repeating-linear-gradient(112deg, transparent 0 8px, #8a55230c 9px 10px, transparent 11px 20px);
 }
-
 .d2s-menu-scene::after {
   inset: 12px;
   border: 1px solid #7764478c;
   box-shadow: inset 0 0 0 5px #08090a, inset 0 0 0 6px #382d1f, 0 0 28px #000;
 }
-
 .d2s-menu-sparks {
   position: absolute;
   z-index: -1;
@@ -360,7 +311,6 @@
   background: radial-gradient(ellipse at 50% 100%, #cf4a1466 0, #7130162e 21%, transparent 66%);
   animation: d2s-ember-pulse 4s ease-in-out infinite alternate;
 }
-
 .d2s-menu-embers {
   position: absolute;
   z-index: 0;
@@ -368,7 +318,6 @@
   overflow: hidden;
   pointer-events: none;
 }
-
 .d2s-menu-embers span {
   position: absolute;
   bottom: -12px;
@@ -381,7 +330,6 @@
   opacity: 0;
   animation: d2s-ember-rise var(--ember-duration) linear var(--ember-delay) infinite;
 }
-
 .d2s-menu-embers span:nth-child(1) { --ember-x: 8%; --ember-size: 2px; --ember-duration: 9s; --ember-delay: -3s; }
 .d2s-menu-embers span:nth-child(2) { --ember-x: 17%; --ember-size: 3px; --ember-duration: 12s; --ember-delay: -8s; }
 .d2s-menu-embers span:nth-child(3) { --ember-x: 26%; --ember-size: 2px; --ember-duration: 10s; --ember-delay: -1s; }
@@ -394,25 +342,21 @@
 .d2s-menu-embers span:nth-child(10) { --ember-x: 84%; --ember-size: 3px; --ember-duration: 11s; --ember-delay: -4s; }
 .d2s-menu-embers span:nth-child(11) { --ember-x: 91%; --ember-size: 2px; --ember-duration: 14s; --ember-delay: -7s; }
 .d2s-menu-embers span:nth-child(12) { --ember-x: 96%; --ember-size: 2px; --ember-duration: 10s; --ember-delay: -12s; }
-
 @keyframes d2s-ember-rise {
   0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.7); }
   12% { opacity: 0.58; }
   72% { opacity: 0.32; }
   100% { opacity: 0; transform: translate3d(18px, -85vh, 0) scale(0.25); }
 }
-
 @keyframes d2s-ember-pulse {
   from { opacity: 0.55; transform: scaleX(0.9); }
   to { opacity: 1; transform: scaleX(1.04); }
 }
- 
 .d2s-menu-title {
   position: relative;
   padding: clamp(14px, 2.8vh, 28px) 20px 8px;
   text-align: center;
 }
-
 .d2s-audio-control {
   position: absolute;
   z-index: 3;
@@ -420,7 +364,6 @@
   right: 16px;
   padding-left: 8px;
 }
-
 .d2s-audio-toggle {
   display: inline-flex;
   min-height: 36px;
@@ -436,7 +379,6 @@
   font: 11px Georgia, serif;
   letter-spacing: 0.04em;
 }
-
 .d2s-audio-toggle:hover,
 .d2s-audio-toggle:focus-visible {
   color: #ffe2a7;
@@ -444,12 +386,10 @@
   outline: 2px solid #e2bd79;
   outline-offset: 2px;
 }
-
 .d2s-audio-toggle > span:first-child {
   color: #e3b973;
   font: 18px/1 Georgia, serif;
 }
-
 .d2s-audio-volume {
   position: absolute;
   top: 0;
@@ -473,7 +413,6 @@
   transform: translateX(8px);
   transition: opacity 140ms ease, transform 140ms ease, visibility 0s linear 140ms;
 }
-
 .d2s-audio-control:hover .d2s-audio-volume,
 .d2s-audio-control:focus-within .d2s-audio-volume {
   opacity: 1;
@@ -482,12 +421,10 @@
   transform: translateX(0);
   transition-delay: 0s;
 }
-
 .d2s-audio-volume-label {
   flex: 0 0 auto;
   color: #8d7a58;
 }
-
 .d2s-audio-volume input[type="range"] {
   width: 92px;
   min-width: 0;
@@ -496,12 +433,10 @@
   accent-color: #c69b5c;
   cursor: pointer;
 }
-
 .d2s-audio-volume input[type="range"]:focus-visible {
   outline: 1px solid #e2bd79;
   outline-offset: 2px;
 }
-
 .d2s-audio-volume-value {
   min-width: 27px;
   flex: 0 0 auto;
@@ -509,7 +444,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-
 .d2s-audio-status {
   position: absolute;
   top: 55px;
@@ -520,8 +454,6 @@
   letter-spacing: 0.06em;
   text-shadow: 0 1px 4px #000;
 }
-
-
 .d2s-logo-mark {
   display: block;
   width: clamp(210px, 34vw, 296px);
@@ -531,8 +463,6 @@
   user-select: none;
   filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.65));
 }
-
-
 .d2s-menu-content {
   display: grid;
   grid-template-columns: minmax(240px, 0.9fr) minmax(250px, 1.1fr);
@@ -540,33 +470,26 @@
   align-items: stretch;
   padding: 14px clamp(18px, 5vw, 56px) 16px;
 }
-
 .d2s-menu-content.subpanel-open {
   grid-template-columns: 1fr;
   padding-top: 12px;
   padding-bottom: 16px;
 }
-
 .d2s-menu-content.subpanel-open .d2s-menu-hero-card {
   display: none;
 }
-
 .d2s-menu-content.subpanel-open:has(.d2s-lobby) {
   padding: 12px clamp(14px, 2.5vw, 30px) 16px;
 }
-
 .d2s-menu-content.subpanel-open:has(.d2s-gheeds-shop) {
   padding: 12px clamp(14px, 2.5vw, 30px) 16px;
 }
-
 .d2s-gheeds-shop { width: 100%; min-width: 0; gap: 10px; }
 .d2s-gheeds-shop > .d2s-panel-heading { gap: 12px; font-size: 17px; }
 .d2s-shop-wallet { margin-left: auto; color: #f1cf80; font: 12px ui-monospace, monospace; white-space: nowrap; }
 .d2s-gheeds-shop > .d2s-panel-heading > small { color: #a99572; font: 10px ui-monospace, monospace; white-space: nowrap; }
 .d2s-shop-greeting { display: flex; align-items: baseline; justify-content: center; gap: 7px; margin: 0; color: #e6cf9c; text-align: center; font: italic 12px Georgia, serif; }
 .d2s-shop-greeting strong { color: #c9a45f; font: 700 9px Georgia, serif; letter-spacing: .14em; text-transform: uppercase; }
-/* Gheed's stand has two halves: what he sells on the left, the hero's own pack
-   on the right. */
 .d2s-shop-columns { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr); gap: 12px; min-height: 325px; align-items: start; }
 .d2s-shop-quest, .d2s-shop-stash { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #4b3925; }
 .d2s-shop-stash-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 6px; }
@@ -575,8 +498,6 @@
 .d2s-shop-stash-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .d2s-shop-stash-item small { color: #f0d79c; font: 9px ui-monospace, monospace; }
 .d2s-shop-stash-item:hover, .d2s-shop-stash-item:focus-visible { border-color: #c9a45f; color: #fff1c9; outline: none; }
-/* The right half is the in-game inventory panel itself, so its two columns are
-   re-flowed to fit the shop instead of the arena's edge-to-edge layout. */
 .d2s-shop-inventory { min-width: 0; }
 .d2s-shop-inventory .d2s-inventory-layout { flex-wrap: wrap; align-items: flex-start; justify-content: center; height: auto; gap: 8px; padding-top: 6px; }
 .d2s-shop-inventory .d2s-inventory-right { width: min(100%, 380px); }
@@ -611,7 +532,6 @@
 .d2s-quest-tool.armed { color: #fff1c9; border-color: #e0c99b; background: linear-gradient(#6a4c26, #2a1c10); box-shadow: 0 0 10px #ffb34766; }
 .d2s-shop-quest-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin: 0; color: #e0c99b; text-align: center; font: 10px/1.4 Georgia, serif; }
 .d2s-shop-quest-cancel { padding: 3px 7px; color: #d9c497; border: 1px solid #57452e; background: #100e0d; cursor: pointer; font: 9px Georgia, serif; }
-/* Every shop card that can take the armed tool glows, so the targets read at a glance. */
 .d2s-gheeds-shop[data-quest-tool] .d2s-inv-slot.filled,
 .d2s-gheeds-shop[data-quest-tool] .d2s-equipment-slot.equipped { box-shadow: 0 0 0 1px #f0c76b, 0 0 10px #f0c76b66; }
 .d2s-quest-confirm { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: #000000b8; }
@@ -624,7 +544,6 @@
 .d2s-quest-confirm-actions button.primary { color: #f0d7a2; border-color: #947342; background: linear-gradient(#49351e, #1c140f); }
 .d2s-quest-confirm-actions button:hover, .d2s-quest-confirm-actions button:focus-visible { border-color: #e0c99b; outline: none; }
 .d2s-shop-message { min-height: 15px; margin: 0; color: #d4b777; text-align: center; font: 11px Georgia, serif; }
-
 .d2s-lobby { width: 100%; min-width: 0; gap: 10px; }
 .d2s-lobby > .d2s-panel-heading { gap: 10px; font-size: 16px; }
 .d2s-lobby-panels { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(270px, 0.8fr); gap: 12px; min-height: 350px; }
@@ -654,7 +573,6 @@
   touch-action: none;
   user-select: none;
 }
-
 .d2s-hero-lineup-scrollbar.is-static { cursor: default; }
 .d2s-hero-lineup-scrollbar-thumb {
   position: absolute;
@@ -721,7 +639,6 @@
 .d2s-lobby-footer { display: flex; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid #403321; color: #81704e; font: 8px Georgia, serif; letter-spacing: .11em; }
 .d2s-lobby-footer span:nth-child(2) { text-align: center; }
 .d2s-lobby-footer button { padding: 5px 9px; border: 1px solid #8b6c3f; background: #24180f; color: #e1c17e; cursor: pointer; font: 9px Georgia, serif; letter-spacing: .08em; }
-
 @media (max-width: 740px) {
   .d2s-shop-columns { grid-template-columns: 1fr; }
   .d2s-shop-sell { min-height: 200px; }
@@ -741,23 +658,19 @@
   .d2s-lobby > .d2s-panel-heading { flex-wrap: wrap; justify-content: center; }
   .d2s-lobby-footer { flex-wrap: wrap; justify-content: center; text-align: center; }
 }
-
 .d2s-menu-options {
   display: grid;
   gap: 8px;
 }
-
 .d2s-save-status {
   color: #b9a477;
   font: 13px Georgia, serif;
 }
-
 .d2s-save-button {
   cursor: pointer;
   color: #ead6a6;
   font: inherit;
 }
-
 .d2s-save-button:hover,
 .d2s-save-button:focus-visible {
   border-color: #c69b5c;
@@ -765,7 +678,6 @@
   outline: 2px solid #e2bd79;
   outline-offset: 2px;
 }
-
 .d2s-menu-button {
   position: relative;
   display: flex;
@@ -782,7 +694,6 @@
   box-shadow: inset 0 0 0 2px #0a0909, inset 0 0 0 3px #3b3022, 0 3px 8px #0009;
   transition: color 140ms ease, border-color 140ms ease, filter 140ms ease, transform 140ms ease;
 }
-
 .d2s-menu-button:hover,
 .d2s-menu-button:focus-visible {
   color: #fff1c9;
@@ -791,29 +702,23 @@
   transform: translateY(-1px);
   outline: none;
 }
-
 .d2s-menu-button span {
   display: block;
   font: 16px Georgia, "Times New Roman", serif;
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-menu-button small {
   display: block;
   margin-top: 4px;
   color: #92856e;
   font: 11px Georgia, serif;
 }
-
 .d2s-menu-button.primary {
   border-color: #967442;
   background: linear-gradient(180deg, #49301d, #21140f 55%, #382218);
 }
-
 .d2s-menu-button.primary span { color: #f0d29a; }
-
-
 .d2s-menu-hero-card {
   position: relative;
   display: grid;
@@ -823,7 +728,6 @@
   align-content: stretch;
   gap: 10px;
 }
-
 .d2s-menu-hero-stage {
   position: relative;
   min-height: 0;
@@ -832,7 +736,6 @@
   background: radial-gradient(ellipse at 50% 46%, #54241e 0, #211617 35%, #100e11 74%);
   box-shadow: inset 0 0 0 4px #0a090a, inset 0 0 0 5px #5f4a30, inset 0 0 45px #000;
 }
-
 .d2s-menu-hero-canvas {
   position: absolute;
   inset: 0;
@@ -844,9 +747,7 @@
   touch-action: none;
   user-select: none;
 }
-
 .d2s-menu-hero-canvas.dragging { cursor: grabbing; }
-
 .d2s-menu-hero-controls {
   position: absolute;
   z-index: 2;
@@ -855,7 +756,6 @@
   display: flex;
   gap: 6px;
 }
-
 .d2s-menu-hero-controls button {
   display: grid;
   width: 34px;
@@ -868,19 +768,16 @@
   font: 22px/1 Georgia, serif;
   cursor: pointer;
 }
-
 .d2s-menu-hero-controls button.d2s-menu-hero-swap {
   font-size: 20px;
   line-height: 1;
 }
-
 .d2s-menu-hero-controls-divider {
   width: 1px;
   align-self: stretch;
   margin: 4px 2px;
   background: linear-gradient(180deg, transparent, #806843, transparent);
 }
-
 .d2s-menu-hero-controls button:hover,
 .d2s-menu-hero-controls button:focus-visible {
   color: #fff1c9;
@@ -888,7 +785,6 @@
   outline: 2px solid #cfaa66;
   outline-offset: 2px;
 }
-
 .d2s-menu-hero-loadout {
   display: flex;
   gap: 9px;
@@ -896,7 +792,6 @@
   padding-top: 4px;
   border-top: 1px solid #5b472c88;
 }
-
 .d2s-menu-hero-gear {
   display: flex;
   flex: 1;
@@ -905,7 +800,6 @@
   align-items: center;
   gap: 4px;
 }
-
 .d2s-menu-hero-gear img {
   flex: 0 0 16px;
   width: 16px;
@@ -913,7 +807,6 @@
   object-fit: contain;
   filter: drop-shadow(0 1px 2px #000);
 }
-
 .d2s-menu-hero-gear b {
   overflow: hidden;
   color: #cdbb94;
@@ -922,12 +815,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .d2s-menu-hero-gear.magic b { color: #8fb4ed; }
 .d2s-menu-hero-gear.rare b { color: #f0bf62; }
 .d2s-menu-hero-gear.unique b { color: #f0c96a; }
 .d2s-menu-hero-gear.set b { color: #7edb96; }
-
 .d2s-menu-hero-hint {
   position: absolute;
   z-index: 1;
@@ -941,7 +832,6 @@
   letter-spacing: .14em;
   pointer-events: none;
 }
-
 .d2s-menu-hero-loading,
 .d2s-menu-hero-error {
   position: absolute;
@@ -955,7 +845,6 @@
   text-shadow: 0 2px 4px #000;
   pointer-events: none;
 }
-
 .d2s-menu-hero-loading span {
   display: block;
   width: 26px;
@@ -966,18 +855,15 @@
   border-radius: 50%;
   animation: d2s-preview-spin 1.2s linear infinite;
 }
-
 .d2s-menu-hero-card .d2s-menu-version {
   position: static;
   margin: 0;
 }
-
 .d2s-menu-hero-card .d2s-hero-plaque {
   box-sizing: border-box;
   width: 100%;
   margin: 0;
 }
-
 .d2s-portal {
   position: relative;
   isolation: isolate;
@@ -991,7 +877,6 @@
   box-shadow: 0 0 0 5px #17110d, 0 0 0 7px #57452c, 0 0 32px #c7442580, inset 0 0 24px #000;
   animation: d2s-portal-throb 5s ease-in-out infinite alternate;
 }
-
 .d2s-portal-core {
   position: relative;
   z-index: 1;
@@ -1002,7 +887,6 @@
   filter: blur(2px);
   box-shadow: 0 0 30px 14px #d43b20a6;
 }
-
 .d2s-portal i,
 .d2s-portal b,
 .d2s-portal em {
@@ -1015,7 +899,6 @@
 .d2s-portal i { animation: d2s-portal-ring 22s linear infinite; }
 .d2s-portal b { inset: 20%; transform: rotateX(64deg) rotate(-38deg); border-color: #e8b86d80; animation: d2s-portal-ring-reverse 29s linear infinite; }
 .d2s-portal em { inset: 5%; border-width: 1px; border-color: #e5a35b48; transform: rotateX(69deg) rotate(-18deg); animation: d2s-portal-ring 36s linear infinite; }
-
 .d2s-portal-flare {
   position: absolute;
   z-index: -1;
@@ -1025,16 +908,13 @@
   filter: blur(7px);
   animation: d2s-portal-ring 18s linear infinite;
 }
-
 @keyframes d2s-portal-throb {
   0% { filter: saturate(0.8) brightness(0.9); transform: scale(0.97); }
   50% { filter: saturate(1.2) brightness(1.12); transform: scale(1.025); }
   100% { filter: saturate(0.9) brightness(1); transform: scale(0.99); }
 }
-
 @keyframes d2s-portal-ring { to { rotate: 360deg; } }
 @keyframes d2s-portal-ring-reverse { to { rotate: -360deg; } }
-
 @media (prefers-reduced-motion: reduce) {
   .d2s-menu-sparks,
   .d2s-menu-embers span,
@@ -1046,7 +926,6 @@
     animation: none;
   }
 }
-
 .d2s-hero-plaque {
   position: relative;
   z-index: 1;
@@ -1059,7 +938,6 @@
   background: linear-gradient(90deg, #120f0eeF, #2c1a17ee, #120f0eef);
   box-shadow: inset 0 0 0 2px #100d0c, 0 3px 8px #000;
 }
-
 .d2s-class-gem {
   display: inline-grid;
   flex: 0 0 27px;
@@ -1074,7 +952,6 @@
 .d2s-class-gem::after { content: attr(data-initial); transform: rotate(-45deg); color: #f4d99e; font: 12px Georgia, serif; }
 .d2s-class-gem.large { flex-basis: 36px; width: 36px; height: 36px; }
 .d2s-class-gem.large::after { font-size: 15px; }
-
 .d2s-hero-plaque > div {
   display: grid;
   gap: 2px;
@@ -1082,7 +959,6 @@
 .d2s-hero-plaque small { color: #8f7756; font: 9px Georgia, serif; letter-spacing: 0.19em; }
 .d2s-hero-plaque strong { color: #e6d1a4; font: 16px Georgia, serif; }
 .d2s-hero-plaque > div > span { color: #a9997d; font: 11px Georgia, serif; }
-
 .d2s-menu-version {
   position: absolute;
   right: 12px;
@@ -1093,14 +969,12 @@
   font: 9px Georgia, serif;
   letter-spacing: 0.22em;
 }
-
 .d2s-menu-subpanel {
   display: grid;
   align-content: center;
   gap: 12px;
   min-height: 250px;
 }
-
 .d2s-panel-heading {
   display: flex;
   align-items: center;
@@ -1110,7 +984,6 @@
   font: 18px Georgia, serif;
   border-bottom: 1px solid #645034;
 }
-
 .d2s-back-button {
   padding: 5px 9px;
   color: #a8946b;
@@ -1119,13 +992,11 @@
   background: #171314;
   font: 12px Georgia, serif;
 }
-
 .d2s-class-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
 }
-
 .d2s-class-choice {
   display: grid;
   min-height: 58px;
@@ -1138,16 +1009,12 @@
   background: #121113;
   font: 11px Georgia, serif;
 }
-
 .d2s-class-choice .d2s-class-gem { margin: 0 auto; }
 .d2s-class-choice:hover,
 .d2s-class-choice.chosen { color: #f0d7a2; border-color: #ceaa67; background: #2a1c16; box-shadow: inset 0 0 12px #a65d2133; }
 .d2s-class-description { min-height: 32px; margin: 0; color: #b7a683; text-align: center; font: 13px Georgia, serif; }
 .d2s-begin-button { width: 100%; }
 .d2s-credits-panel p { color: #b7a683; font: 13px/1.6 Georgia, serif; }
-
- 
-
 @media (max-width: 650px) {
   .d2s-menu-scene { --d2s-menu-pad-y: 18px; padding: var(--d2s-menu-pad-y) 20px; }
   .d2s-menu-scene::after { inset: 7px; }
@@ -1177,7 +1044,6 @@
   .d2s-class-grid { grid-template-columns: repeat(4, 1fr); gap: 5px; }
   .d2s-class-choice { min-height: 52px; font-size: 10px; } 
 }
-
 @media (max-height: 740px) and (min-width: 651px) {
   .d2s-menu-scene { --d2s-menu-pad-y: 16px; padding-top: 16px; padding-bottom: 16px; }
   .d2s-menu-title { padding-top: 18px; }
@@ -1185,7 +1051,6 @@
   .d2s-menu-content { padding-top: 10px; padding-bottom: 14px; }
   .d2s-menu-hero-card { min-height: 330px; }
 }
-
 :host:has(.d2s-in-run) {
   position: fixed;
   z-index: 100;
@@ -1197,13 +1062,10 @@
   height: 100dvh;
   overflow: hidden;
 }
-
-
 .d2s-custom-cursor,
 .d2s-custom-cursor * {
   cursor: none !important;
 }
-
 .d2s-d2-cursor {
   position: fixed;
   z-index: 2147483647;
@@ -1216,7 +1078,6 @@
   transform-origin: 0 0;
   will-change: transform;
 }
-
 .d2s-d2-cursor > span {
   display: block;
   width: 100%;
@@ -1224,32 +1085,25 @@
   background: url('../../assets/d2survivors/ui/cursor-idle.webp') 0 0 / 2208px 128px no-repeat;
   animation: d2s-cursor-idle 1.05s steps(16, jump-none) infinite;
 }
-
 .d2s-d2-cursor.pressed > span {
   background-image: url('../../assets/d2survivors/ui/cursor-press.webp');
   animation: d2s-cursor-press .5s steps(16, jump-none) forwards;
 }
-
 .d2s-d2-cursor[data-mode="shop"] > span {
   background-image: url('../../assets/d2survivors/ui/cursor-shop.webp');
   background-size: 128px 128px;
   animation: none;
 }
-
 .d2s-d2-cursor[data-mode="rotate"] > span {
   background-image: url('../../assets/d2survivors/ui/cursor-rotate.webp');
   animation: d2s-cursor-idle 1.05s steps(16, jump-none) infinite;
 }
-
-/* An armed quest tool rides the gauntlet: the pointer itself shows what the
-   next item click will do. */
 .d2s-d2-cursor[data-quest-tool="imbue"] > span,
 .d2s-d2-cursor[data-quest-tool="socket"] > span {
   background-image: url('../../assets/d2survivors/ui/cursor-shop.webp');
   background-size: 128px 128px;
   animation: none;
 }
-
 .d2s-d2-cursor[data-quest-tool]::after {
   position: absolute;
   left: 52px;
@@ -1263,24 +1117,19 @@
   white-space: nowrap;
   text-shadow: 0 1px 2px #000;
 }
-
 .d2s-d2-cursor[data-quest-tool="imbue"]::after { content: "IMBUE"; border-color: #b08a55; color: #ffe6b8; }
 .d2s-d2-cursor[data-quest-tool="socket"]::after { content: "SOCKET"; border-color: #8f9aa8; color: #dbe6f2; }
-
 @keyframes d2s-cursor-idle {
   from { background-position: 0 0; }
   to { background-position: -2070px 0; }
 }
-
 @keyframes d2s-cursor-press {
   from { background-position: 0 0; }
   to { background-position: -2070px 0; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .d2s-d2-cursor > span { animation: none; }
 }
-
 .d2s-in-run {
   position: fixed;
   z-index: 100;
@@ -1298,22 +1147,18 @@
   background: #08090c;
   box-sizing: border-box;
 }
-
 .d2s-in-run .d2s-run {
   width: 100%;
   height: 100%;
   max-width: none;
   margin: 0;
 }
-
 .d2s-in-run .d2s-tabs { display: none; }
-
 .d2s-tabs {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 1rem;
 }
-
 .d2s-tab {
   background: #1a1c22;
   border: 1px solid #2b2b2b;
@@ -1321,31 +1166,25 @@
   padding: 0.4rem 0.75rem;
   cursor: pointer;
 }
-
 .d2s-tab.active {
   background: #243b4d;
   border-color: #3f7a7a;
 }
-
 .d2s h1 {
   margin: 0 0 0.25rem;
 }
-
 .d2s-sub {
   margin: 0 0 1.5rem;
   color: #777;
 }
-
 .d2s-block {
   margin: 1.5rem 0;
 }
-
 .d2s-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-
 .d2s-row,
 .d2s-skill,
 .d2s-item {
@@ -1354,24 +1193,19 @@
   padding: 0.35rem 0;
   border-bottom: 1px solid #2b2b2b;
 }
-
 .d2s-desc {
   color: #cbb07c;
   flex: 1;
 }
-
 .d2s-row strong {
   flex: 0 0 120px;
 }
-
 .d2s-skill strong {
   flex: 0 0 160px;
 }
-
 .d2s-run-hud {
   display: none;
 }
-
 .d2s-hud {
   background: #1a1c22;
   border: 1px solid #2b2b2b;
@@ -1379,7 +1213,6 @@
   color: #cbb07c;
   font-family: ui-monospace, monospace;
 }
-
 .d2s-level-progress {
   position: relative;
   height: 22px;
@@ -1388,14 +1221,12 @@
   border: 1px solid #6c5b3e;
   background: #09090b;
 }
-
 .d2s-level-progress span {
   display: block;
   height: 100%;
   background: linear-gradient(90deg, #744018, #d39a4d);
   transition: width 180ms ease-out;
 }
-
 .d2s-level-progress strong {
   position: absolute;
   inset: 0;
@@ -1404,13 +1235,11 @@
   font: 12px/20px Georgia, serif;
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-attack-status {
   margin: 4px 0 8px;
   color: #cab98e;
   font: 13px Georgia, serif;
 }
-
 .d2s-arena-wrap {
   position: relative;
   width: 100%;
@@ -1421,7 +1250,6 @@
   -webkit-user-select: none;
   box-sizing: border-box;
 }
-
 .d2s-enemy-hover-card {
   position: absolute;
   z-index: 7;
@@ -1441,8 +1269,6 @@
   text-shadow: 0 1px 3px #000;
   pointer-events: none;
 }
-
-
 .d2s-ground-pickup-label {
   position: absolute;
   z-index: 8;
@@ -1458,12 +1284,10 @@
   text-shadow: 0 1px 2px #000;
   pointer-events: none;
 }
-/* A floor name wears its item's rarity, in the same colours as the inventory. */
 .d2s-ground-pickup-label.magic { color: #8fb4ed; }
 .d2s-ground-pickup-label.rare { color: #f0bf62; }
 .d2s-ground-pickup-label.unique { color: #f0c96a; }
 .d2s-ground-pickup-label.set { color: #7edb96; }
-
 .d2s-enemy-hover-health {
   display: block;
   height: 7px;
@@ -1472,7 +1296,6 @@
   background: #170a0a;
   box-shadow: inset 0 1px 2px #000;
 }
-
 .d2s-enemy-hover-health i {
   display: block;
   width: 100%;
@@ -1481,12 +1304,10 @@
   transition: transform 100ms linear;
   background: #a81717;
 }
-
 .d2s-enemy-hover-champion {
   color: #8db8ff;
   text-shadow: 0 0 10px #2f62c8, 0 1px 3px #000;
 }
-
 .d2s-enemy-hover-traits {
   display: block;
   color: #c7d6e8;
@@ -1494,7 +1315,6 @@
   letter-spacing: 0.03em;
   text-wrap: pretty;
 }
-
 .d2s-enemy-hover-stats {
   display: block;
   color: #9eafc3;
@@ -1502,14 +1322,12 @@
   letter-spacing: 0.02em;
   text-wrap: pretty;
 }
-
 .d2s-enemy-hover-immunities {
   display: block;
   color: #ffb15e;
   font: 11px/1.3 Georgia, serif;
   letter-spacing: 0.03em;
 }
-
 .d2s-act-banner {
   position: absolute;
   z-index: 5;
@@ -1526,14 +1344,12 @@
   font: 11px Georgia, serif;
   pointer-events: none;
 }
-
 .d2s-act-banner > span:first-child,
 .d2s-act-banner > small { color: #a98b5f; font-size: 9px; letter-spacing: .12em; }
 .d2s-act-banner > strong { color: #f0d6a0; font-size: 15px; font-weight: normal; }
 .d2s-act-banner > .d2s-campaign-area-name { color: #c1a77c; font-size: 8px; letter-spacing: .08em; }
 .d2s-act-progress { display: block; height: 4px; overflow: hidden; border: 1px solid #665033; background: #080808; }
 .d2s-act-progress i { display: block; height: 100%; background: linear-gradient(90deg, #8a301c, #e6ad58); transition: width 200ms linear; }
-
 .d2s-act-transition,
 .d2s-campaign-victory {
   position: absolute;
@@ -1544,7 +1360,6 @@
   padding: 18px;
   background: #050506dd;
 }
-
 .d2s-act-transition > section,
 .d2s-campaign-victory > section {
   display: grid;
@@ -1557,7 +1372,6 @@
   color: #cbb98f;
   text-align: center;
 }
-
 .d2s-act-portal-tooltip {
   position: absolute;
   z-index: 8;
@@ -1576,24 +1390,19 @@
   text-shadow: 0 1px 3px #000;
   pointer-events: none;
 }
-
 .d2s-act-portal-tooltip strong {
   color: #ffd2ad;
   font-size: 13px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-
-/* The blue area door is a different door; its card wears the portal's own blue. */
 .d2s-act-portal-tooltip.zone {
   border-color: #3d6fa8;
   background: linear-gradient(180deg, #0a1a2ef2, #060a10ee);
   box-shadow: inset 0 0 0 1px #050810, 0 3px 14px #1d528f66;
   color: #c6dcf0;
 }
-
 .d2s-act-portal-tooltip.zone strong { color: #bfe2ff; }
-
 .d2s-act-banner.portal-open { border-color: #a52e2c; }
 .d2s-act-banner > .d2s-act-portal-message {
   color: #ffd2ad;
@@ -1603,14 +1412,12 @@
   text-shadow: 0 1px 3px #000;
   text-wrap: pretty;
 }
-
 .d2s-act-transition > section > p:first-child,
 .d2s-campaign-victory > section > p:first-child { margin: 0; color: #d3a564; font: 11px Georgia, serif; letter-spacing: .22em; }
 .d2s-act-transition h2,
 .d2s-campaign-victory h2 { margin: 0; color: #f0d6a0; font: 28px Georgia, serif; }
 .d2s-act-transition > section > p:not(:first-child),
 .d2s-campaign-victory > section > p:not(:first-child) { margin: 0 0 6px; color: #b7a683; font: 13px/1.5 Georgia, serif; }
-
 .d2s-touch-menu {
   position: absolute;
   z-index: 9;
@@ -1628,10 +1435,8 @@
   cursor: pointer;
   pointer-events: auto;
 }
-
 .d2s-touch-menu:hover,
 .d2s-touch-menu:focus-visible { color: #fff0c7; border-color: #d0ab69; outline: 1px solid #d0ab69; }
-
 .d2s-arena {
   position: absolute;
   inset: 0;
@@ -1645,7 +1450,6 @@
   -webkit-user-select: none;
   touch-action: none;
 }
-
 .d2s-character-canvas {
   position: absolute;
   inset: 0;
@@ -1654,10 +1458,8 @@
   height: 100%;
   pointer-events: none;
   z-index: 4;
- 
   opacity: 0;
 }
-
 .d2s-character-occluder-canvas {
   position: absolute;
   inset: 0;
@@ -1668,7 +1470,6 @@
   pointer-events: none;
   z-index: 4;
 }
-
 .d2s-skill-effects-canvas {
   position: absolute;
   z-index: 5;
@@ -1679,7 +1480,6 @@
   mix-blend-mode: screen;
   pointer-events: none;
 }
-
 .d2s-skill-tree-button {
   position: absolute;
   z-index: 9;
@@ -1698,16 +1498,13 @@
 }
 .d2s-skill-tree-button:hover,
 .d2s-skill-tree-button:focus-visible { color: #fff0c7; border-color: #d0ab69; outline: 1px solid #d0ab69; }
-/* An unspent point rides on the tree button so it is visible without opening it. */
 .d2s-skill-tree-button.has-points { color: #ffe9b4; border-color: #d0ab69; box-shadow: inset 0 0 6px #000, 0 0 12px #d6a44d66; }
 .d2s-skill-point-badge { position: absolute; top: -7px; right: -7px; display: grid; min-width: 16px; height: 16px; place-items: center; padding: 0 3px; border: 1px solid #8b7045; border-radius: 9px; background: #7a2314; color: #ffe9b4; font: 10px/1 ui-monospace, monospace; box-shadow: 0 1px 4px #000c; }
-
 .d2s-skill-tree,
 .d2s-escape-menu,
 .d2s-inv-panel,
 .d2s-act-transition,
 .d2s-campaign-victory { touch-action: pan-y; }
-
 .d2s-virtual-joystick {
   position: absolute;
   z-index: 6;
@@ -1720,7 +1517,6 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
 }
-
 .d2s-virtual-joystick::before {
   position: absolute;
   inset: 50%;
@@ -1731,7 +1527,6 @@
   content: "";
   transform: translate(-50%, -50%);
 }
-
 .d2s-virtual-joystick span {
   position: absolute;
   top: 50%;
@@ -1743,9 +1538,6 @@
   background: radial-gradient(circle at 35% 30%, #d9b977bb, #57452dcc 72%);
   box-shadow: 0 2px 9px #000b;
 }
-
-/* Diablo II docks the skill tree against the right edge as its own window: the
-   fight keeps playing in the rest of the screen instead of a full-screen sheet. */
 .d2s-skill-tree {
   position: fixed;
   z-index: 21;
@@ -1756,13 +1548,9 @@
   width: min(468px, calc(100vw - 20px));
   flex-direction: column;
   gap: 10px;
-  overflow-y: auto;
   padding: clamp(12px, 1.2vw, 18px);
   color: #d8c49b;
-  background: radial-gradient(ellipse at 50% 0, #211710fa, #080809fb 72%);
-  /* D2R's own window frame: the skill tree is one of the game's panels, so it
-     carries the same bevelled metal border on all four sides - the right one
-     included - instead of the CSS shadow that left that edge bare. */
+  background: radial-gradient(ellipse at 50% 0, #211710fa, #080809fb 72%); 
   border: clamp(14px, 1.5vw, 22px) solid transparent;
   border-image: url('../../assets/d2survivors/ui/panel-frame.webp') 64 stretch;
   box-shadow: 0 10px 32px #000d;
@@ -1787,15 +1575,10 @@
 .d2s-skill-tree-tab-button:hover, .d2s-skill-tree-tab-button:focus-visible { border-color: #8a6e43; color: #e3c793; outline: none; }
 .d2s-skill-tree-tab-button.active { border-color: #9b7b48; background: linear-gradient(180deg, #322619, #17120e); color: #f0d6a0; box-shadow: inset 0 0 0 1px #0a0908, 0 0 12px #000a; }
 .d2s-skill-tree-tab { position: relative; min-width: 0; overflow: hidden; padding: 8px; border: 1px solid #56452d; background: linear-gradient(150deg, #161310, #0c0c0d); box-shadow: inset 0 0 46px #000b; }
-/* The tree art is stretched to the panel, so every icon, badge and rank has to
-   be measured against the panel rather than the viewport: container units keep
-   them on the baked sockets at any width. */
 .d2s-skill-tree-panel { position: relative; container-type: inline-size; width: 100%; max-width: 430px; margin: 0 auto; aspect-ratio: 343 / 428; overflow: hidden; background: #0c0c0d; }
 .d2s-skill-tree-tab-art { position: absolute; inset: 0; background-size: 100% 100%; background-position: center; background-repeat: no-repeat; opacity: 1; filter: saturate(.85) brightness(.92); pointer-events: none; }
 .d2s-skill-tree-sockets { position: absolute; inset: 0; z-index: 1; }
 .d2s-tree-skill { position: absolute; z-index: 2; display: grid; width: 29%; height: 14.2%; place-items: center; gap: 1px; transform: translate(-50%, -50%); border: 1px solid transparent; background: none; box-sizing: border-box; overflow: hidden; }
-/* A socket is only an icon until the pointer is on it: the framed box with the
-   name and requirements opens then, exactly like the D2 skill tree. */
 .d2s-tree-skill strong, .d2s-tree-skill small { display: none; }
 .d2s-tree-skill:hover, .d2s-tree-skill:focus-within {
   z-index: 4;
@@ -1807,11 +1590,7 @@
 }
 .d2s-tree-skill:hover strong, .d2s-tree-skill:hover small,
 .d2s-tree-skill:focus-within strong, .d2s-tree-skill:focus-within small { display: block; }
-/* The baked frame in the art is 44 px at the sheet's own 343 px width, so the
-   icon is 12.5cqw square: it fills that frame and stays inside it when the
-   panel is narrower than 430 px. */
 .d2s-tree-skill-art { box-sizing: border-box; width: 12.5cqw; height: 12.5cqw; border: 1px solid #5a4327; box-shadow: 0 1px 4px #000b; object-fit: cover; }
-/* The open card keeps the icon in a left-hand slot beside the name and rules. */
 .d2s-tree-skill:hover .d2s-tree-skill-art,
 .d2s-tree-skill:focus-within .d2s-tree-skill-art {
   position: absolute;
@@ -1833,17 +1612,11 @@
 .d2s-tree-skill.available strong { color: #d0efb8; }
 .d2s-tree-skill.available small { color: #a4c48d; }
 .d2s-tree-skill.locked { opacity: .82; }
-/* The required level rides on the icon's top-right corner, like D2's sockets. */
 .d2s-tree-level { position: absolute; top: calc(50% - 6.7cqw); left: calc(50% + 3.2cqw); display: grid; width: 3.8cqw; height: 3.8cqw; place-items: center; border: 1px solid #6a5839; background: #0b0b0c; color: #dfc385; font: 2.05cqw ui-monospace, monospace; }
 .d2s-tree-skill:hover .d2s-tree-level,
 .d2s-tree-skill:focus-within .d2s-tree-level { top: 4px; left: 13.5cqw; }
-/* D2 prints a trained skill's rank in the empty socket baked into the tree art
-   beside its icon. The art already leaves that inset there, so the number is
-   laid straight over it instead of drawing a second box on top of the frame. */
 .d2s-tree-rank {
   position: absolute;
-  /* The empty socket sits 39 px right and 12 px below the icon centre on the
-     343 px sheet: 39 / 29 % and 12 / 14.2 % of this box. */
   left: 89.2%;
   top: 69.7%;
   z-index: 3;
@@ -1859,15 +1632,11 @@
 .d2s-tree-skill:hover .d2s-tree-rank,
 .d2s-tree-skill:focus-within .d2s-tree-rank { display: none; }
 .d2s-tree-skill { cursor: help; }
-/* Only a socket the tree has unlocked takes the pointer, so a click can never
-   throw a point at a skill the hero cannot learn yet. */
 .d2s-tree-skill.spendable { cursor: pointer; }
 .d2s-tree-skill.spendable .d2s-tree-skill-art { border-color: #d0ab69; box-shadow: 0 0 9px #d6a44d55, 0 1px 4px #000b; }
 .d2s-tree-skill.spendable:hover, .d2s-tree-skill.spendable:focus-within { border-color: #f0ce83; }
 .d2s-skill-tooltip {
   position: fixed;
-  /* Above the run's own panels, below the gauntlet cursor (which owns the
-     highest layer) so the pointer is never hidden behind the card. */
   z-index: 2147482000;
   width: min(280px, calc(100vw - 24px));
   padding: 11px 13px;
@@ -1878,9 +1647,6 @@
   background-position: center, center;
   background-repeat: no-repeat;
   box-shadow: inset 0 0 0 2px #080809, 0 5px 18px #000c;
-  /* The card is anchored to the pointer, so it must never take the pointer:
-     doing so swallowed the socket's hover and froze the card in place. Only
-     its close button stays clickable. */
   pointer-events: none;
   box-sizing: border-box;
 }
@@ -1921,8 +1687,6 @@
 .d2s-skill-tooltip-stats small { display: block; margin-top: 4px; }
 .d2s-skill-tooltip small { color: #a99773; font: 10px/1.35 Georgia, serif; }
 @media (max-width: 720px) { .d2s-skill-tree-sections { max-width: 100%; } .d2s-skill-tree-tabs { gap: 3px; padding: 0 5px; } .d2s-skill-tree-tab-button { padding: 8px 4px; font-size: 10px; } .d2s-skill-tree-tab { padding: 5px; } }
-
-
 .d2s-model-hint {
   position: absolute;
   bottom: 8px;
@@ -1933,8 +1697,6 @@
   padding: 2px 6px;
   z-index: 5;
 }
-
-/* The hero's line for an area or boss, set like the quest speech banner. */
 .d2s-hero-speech {
   position: absolute;
   z-index: 8;
@@ -1949,7 +1711,6 @@
   border: 1px solid #8a7442;
   box-shadow: 0 0 18px #000a, inset 0 0 22px #0008;
 }
-
 .d2s-hero-speech-speaker {
   display: block;
   color: #d9b662;
@@ -1957,14 +1718,12 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-
 .d2s-hero-speech-text {
   margin: 2px 0 0;
   color: #f1e3c3;
   font: italic 400 16px/1.45 "Palatino Linotype", "Book Antiqua", serif;
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-classic-hud {
   position: absolute;
   z-index: 7;
@@ -1981,7 +1740,6 @@
   pointer-events: none;
   background: transparent;
 }
-
 .d2s-hud-center {
   --d2s-hud-center-gap: 8px;
   position: relative;
@@ -1992,7 +1750,6 @@
   gap: var(--d2s-hud-center-gap);
   padding-bottom: 2px;
 }
-
 .d2s-warcry-buffs {
   display: flex;
   flex-wrap: wrap;
@@ -2000,7 +1757,6 @@
   gap: 6px;
   max-width: min(420px, 60vw);
 }
-
 .d2s-warcry-buff {
   display: inline-flex;
   align-items: baseline;
@@ -2016,12 +1772,10 @@
   color: #f4d478;
   white-space: nowrap;
 }
-
 .d2s-warcry-buff-time {
   color: #cfb684;
   font-size: 11px;
 }
-
 .d2s-skill-bar {
   display: flex;
   align-items: center;
@@ -2029,7 +1783,6 @@
   gap: clamp(4px, 0.8vw, 9px);
   pointer-events: auto;
 }
-
 .d2s-skill-slot {
   position: relative;
   display: grid;
@@ -2044,7 +1797,6 @@
   cursor: pointer;
   pointer-events: auto;
 }
-
 .d2s-skill-slot:hover,
 .d2s-skill-slot:focus-visible { border-color: #e1bf78; color: #fff1c9; outline: 1px solid #e1bf78; }
 .d2s-skill-slot.empty-skill { color: #7b705d; border-style: dashed; }
@@ -2052,8 +1804,6 @@
 .d2s-skill-slot.basic-skill:hover,
 .d2s-skill-slot.basic-skill:focus-visible { border-color: #e1bf78; }
 .d2s-skill-slot.basic-skill.assigned { border-color: #b58a45; }
-/* The right-button attack sits beside the left one with its own rim so the two
-   are readable apart at a glance. */
 .d2s-skill-slot.secondary-skill { border-color: #4f6a86; }
 .d2s-skill-slot.secondary-skill.assigned { border-color: #7f9dc0; }
 .d2s-skill-slot.secondary-skill:hover,
@@ -2070,17 +1820,14 @@
   letter-spacing: 0.02em;
   pointer-events: none;
 }
-
 .d2s-skill-slot.unaffordable .d2s-skill-mana-cost {
   color: #ff8b8b;
 }
-
 .d2s-skill-slot.unaffordable .d2s-skill-art,
 .d2s-skill-slot.unaffordable .d2s-skill-overlay,
 .d2s-skill-slot.unaffordable .d2s-skill-icon {
   filter: grayscale(0.55) brightness(0.75);
 }
-
 .d2s-skill-bind {
   position: absolute;
   z-index: 2;
@@ -2101,7 +1848,6 @@
 .d2s-skill-art { display: block; width: 38px; height: 38px; object-fit: contain; image-rendering: pixelated; }
 .d2s-skill-slot.basic-skill .d2s-skill-overlay { width: 38px; height: 38px; }
 .d2s-skill-slot small { position: absolute; right: 2px; bottom: 0; color: #eddbad; font: 10px/1 ui-monospace, monospace; text-shadow: 0 1px 3px #000; }
-
 .d2s-basic-attack-picker {
   position: absolute;
   z-index: 30;
@@ -2120,7 +1866,6 @@
   box-shadow: 0 8px 22px #000d, inset 0 0 0 2px #0a0a0b, inset 0 0 0 4px #403522;
   pointer-events: auto;
 }
-
 .d2s-basic-attack-picker-head {
   display: flex;
   align-items: center;
@@ -2130,7 +1875,6 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
 .d2s-basic-attack-picker-close {
   padding: 0 2px;
   color: #cbb68a;
@@ -2139,18 +1883,14 @@
   font: 20px/1 Georgia, serif;
   cursor: pointer;
 }
-
 .d2s-basic-attack-picker-close:hover { color: #ffeaa9; }
-
 .d2s-basic-attack-picker-hint,
 .d2s-basic-attack-picker-empty {
   margin: 0;
   color: #b9a887;
   font: 10px/1.35 ui-monospace, monospace;
 }
-
 .d2s-basic-attack-options { display: grid; gap: 4px; }
-
 .d2s-basic-attack-option {
   display: flex;
   align-items: center;
@@ -2163,16 +1903,13 @@
   background: linear-gradient(180deg, #221e19, #0f0f11);
   cursor: pointer;
 }
-
 .d2s-basic-attack-option:hover,
 .d2s-basic-attack-option:focus-visible { border-color: #c9a45f; color: #fff1c9; outline: none; }
-
 .d2s-basic-attack-option.selected {
   border-color: #e1bf78;
   background: linear-gradient(180deg, #4a3a1d, #1a1510);
   box-shadow: inset 0 0 8px #000;
 }
-
 .d2s-basic-attack-option-art { flex: 0 0 auto; width: 26px; height: 26px; object-fit: contain; image-rendering: pixelated; }
 .d2s-basic-attack-option-art.overlay { mix-blend-mode: screen; filter: drop-shadow(0 0 4px #80bfff99); }
 .d2s-basic-attack-option-icon { display: grid; flex: 0 0 auto; place-items: center; width: 26px; height: 26px; font: 18px/1 Georgia, serif; }
@@ -2180,7 +1917,6 @@
 .d2s-basic-attack-option-text strong { font: 13px/1.1 Georgia, serif; }
 .d2s-basic-attack-option-text small { color: #a99a7d; font: 10px/1.1 ui-monospace, monospace; }
 .d2s-basic-attack-option.selected .d2s-basic-attack-option-text small { color: #d9c08a; }
-
 .d2s-experience-progress {
   position: absolute;
   z-index: 8;
@@ -2201,12 +1937,10 @@
   font: 11px Georgia, serif;
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-experience-progress > strong { color: #ead49d; white-space: nowrap; }
 .d2s-experience-progress > small { color: #b9a77f; white-space: nowrap; font: 10px ui-monospace, monospace; }
 .d2s-experience-track { display: block; height: 8px; overflow: hidden; border: 1px solid #51432b; background: #050506; }
 .d2s-experience-track i { display: block; height: 100%; background: linear-gradient(90deg, #573612, #be873b 70%, #e0bd73); box-shadow: 0 0 8px #c89045a8; transition: width 180ms ease-out; }
-
 .d2s-escape-menu {
   position: absolute;
   z-index: 20;
@@ -2223,12 +1957,10 @@
   box-shadow: inset 0 0 0 8px #090909, inset 0 0 0 10px #4f3d25, inset 0 0 0 13px #100d0b;
   box-sizing: border-box;
 }
-
 .d2s-escape-title { display: grid; justify-items: center; gap: 5px; text-align: center; }
 .d2s-escape-title > span { color: #af8951; font: 10px Georgia, serif; letter-spacing: 0.32em; }
 .d2s-escape-title h2 { margin: 0; color: #e1c58a; font: clamp(26px, 4vw, 40px) Georgia, serif; text-shadow: 0 2px 5px #000, 0 0 16px #a46f37; }
 .d2s-escape-title small { color: #9b8968; font: 12px Georgia, serif; }
-
 .d2s-run-details {
   display: grid;
   grid-template-columns: repeat(2, minmax(130px, 1fr));
@@ -2240,7 +1972,6 @@
   background: linear-gradient(90deg, transparent, #100e0deb 16% 84%, transparent);
   font: 12px Georgia, serif;
 }
-
 .d2s-run-details > span { display: flex; justify-content: space-between; gap: 12px; color: #e0d1b1; }
 .d2s-run-details b { color: #9c835c; font-weight: normal; }
 .d2s-escape-menu-items { display: grid; width: min(300px, 100%); gap: 7px; }
@@ -2255,7 +1986,6 @@
   text-shadow: 0 1px 3px #000;
   cursor: pointer;
 }
-
 .d2s-escape-menu-items button:hover,
 .d2s-escape-menu-items button:focus-visible { color: #fff0c7; border-color: #c7a467; background: linear-gradient(180deg, #45321c, #1a120d); outline: 1px solid #d2ac68; }
 .d2s-escape-hint { margin: 0; color: #75664d; font: 10px Georgia, serif; }
@@ -2265,7 +1995,6 @@
 .d2s-menu-skills .d2s-list { max-height: 115px; overflow-y: auto; padding: 4px 10px; background: #09090bd9; }
 .d2s-menu-skills .d2s-skill { color: #d8c49b; font: 11px Georgia, serif; }
 .d2s-menu-skills .d2s-skill strong { flex-basis: 130px; color: #d8c49b; }
-
 .d2s-orb {
   position: relative;
   width: clamp(128px, 15vw, 160px);
@@ -2278,7 +2007,6 @@
   box-shadow: 0 0 0 3px #211a11, 0 0 0 7px #51432b, inset 0 0 18px #000, 0 4px 16px #000e;
   background: radial-gradient(circle at 35% 25%, #526072, #11151c 56%, #050608 82%);
 }
-
 .d2s-orb-liquid {
   position: absolute;
   inset: auto 0 0;
@@ -2287,35 +2015,28 @@
   background: radial-gradient(ellipse at 35% 18%, #ff7763 0%, transparent 48%), linear-gradient(180deg, #eb2033 0%, #b50920 54%, #590712 100%);
   box-shadow: inset 0 7px 8px #ff99914a, inset 0 -8px 12px #160206a8;
 }
-
-
 .d2s-health-orb.poisoned {
   box-shadow: 0 0 0 3px #211a11, 0 0 0 7px #51432b, inset 0 0 20px #0b1a05,
     0 0 18px #86d33f66, 0 4px 16px #000e;
 }
-
 .d2s-health-orb.poisoned .d2s-orb-liquid {
   background: radial-gradient(ellipse at 35% 18%, #d8ff8a 0%, transparent 48%),
     linear-gradient(180deg, #8fdb45 0%, #4f9e22 54%, #174607 100%);
   box-shadow: inset 0 7px 8px #e8ffbe66, inset 0 -8px 12px #081d04b8;
   animation: d2s-poison-orb-pulse 1.15s ease-in-out infinite;
 }
-
 .d2s-health-orb.poisoned .d2s-orb-gloss {
   background: radial-gradient(ellipse at 32% 20%, #f2ffcb4f, transparent 42%),
     linear-gradient(135deg, #d9ff9a24, transparent 42%, #0b240366);
 }
-
 @keyframes d2s-poison-orb-pulse {
   0%, 100% { filter: brightness(0.92); }
   50% { filter: brightness(1.16); }
 }
-
 .d2s-mana-orb .d2s-orb-liquid {
   background: radial-gradient(ellipse at 35% 18%, #83edff 0%, transparent 48%), linear-gradient(180deg, #17a5ed 0%, #1165c7 54%, #0b205f 100%);
   box-shadow: inset 0 7px 8px #b3edff59, inset 0 -8px 12px #02091aa8;
 }
-
 .d2s-orb-gloss {
   position: absolute;
   inset: 5px;
@@ -2324,7 +2045,6 @@
   box-shadow: inset 3px 4px 9px #fff2, inset -5px -4px 10px #0008;
   pointer-events: none;
 }
-
 .d2s-orb-text {
   position: absolute;
   inset: 0;
@@ -2338,13 +2058,11 @@
   text-shadow: 0 1px 3px #000, 0 0 5px #000;
   z-index: 1;
 }
-
 .d2s-orb-text strong {
   font-size: clamp(14px, 1.6vw, 19px);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
-
 .d2s-belt-frame {
   position: absolute;
   z-index: 2;
@@ -2360,10 +2078,8 @@
   box-shadow: 0 4px 14px #000e, inset 0 0 0 2px #0a0a0b, inset 0 0 0 4px #403522;
   pointer-events: auto;
 }
-
 .d2s-belt-grid {
   display: grid;
- 
   align-content: end;
   grid-template-columns: repeat(4, minmax(44px, 1fr));
   grid-template-rows: repeat(var(--d2s-belt-rows, 1), 34px);
@@ -2373,16 +2089,13 @@
   overflow: hidden;
   transition: max-height 180ms ease;
 }
-
 .d2s-belt-frame:hover .d2s-belt-grid,
 .d2s-belt-frame:focus-within .d2s-belt-grid,
 .d2s-belt-grid.expanded { max-height: 148px; }
-
 .d2s-belt-grid[data-belt-rows="1"] { --d2s-belt-rows: 1; }
 .d2s-belt-grid[data-belt-rows="2"] { --d2s-belt-rows: 2; }
 .d2s-belt-grid[data-belt-rows="3"] { --d2s-belt-rows: 3; }
 .d2s-belt-grid[data-belt-rows="4"] { --d2s-belt-rows: 4; }
-
 .d2s-belt-slot {
   position: relative;
   display: flex;
@@ -2396,23 +2109,17 @@
   border: 3px groove #61543b;
   box-shadow: inset 0 0 8px #000;
 }
-
 .d2s-belt-slot.selected {
   border-color: #f4d68d;
   box-shadow: 0 0 5px #e6c478aa, inset 0 0 5px #000;
 }
-
 .d2s-belt-slot.held {
   border-color: #9fd8ff;
   box-shadow: 0 0 7px #7fc9ffcc, inset 0 0 5px #000;
 }
-
 .d2s-belt-slot.dragging { opacity: .28; }
-
-
 .d2s-belt-drag-ghost {
   position: fixed;
- 
   z-index: 2147483646;
   display: flex;
   width: 42px;
@@ -2423,8 +2130,6 @@
   pointer-events: none;
   filter: drop-shadow(0 5px 5px #000c);
 }
-
-/* The belt draws the game's own potion cels, so the bottles match the pack. */
 .d2s-belt-potion-art {
   display: block;
   width: auto;
@@ -2434,9 +2139,7 @@
   pointer-events: none;
   user-select: none;
 }
-
 .d2s-belt-drag-ghost .d2s-belt-potion-art { height: 38px; }
-
 .d2s-belt-keys {
   display: grid;
   grid-template-columns: repeat(4, minmax(44px, 1fr));
@@ -2447,10 +2150,7 @@
   font: 13px Georgia, serif;
   text-shadow: 0 1px 3px #000;
 }
-
 @media (max-width: 620px) {
-
-  /* The hero's line for an area or boss, set like the quest speech banner. */
 .d2s-hero-speech {
   position: absolute;
   z-index: 8;
@@ -2465,7 +2165,6 @@
   border: 1px solid #8a7442;
   box-shadow: 0 0 18px #000a, inset 0 0 22px #0008;
 }
-
 .d2s-hero-speech-speaker {
   display: block;
   color: #d9b662;
@@ -2473,21 +2172,18 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-
 .d2s-hero-speech-text {
   margin: 2px 0 0;
   color: #f1e3c3;
   font: italic 400 16px/1.45 "Palatino Linotype", "Book Antiqua", serif;
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-classic-hud {
     height: 194px;
     grid-template-columns: minmax(66px, 0.8fr) minmax(160px, 1.8fr) minmax(66px, 0.8fr);
     gap: 2px;
     padding: 0 3px 34px;
   }
-
   .d2s-hud-center { --d2s-hud-center-gap: 5px; gap: 5px; }
   .d2s-skill-bar { gap: 2px; }
   .d2s-skill-slot { width: clamp(28px, 8vw, 40px); height: clamp(28px, 8vw, 40px); border-width: 2px; }
@@ -2506,47 +2202,38 @@
   .d2s-act-banner { top: 12px; left: 12px; width: min(176px, 45%); padding: 7px 8px; }
   .d2s-enemy-hover-card { top: 10px; width: min(210px, 52vw); padding: 6px 9px; font-size: 13px; }
   .d2s-act-banner > strong { font-size: 12px; }
-
   .d2s-orb {
     width: clamp(66px, 16vw, 100px);
     height: clamp(66px, 16vw, 100px);
     border-width: 4px;
     margin-bottom: 0;
   }
-
   .d2s-belt-frame {
     padding: 5px 5px 3px;
     border-width: 3px;
     margin-bottom: 0;
   }
-
   .d2s-belt-grid,
   .d2s-belt-keys {
     grid-template-columns: repeat(4, minmax(30px, 1fr));
     gap: 2px;
   }
-
   .d2s-belt-grid { grid-template-rows: repeat(var(--d2s-belt-rows, 1), clamp(24px, 6vw, 34px)); }
   .d2s-belt-slot { height: auto; }
-
   .d2s-belt-slot {
     height: clamp(24px, 6vw, 34px);
     border-width: 2px;
   }
-
   .d2s-belt-potion-art { height: clamp(20px, 5vw, 30px); }
 }
-
 .d2s-owned {
   margin-top: 1.5rem;
 }
-
 .d2s-hint {
   color: #777;
   font-size: 0.85rem;
   margin-top: 1rem;
 }
-
 .d2s-inv-panel {
   --d2s-ui-font: 'D2 Exocet', Georgia, serif;
   display: none;
@@ -2560,8 +2247,6 @@
   overflow: auto;
   transform: none;
   border: 0;
-  /* The two windows dock to the opposite edges like the original game's, so the
-     arena stays visible in the middle instead of being dimmed behind them. */
   background: none;
   box-shadow: none;
   box-sizing: border-box;
@@ -2571,11 +2256,9 @@
   gap: 7px;
   color: #c9b68d;
 }
-
 .d2s-inv-panel.open {
   display: flex;
 }
-
 .d2s-inventory-overlay-header {
   position: absolute;
   z-index: 4;
@@ -2586,7 +2269,6 @@
   padding: 0;
   border: 0;
 }
-
 .d2s-inventory-overlay-header > span,
 .d2s-inventory-overlay-header h2 {
   position: absolute;
@@ -2599,7 +2281,6 @@
   white-space: nowrap;
   border: 0;
 }
-
 .d2s-inventory-close {
   min-height: 0;
   padding: 5px 10px 4px;
@@ -2613,7 +2294,6 @@
   text-transform: uppercase;
   cursor: pointer;
 }
-
 .d2s-inventory-close:hover,
 .d2s-inventory-close:focus-visible {
   border-color: #dec07d;
@@ -2621,13 +2301,11 @@
   color: #f3dda7;
   outline: none;
 }
-
 .d2s-equipped-belt {
   margin: 0.4rem 0;
   color: #cbb07c;
   font-size: 0.85rem;
 }
-
 .d2s-equipped-belt button,
 .d2s-equip-belt {
   margin-left: 0.5rem;
@@ -2637,19 +2315,16 @@
   border: 1px solid #786745;
   cursor: pointer;
 }
-
 .d2s-equipped-belt button:hover,
 .d2s-equip-belt:hover {
   border-color: #f4d68d;
   background: #352817;
 }
-
 .d2s-equip-blocked {
   margin: 0.35rem 0 0;
   color: #e3a08b;
   font: italic 11px/1.35 Georgia, serif;
 }
-
 .d2s-inventory-layout {
   display: flex;
   align-items: center;
@@ -2660,16 +2335,11 @@
   box-sizing: border-box;
   margin: 0;
 }
-
-/* Character on the left, inventory on the right: the panels keep clear of the
-   centre of the screen, where the fight stays visible.  The width is capped by
-   the viewport height so a 1162/1507 window always fits top to bottom. */
 .d2s-inventory-right,
 .d2s-character-stats {
   flex: 0 0 auto;
   width: min(33vw, calc((100dvh - 20px) * 0.771));
 }
-
 .d2s-inventory-right {
   container-type: inline-size;
   position: relative;
@@ -2678,7 +2348,6 @@
   background: url('../../assets/d2survivors/ui/inventory-panel.webp') center / 100% 100% no-repeat;
   filter: drop-shadow(0 10px 24px #000d);
 }
-
 .d2s-character-stats {
   container-type: inline-size;
   position: relative;
@@ -2695,7 +2364,6 @@
   font-family: var(--d2s-ui-font);
   text-shadow: 0 1px 2px #000;
 }
-
 .d2s-character-stats > .d2s-inventory-heading {
   position: absolute;
   top: 6%;
@@ -2712,7 +2380,6 @@
   letter-spacing: 0.08em;
   text-transform: none;
 }
-
 .d2s-character-stats > .d2s-stats-level {
   position: absolute;
   top: 12%;
@@ -2726,7 +2393,6 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-
 .d2s-stats-block {
   position: absolute;
   inset: 0;
@@ -2738,14 +2404,9 @@
   border: 0;
   font: 400 clamp(11px, 2.35cqw, 16px) / 1.25 var(--d2s-ui-font);
 }
-
-/* Every block spans the whole sheet so its rows can sit in the painted slots.
-   Without this the last block swallowed every hover aimed at the bake above it,
-   so only its own Life and Mana rows ever produced a tooltip. */
 .d2s-stats-block { pointer-events: none; }
 .d2s-stats-block > div.d2s-stat-line,
 .d2s-stats-block > .d2s-resistance-grid { pointer-events: auto; }
-
 .d2s-stats-block h4 {
   position: absolute;
   width: 1px;
@@ -2757,7 +2418,6 @@
   white-space: nowrap;
   border: 0;
 }
-
 .d2s-stats-block > div.d2s-stat-line {
   position: absolute;
   display: flex;
@@ -2768,7 +2428,6 @@
   padding: 0 1.2%;
   cursor: help;
 }
-
 .d2s-stats-block b {
   min-width: 0;
   overflow: hidden;
@@ -2778,34 +2437,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .d2s-stats-block small {
   color: #85c9ee;
   font-size: 0.72em;
 }
-
 .d2s-stats-block small.d2s-stat-preview {
   color: #7bdd7c;
   font-size: 0.72em;
   white-space: nowrap;
 }
-
 .d2s-stats-block small.d2s-stat-preview.negative { color: #ef7474; }
 .d2s-stat-line > span { white-space: nowrap; }
- 
 .d2s-attribute-stats .d2s-stat-line {
   left: 7.2%;
   width: 26.6%; 
   transform: translateY(0.22em);
 }
-
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(1) { top: 25.75%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(2) { top: 42.73%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(3) { top: 59.79%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(4) { top: 70.47%; height: 4.38%; }
-
-/* One "+" sits in the painted gap right of each attribute row while points are
-   unspent, so the sheet's fixed row slots never have to grow. */
 .d2s-attribute-stats .d2s-attribute-spend {
   position: absolute;
   top: 50%;
@@ -2823,7 +2474,6 @@
   text-shadow: none;
   cursor: pointer;
 }
-
 .d2s-attribute-stats .d2s-attribute-spend:hover,
 .d2s-attribute-stats .d2s-attribute-spend:focus-visible {
   color: #fff6cf;
@@ -2831,24 +2481,17 @@
   background: #3a2c14;
   outline: none;
 }
-
 .d2s-character-stats > .d2s-stats-level .d2s-attribute-points {
   color: #ffd98a;
   letter-spacing: 0.06em;
 }
-
 .d2s-stats-block small.d2s-attribute-spent { color: #9fc2ff; }
-
-/* Worn, but the hero's Strength, Dexterity or level does not carry it yet: the
-   piece stays on the paperdoll and grants nothing. */
 .d2s-equipment-slot.requirements-unmet .d2s-equipment-art {
   filter: grayscale(0.65) brightness(0.62) drop-shadow(0 2px 3px #000);
 }
-
 .d2s-equipment-slot.requirements-unmet .d2s-equipment-label { color: #d97a7a; }
 .d2s-equipment-slot.requirements-unmet:hover,
 .d2s-equipment-slot.requirements-unmet:focus-visible { outline-color: #b45a5a; }
-
 .d2s-derived-stats .d2s-stat-line,
 .d2s-resource-stats .d2s-stat-line {
   left: 44.5%;
@@ -2856,12 +2499,10 @@
   padding: 0 2.2%;
   height: 6%;
 }
-
 .d2s-derived-stats .d2s-stat-line:nth-of-type(1) { top: 23%; }
 .d2s-derived-stats .d2s-stat-line:nth-of-type(2) { top: 29%; }
 .d2s-derived-stats .d2s-stat-line:nth-of-type(3) { top: 36%; }
 .d2s-derived-stats .d2s-stat-line:nth-of-type(4) { top: 42.75%; }
-
 .d2s-resource-stats .d2s-stat-line:nth-of-type(1) { top: 49.09%; }
 .d2s-resource-stats .d2s-stat-line:nth-of-type(2) { top: 56.29%; }
 .d2s-resistance-grid {
@@ -2877,7 +2518,6 @@
   color: #bfae8c;
   font-size: 1em;
 }
-
 .d2s-resistance-line {
   display: flex;
   align-items: center;
@@ -2886,24 +2526,20 @@
   min-width: 0;
   padding: 0 3%;
 }
-
 .d2s-resistance-line span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .d2s-resistance-line b {
   flex: none;
   color: #f3dfa7;
   font-weight: 400;
   white-space: nowrap;
 }
-
 .d2s-resistance-line:nth-child(even) { border-left: 1px solid #3a2f1e; }
 .d2s-resistance-line:nth-child(n+3) { border-top: 1px solid #3a2f1e; }
-
 .d2s-character-stats .d2s-set-summary {
   position: absolute;
   z-index: 2;
@@ -2920,7 +2556,6 @@
   font: 400 clamp(8px, 1.6cqw, 11px) / 1.35 var(--d2s-ui-font);
   scrollbar-width: thin;
 }
-
 .d2s-character-stats .d2s-set-summary h4 {
   position: static;
   width: auto;
@@ -2933,12 +2568,10 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
-
 .d2s-character-stats .d2s-set-summary-entry p {
   margin: 0.1em 0;
   line-height: 1.25;
 }
-
 .d2s-stat-tooltip {
   position: fixed;
   z-index: 125;
@@ -2951,7 +2584,6 @@
   pointer-events: none;
   box-sizing: border-box;
 }
-
 .d2s-stat-tooltip strong {
   display: block;
   margin-bottom: 4px;
@@ -2959,7 +2591,6 @@
   font: 13px Georgia, serif;
   letter-spacing: .06em;
 }
-
 .d2s-stat-tooltip-breakdown {
   display: grid;
   gap: 3px;
@@ -2969,7 +2600,6 @@
   border-bottom: 1px solid #4e3d28;
   list-style: none;
 }
-
 .d2s-stat-tooltip-breakdown li {
   display: flex;
   align-items: baseline;
@@ -2978,11 +2608,9 @@
   color: #bfae8c;
   font: 10px/1.35 Georgia, serif;
 }
-
 .d2s-stat-tooltip-breakdown li span {
   min-width: 0;
 }
-
 .d2s-stat-tooltip-breakdown li b {
   flex: none;
   color: #e5cc98;
@@ -2990,7 +2618,6 @@
   text-align: right;
   white-space: nowrap;
 }
-
 .d2s-stat-tooltip-breakdown li.is-total {
   margin-top: 2px;
   padding-top: 5px;
@@ -2998,18 +2625,15 @@
   color: #f0d6a0;
   font-weight: bold;
 }
-
 .d2s-stat-tooltip-breakdown li.is-total b {
   color: #fff0b8;
   font-size: 11px;
 }
-
 .d2s-stat-tooltip p {
   margin: 0;
   color: #cfc0a1;
   font: 11px/1.45 Georgia, serif;
 }
-
 @media (max-width: 820px) {
   .d2s-stat-tooltip {
     left: 50vw !important;
@@ -3018,7 +2642,6 @@
     transform: translateX(-50%);
   }
 }
-
 .d2s-paperdoll .d2s-inventory-heading,
 .d2s-bag .d2s-inventory-heading {
   position: absolute;
@@ -3031,7 +2654,6 @@
   white-space: nowrap;
   border: 0;
 }
-
 .d2s-bag-heading {
   position: absolute;
   inset: 0;
@@ -3039,10 +2661,8 @@
   min-height: 0;
   pointer-events: none;
 }
-
 .d2s-inventory-gold {
   position: absolute;
- 
   top: 89%;
   right: 33%;
   left: 33%;
@@ -3058,15 +2678,12 @@
   font: 400 clamp(10px, 2.15cqw, 16px) / 1 var(--d2s-ui-font);
   letter-spacing: 0.03em;
 }
-
 .d2s-inventory-gold > span { display: none; }
-
 .d2s-inventory-gold small {
   color: #a88d54;
   font: 400 0.58em / 1 var(--d2s-ui-font);
   letter-spacing: 0.14em;
 }
-
 .d2s-paperdoll,
 .d2s-bag {
   position: absolute;
@@ -3079,7 +2696,6 @@
   box-shadow: none;
   pointer-events: none;
 }
-
 .d2s-equipped-belt {
   position: absolute;
   width: 1px;
@@ -3091,7 +2707,6 @@
   white-space: nowrap;
   border: 0;
 }
-
 .d2s-paperdoll-board {
   position: absolute;
   inset: 0;
@@ -3103,9 +2718,7 @@
   background: none;
   box-shadow: none;
 }
-
 .d2s-paperdoll-silhouette { display: none; }
-
 .d2s-equipment-slot {
   position: absolute;
   z-index: 1;
@@ -3122,22 +2735,18 @@
   cursor: pointer;
   pointer-events: auto;
 }
-
 .d2s-equipment-slot:hover,
 .d2s-equipment-slot:focus-visible {
   outline: 1px solid #d0ae68;
   outline-offset: -2px;
   background: radial-gradient(ellipse at 50% 50%, #c9a65a1f, transparent 72%);
 }
-
 .d2s-equipment-slot.equipped { background: radial-gradient(ellipse at 50% 50%, #b58d4614, transparent 74%); }
 .d2s-equipment-slot.magic:hover, .d2s-equipment-slot.magic:focus-visible { outline-color: #5fa7d8; }
 .d2s-equipment-slot.rare:hover, .d2s-equipment-slot.rare:focus-visible { outline-color: #d0a34c; }
 .d2s-equipment-slot.unique:hover, .d2s-equipment-slot.unique:focus-visible { outline-color: #e0bc5b; }
 .d2s-equipment-slot.set:hover, .d2s-equipment-slot.set:focus-visible { outline-color: #64c57b; }
-
 .d2s-equipment-icon { color: #b5a273; font: 24px Georgia, serif; text-shadow: 0 2px 4px #000, 0 0 8px #c48c4a66; }
-
 .d2s-equipment-art {
   display: block;
   width: auto;
@@ -3148,10 +2757,8 @@
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 3px #000);
 }
-
 .d2s-equipment-art.empty { display: none; }
 .d2s-equipment-label { display: none; }
-
 .position-helmet { left: 41.3%; top: 14.3%; width: 16.8%; height: 12.5%; }
 .position-weapon { left: 8.3%; top: 14.4%; width: 16.2%; height: 26.1%; }
 .position-amulet { left: 61.8%; top: 23.4%; width: 7.2%; height: 5.6%; }
@@ -3162,10 +2769,8 @@
 .position-gloves { left: 8.3%; top: 44.7%; width: 16.2%; height: 11.2%; }
 .position-belt { left: 41.3%; top: 50.9%; width: 16.8%; height: 5%; }
 .position-boots { left: 74.2%; top: 44.7%; width: 15.7%; height: 11.2%; }
-
 .d2s-inv {
   position: absolute;
- 
   top: 59.65%;
   right: 7.8%;
   left: 7.9%;
@@ -3181,12 +2786,9 @@
   pointer-events: auto;
   user-select: none;
   -webkit-user-select: none;
-  /* One socket size for every item in the bag. The holes do not scale with an
-     item's footprint, so a dirk's socket is as big as a body armour's. */
   --d2s-socket-width: 24px;
   --d2s-socket-height: 24px;
 }
-
 .d2s-inv-slot {
   position: relative;
   min-width: 0;
@@ -3206,7 +2808,6 @@
   cursor: grab;
   user-select: none;
 }
-
 .d2s-inv-slot:active { cursor: grabbing; }
 .d2s-inv-slot.empty { background: transparent; }
 .d2s-inv-slot:hover,
@@ -3215,56 +2816,47 @@
   box-shadow: inset 0 0 0 1px #c7a75e55;
   outline: none;
 }
-
 .d2s-inv-slot.filled {
   z-index: 1;
   border: 0;
   background: transparent;
   box-shadow: none;
 }
-
 .d2s-inv-slot.magic,
 .d2s-inv-slot.rare,
 .d2s-inv-slot.unique,
 .d2s-inv-slot.set,
 .d2s-inv-slot.normal { border: 0; background: transparent; }
-
-
 .d2s-inv-slot.filled.normal:hover,
 .d2s-inv-slot.filled.normal:focus-visible {
   background: radial-gradient(ellipse at 50% 50%, #d5d0c33d, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #d5d0c3aa, inset 0 0 12px #d5d0c322 !important;
   outline: none;
 }
-
 .d2s-inv-slot.filled.magic:hover,
 .d2s-inv-slot.filled.magic:focus-visible {
   background: radial-gradient(ellipse at 50% 50%, #3d77e85c, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #7fa9ffcc, inset 0 0 14px #3d77e855 !important;
   outline: none;
 }
-
 .d2s-inv-slot.filled.rare:hover,
 .d2s-inv-slot.filled.rare:focus-visible {
   background: radial-gradient(ellipse at 50% 50%, #d6b63b5c, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #f3dc72cc, inset 0 0 14px #d6b63b55 !important;
   outline: none;
 }
-
 .d2s-inv-slot.filled.set:hover,
 .d2s-inv-slot.filled.set:focus-visible {
   background: radial-gradient(ellipse at 50% 50%, #2e9b555c, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #72dc91cc, inset 0 0 14px #2e9b5555 !important;
   outline: none;
 }
-
 .d2s-inv-slot.filled.unique:hover,
 .d2s-inv-slot.filled.unique:focus-visible {
   background: radial-gradient(ellipse at 50% 50%, #c08b275c, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #ffd36acc, inset 0 0 14px #c08b2755 !important;
   outline: none;
 }
-
 .d2s-inv-art {
   display: block;
   width: auto;
@@ -3274,16 +2866,10 @@
   object-fit: contain;
   image-rendering: pixelated;
   filter: drop-shadow(0 2px 3px #000);
- 
   pointer-events: none;
 }
-
-
 .d2s-equipment-slot { overflow: visible; }
-/* A worn item's holes are sized from its cel in the component, because the
-   paperdoll scales each slot's art differently. */
 .d2s-socket-hole.equipment { pointer-events: none; z-index: 2; }
-
 .d2s-socket-hole {
   position: absolute;
   width: var(--d2s-socket-width, 24px);
@@ -3296,14 +2882,10 @@
   pointer-events: none;
   z-index: 2;
 }
-
-/* A filled socket keeps its gem, rune or jewel drawn in the hole, so a glance
-   at a hovered item shows which holes are spent and which are still open. */
 .d2s-socket-hole.filled {
   background: radial-gradient(ellipse at 50% 38%,
     #000 0%, #05060a 58%, #4a4c56 88%, #16171d 95%, transparent 98%);
 }
-
 .d2s-socket-hole-art {
   position: absolute;
   inset: 0;
@@ -3313,36 +2895,28 @@
   image-rendering: pixelated;
   filter: drop-shadow(0 0 1px #000000cc);
 }
-
 @media (max-width: 620px) {
   .d2s-inv { --d2s-socket-width: 11px; --d2s-socket-height: 9px; }
 }
-
 .d2s-inv-name { display: none; }
-
 .d2s-inv-slot.selected {
   background: radial-gradient(ellipse at 50% 50%, #e6bd5533, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #ffd27a, inset 0 0 10px #e6b44a33 !important;
 }
-
 .d2s-inv-slot.mobile-press {
   background: radial-gradient(ellipse at 50% 50%, #d9b46a2e, transparent 74%) !important;
   box-shadow: inset 0 0 0 1px #f0d28a99, inset 0 0 14px #c59a4555;
 }
-
 .d2s-inv-slot.mobile-drag-source {
   opacity: 0.42;
   filter: saturate(0.7) brightness(0.75);
 }
-
 @media (any-pointer: coarse) {
- 
   .d2s-inv-slot.filled {
     touch-action: none;
     -webkit-touch-callout: none;
   }
 }
-
 .d2s-inv-drop-preview {
   position: relative;
   z-index: 2;
@@ -3352,13 +2926,11 @@
   box-shadow: inset 0 0 10px rgba(232, 194, 112, 0.35), 0 0 6px rgba(0, 0, 0, 0.7);
   pointer-events: none;
 }
-
 .d2s-inv-drop-preview.denied {
   border-color: #d86b62;
   background: rgba(180, 55, 46, 0.2);
   box-shadow: inset 0 0 10px rgba(255, 107, 107, 0.3), 0 0 6px rgba(0, 0, 0, 0.7);
 }
-
 .d2s-item-window {
   position: fixed;
   z-index: 120;
@@ -3372,24 +2944,18 @@
   box-shadow: 0 4px 18px #0009, inset 0 0 0 2px #0a0908;
   pointer-events: none;
 }
-
 .d2s-item-window:not(.is-hover-preview) {
   pointer-events: auto;
 }
-
 .d2s-item-window.is-hover-preview {
   pointer-events: auto;
 }
-
-
 .d2s-shop-item-window.is-hover-preview {
   pointer-events: none;
 }
-
 .d2s-item-window-inner {
   position: relative;
 }
-
 .d2s-item-window-close {
   position: absolute;
   top: 4px;
@@ -3407,14 +2973,12 @@
   align-items: center;
   justify-content: center;
 }
-
 .d2s-item-window-close:hover,
 .d2s-item-window-close:focus-visible {
   border-color: #cbb07c;
   background: #2a2016;
   color: #f0dcb0;
 }
-
 .d2s-item-window-kicker {
   margin: 0.65rem 2rem 0.15rem 0.75rem;
   font-size: 0.65rem;
@@ -3422,35 +2986,29 @@
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
-
 .d2s-item-window-title {
   margin: 0 0.75rem 0.2rem;
   font-size: 1rem;
   color: #ded8cb;
   text-shadow: 0 1px 4px #000;
 }
-
 .d2s-item-window-title.magic { color: #8fb4ed; }
 .d2s-item-window-title.rare { color: #f0bf62; }
 .d2s-item-window-title.unique { color: #f0c96a; }
 .d2s-item-window-title.set { color: #7edb96; }
 .d2s-item-window-title.normal { color: #ded8cb; }
-
 .d2s-item-window-title.runeword { color: #d8b45a; }
-
 .d2s-item-window-base {
   margin: 0 0.75rem 0.35rem;
   font-size: 0.7rem;
   color: #9c9a91;
 }
-
 .d2s-item-window-description {
   margin: 0 0.75rem 0.6rem;
   color: #d3cbb9;
   font-size: 0.8rem;
   line-height: 1.4;
 }
-
 .d2s-item-window-stats {
   margin: 0 0.75rem 0.75rem;
   font-family: ui-monospace, monospace;
@@ -3458,11 +3016,9 @@
   color: #86c8f2;
   line-height: 1.5;
 }
-
 .d2s-item-window-stats p {
   margin: 0.12rem 0;
 }
-
 .d2s-item-set {
   margin: 0 0.75rem 0.75rem;
   padding: 0.45rem 0.55rem;
@@ -3470,34 +3026,28 @@
   background: rgba(18, 35, 20, 0.72);
   font: 0.72rem/1.45 ui-monospace, monospace;
 }
-
 .d2s-item-set-title {
   margin: 0 0 0.3rem;
   color: #86d896;
   font-weight: 700;
 }
-
 .d2s-item-set-title span {
   color: #b7c4a7;
   font-weight: 400;
 }
-
 .d2s-item-set-line {
   margin: 0.12rem 0;
   color: #7f8d76;
 }
-
 .d2s-item-set-line span {
   display: inline-block;
   min-width: 4.6rem;
   color: #5f7058;
 }
-
 .d2s-item-set-line.active { color: #8fe0a0; }
 .d2s-item-set-line.active span { color: #66b677; }
 .d2s-item-set-line.complete { color: #e8cf7e; }
 .d2s-item-set-line.complete span { color: #c7a94f; }
-
 .d2s-set-summary {
   margin-top: 0.65rem;
   padding: 0.5rem 0.55rem;
@@ -3505,7 +3055,6 @@
   background: rgba(18, 35, 20, 0.6);
   font-size: 0.72rem;
 }
-
 .d2s-set-summary h4 {
   margin: 0 0 0.35rem;
   color: #86d896;
@@ -3513,11 +3062,9 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-
 .d2s-set-summary-entry {
   margin-top: 0.4rem;
 }
-
 .d2s-set-summary-entry p {
   display: flex;
   justify-content: space-between;
@@ -3525,19 +3072,13 @@
   margin: 0.1rem 0;
   color: #8fe0a0;
 }
-
 .d2s-set-summary-entry p:first-child {
   color: #e8cf7e;
 }
-
 .d2s-set-summary-entry p span {
   color: #b7c4a7;
 }
-
 .d2s-inventory-status {
-  /* The sale/equip message keeps its row whether or not there is one, so the
-     full-height layout beside it never shrinks: otherwise every sale made the
-     two centred windows jump upwards for a moment. */
   width: min(1180px, 100%);
   min-height: 17px;
   margin: 0;
@@ -3546,7 +3087,6 @@
   font: 400 12px/1.35 var(--d2s-ui-font);
   text-shadow: 0 1px 3px #000;
 }
-
 .d2s-inv-panel > .d2s-hint {
   position: absolute;
   width: 1px;
@@ -3558,13 +3098,11 @@
   white-space: nowrap;
   border: 0;
 }
-
 @media (max-width: 820px) {
   .d2s-inv-panel {
     padding: 26px 10px 8px;
     gap: 5px;
   }
-
   .d2s-inventory-layout {
     flex-direction: column;
     justify-content: flex-start;
@@ -3573,25 +3111,21 @@
     gap: 10px;
     margin: 0 auto;
   }
-
   .d2s-inventory-right,
   .d2s-character-stats {
     width: min(520px, calc(100vw - 20px));
   }
-
   .d2s-character-stats { min-height: 0; }
   .d2s-paperdoll-board { min-height: 0; }
   .d2s-inv { grid-template-rows: repeat(var(--inventory-rows, 4), minmax(0, 1fr)); }
   .d2s-inventory-overlay-header { top: 6px; right: 8px; }
   .d2s-inventory-close { font-size: 10px; padding: 4px 8px 3px; }
   .d2s-inv-panel > .d2s-hint { font-size: 8px; }
-
   .d2s-item-window {
     width: min(340px, calc(100vw - 24px));
     max-height: calc(100vh - 24px);
     max-height: calc(100dvh - 24px);
   }
-
   .d2s-skill-tree {
     top: 6px;
     right: 6px;
@@ -3600,11 +3134,7 @@
     width: auto;
     padding: 10px 8px;
   }
-
 }
-
-/* A touch screen has no pointer to follow, so the card centres itself. A narrow
-   desktop window keeps the pointer tracking: it has a cursor to sit beside. */
 @media (max-width: 820px) and (hover: none) {
   .d2s-skill-tooltip {
     left: 50vw !important;
