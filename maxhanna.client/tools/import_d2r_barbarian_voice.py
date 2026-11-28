@@ -1,9 +1,10 @@
 """Copy the barbarian's warcry shouts out of the D2R extraction.
 
 Diablo II gives every warcry its own recorded shout under
-``data/global/sfx/skill/barbarian``. The files are already FLAC, so they are
-copied straight into the client and listed per skill in ``d2-warcry-voice.ts``;
-the runtime picks one at random each time a warcry is used.
+``data/global/sfx/skill/barbarian``. The extract's takes are lossless FLAC, so
+each one is re-encoded to the client's small mono Ogg/Opus format (see
+``d2r_voice_encode.py``) and listed per skill in ``d2-warcry-voice.ts``; the
+runtime picks one at random each time a warcry is used.
 
 Run with:
     python tools/import_d2r_barbarian_voice.py
@@ -14,9 +15,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 import sys
 from pathlib import Path
+
+from d2r_voice_encode import ENCODED_SUFFIX, build_take, drop_stale_flacs
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VOICE_DIR = PROJECT_ROOT / "src" / "assets" / "d2survivors" / "audio" / "voice" / "barbarian"
@@ -41,7 +43,7 @@ def write_metadata(skill_files: list[tuple[str, list[str]]]) -> None:
     entries = []
     for skill, files in skill_files:
         lines = ",\n".join(
-            "    { path: %s }" % json.dumps(f"assets/d2survivors/audio/voice/barbarian/{name}.flac")
+            "    { path: %s }" % json.dumps(f"assets/d2survivors/audio/voice/barbarian/{name}{ENCODED_SUFFIX}")
             for name in files
         )
         entries.append("  %s: [\n%s,\n  ]" % (json.dumps(skill), lines))
@@ -93,10 +95,13 @@ def build(source: Path) -> None:
             origin = voice_source / f"{name}.flac"
             if not origin.exists():
                 raise FileNotFoundError(f"missing warcry shout: {origin}")
-            shutil.copyfile(origin, VOICE_DIR / f"{name}.flac")
+            build_take(origin, VOICE_DIR / f"{name}{ENCODED_SUFFIX}")
             copied.append(name)
         skill_files.append((skill, copied))
         print(f"{skill:16} {len(copied)} take(s)")
+    removed = drop_stale_flacs(VOICE_DIR)
+    if removed:
+        print(f"removed {removed} lossless leftover(s)")
     write_metadata(skill_files)
     print(f"wrote {METADATA.relative_to(PROJECT_ROOT)}")
 

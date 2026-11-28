@@ -843,6 +843,393 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).clickMoveTarget).toBeNull();
   });
 
+  it("sends the worn gear with a co-op hero so others can dress the model", () => {
+    component.selectedClass = "barbarian";
+    component.equipment.weapon = { id: "w", name: "Grief Phase Blade", baseName: "Phase Blade", slot: "weapon" } as any;
+    component.equipment.helmet = { id: "h", name: "Arreat's Face", baseName: "Slayer Guard", slot: "helmet" } as any;
+    component.equipment.body = { id: "b", name: "Fortitude", baseName: "Archon Plate", slot: "body" } as any;
+    component.equipment.shield = null;
+
+    const look = JSON.parse((component as any).coopLookPayload());
+
+    expect(look.weapon.name).toBe("Grief Phase Blade");
+    expect(look.helmet.baseName).toBe("Slayer Guard");
+    expect(look.body.name).toBe("Fortitude");
+    expect(look.shield).toBeNull();
+    // The presence broadcast carries it alongside the hero's position.
+    const state = (component as any).coopHeroState();
+    expect(JSON.parse(state.look).weapon.name).toBe("Grief Phase Blade");
+  });
+
+  it("stands a guest's monsters on the zone's authoritative spot instead of a few steps behind", () => {
+    const coop = component as any;
+    coop.coopIsHost = false;
+    coop.coopZone = "A1:Cold Plains";
+    coop.coopApplyMonsterSpawns([{
+      id: 7, kind: "normal", species: "fallen", championType: null, level: 1,
+      x: 100, y: 100, hp: 10, maxHp: 10, name: "Fallen", elite: false,
+    }]);
+    const monster = component.enemies.find((enemy) => enemy.coopId === 7)!;
+    expect(monster).toBeTruthy();
+
+    coop.coopApplyMonsterPoses([{
+      id: 7, x: 130, y: 100, hp: 10, maxHp: 10, animation: "move", facingX: 1, facingY: 0, attack: 0,
+    }]);
+    coop.updateGuestMonsters(16);
+    expect(Math.abs(monster.x - 130)).toBeLessThan(2);
+
+    // The newest report is carried forward by the velocity the one before it
+    // implies, so the guest shows the monster's current spot, not a lagged one.
+    coop.coopApplyMonsterPoses([{
+      id: 7, x: 170, y: 100, hp: 10, maxHp: 10, animation: "move", facingX: 1, facingY: 0, attack: 0,
+    }]);
+    coop.updateGuestMonsters(16);
+    expect(monster.x).toBeGreaterThan(169.5);
+    expect(monster.y).toBeCloseTo(100, 3);
+  });
+
+  it("says the class's own \"not enough mana\" line when a cast cannot be paid for", () => {
+    const coop = component as any;
+    // Every class brought its recorded refusal over from the shipped game.
+    for (const classId of ["amazon", "assassin", "barbarian", "druid", "necromancer", "paladin", "sorceress"]) {
+      const line = heroVoiceLine(classId, "notenoughmana");
+      expect(line?.path).toBe(`assets/d2survivors/audio/voice/${classId}/notenoughmana.ogg`);
+      expect(line?.text).toBe("Not enough mana.");
+    }
+
+    component.runActive = true;
+    component.activeTab = "run";
+    component.selectedClass = "sorceress";
+    component.playerMana = 0;
+    component.heroSpeech = null;
+    coop.lastNotEnoughManaAt = Number.NEGATIVE_INFINITY;
+
+    expect(coop.paySkillManaCost("Frost Nova")).toBeFalse();
+    expect(coop.heroSpeech?.speaker).toBe("Sorceress");
+    expect(coop.heroSpeech?.text).toBe("Not enough mana.");
+
+    // The refusal is throttled, so a held click cannot repeat it every frame.
+    coop.heroSpeech = null;
+    expect(coop.paySkillManaCost("Frost Nova")).toBeFalse();
+    expect(coop.heroSpeech).toBeNull();
+  });
+
+  it("shows the chance to hit the last monster attacked on the attack rating hover", () => {
+    const coop = component as any;
+    component.playerLevel = 14;
+    component.playerX = 100;
+    component.playerY = 100;
+    // Nothing has been swung at yet, so the hover keeps its own breakdown.
+    expect(coop.attackRatingStatTooltipLines().some((line: any) => line.label.startsWith("Chance to hit"))).toBeFalse();
+
+    const fallen = coop.makeEnemy("normal", false, "fallen");
+    fallen.x = 110;
+    fallen.y = 100;
+    fallen.hp = 40;
+    fallen.maxHp = 40;
+    component.enemies = [fallen];
+
+    coop.dealMeleeDamage(fallen, 5);
+
+    const lines = coop.statTooltipLines("attackRating") as any[];
+    const chance = lines[lines.length - 1];
+    expect(chance.label).toBe(`Chance to hit ${coop.getEnemyDisplayName(fallen)}`);
+    const expected = Math.round(coop.chanceToHitPercent(
+      component.inventoryAttackRating, coop.enemyDefense(fallen), component.playerLevel, coop.enemyLevel(fallen),
+    ));
+    expect(chance.value).toBe(`${expected}%`);
+
+    // The panel itself wears it: the hovered row shows the same figure.
+    component.inventoryOpen = true;
+    component.showStatTooltip({ clientX: 40, clientY: 40 } as MouseEvent, "attackRating");
+    fixture.detectChanges();
+    const tooltip = fixture.nativeElement.querySelector(".d2s-stat-tooltip") as HTMLElement;
+    expect(tooltip).toBeTruthy();
+    expect(tooltip.textContent).toContain(`Chance to hit ${coop.getEnemyDisplayName(fallen)}`);
+    expect(tooltip.textContent).toContain(`${expected}%`);
+  });
+
+  it("wears each class's own D2R portrait with the neighbour's name and life", () => {
+    const coop = component as any;
+    for (const classId of ["amazon", "assassin", "barbarian", "druid", "necromancer", "paladin", "sorceress"]) {
+      expect(coop.coopPortraitPath(classId)).toBe(`assets/d2survivors/ui/portraits/${classId}.webp`);
+      expect(coop.coopPlayerClassName(classId)).not.toBe("Hero");
+    }
+    // An unknown class still gets a face rather than a broken image.
+    expect(coop.coopPortraitPath("warlock")).toBe("assets/d2survivors/ui/portraits/amazon.webp");
+    expect(coop.coopPlayerClassName("warlock")).toBe("Hero");
+    // A stale report can never drive the life bar past its track.
+    expect(coop.coopPlayerLifeFill({ hpFraction: 1.4 })).toBe(1);
+    expect(coop.coopPlayerLifeFill({ hpFraction: -0.2 })).toBe(0);
+  });
+
+  it("shows a hero sharing the area at the top left", () => {
+    component.coopPlayers = [{
+      connectionId: "abc", name: "Kashya", classId: "amazon", level: 12,
+      x: 0, y: 0, facingX: 0, facingY: 1, hpFraction: 0.5, animation: "idle", seenAt: Date.now(),
+    }];
+    fixture.detectChanges();
+
+    const rail = fixture.nativeElement.querySelector(".d2s-party-frames") as HTMLElement;
+    expect(rail).toBeTruthy();
+    // The portraits hang under the act plaque in one column, never on top of it.
+    const stack = rail.parentElement as HTMLElement;
+    expect(stack.classList.contains("d2s-top-left")).toBeTrue();
+    expect(stack.firstElementChild!.classList.contains("d2s-act-banner")).toBeTrue();
+    const portrait = rail.querySelector(".d2s-party-portrait img") as HTMLImageElement;
+    expect(portrait.getAttribute("src")).toBe("assets/d2survivors/ui/portraits/amazon.webp");
+    expect(rail.textContent).toContain("Kashya");
+    expect(rail.textContent).toContain("Amazon");
+    const life = rail.querySelector(".d2s-party-life i") as HTMLElement;
+    expect(life.style.transform).toBe("scaleX(0.5)");
+  });
+
+  it("takes a force move order as a bare coordinate, naming nothing", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 140, y: 100,
+      hp: 10, maxHp: 10, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [monster];
+    const coop = component as any;
+    coop.hoveredEnemy = monster;
+    coop.clickMoveTarget = monster;
+    coop.heldAttackTarget = { enemy: monster, hand: "basic" };
+    coop.forceMoveHeld = true;
+
+    coop.forceMoveOrder(200, 100);
+
+    // Nothing under the pointer was named: this is walk-to-sub-tile only.
+    expect(coop.heldAttackTarget).toBeNull();
+    expect(coop.clickMoveTarget).toBeNull();
+    expect(coop.clickGroundTarget).toBeTruthy();
+    expect(Math.round(coop.clickGroundTarget.x)).toBe(200);
+    expect(Math.round(coop.clickGroundTarget.y)).toBe(100);
+  });
+
+  it("buffers a force move order until the swing recovers", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const coop = component as any;
+    coop.forceMoveHeld = true;
+    coop.playerAttackLockRemaining = 0.2;
+
+    coop.forceMoveOrder(200, 100);
+    expect(coop.clickGroundTarget).toBeNull();
+    expect(coop.forceMoveBuffer).toEqual({ x: 200, y: 100 });
+
+    // The swing still owns the hero, so the walk waits.
+    coop.consumeForceMoveBuffer();
+    expect(coop.clickGroundTarget).toBeNull();
+
+    coop.playerAttackLockRemaining = 0;
+    coop.consumeForceMoveBuffer();
+    expect(coop.clickGroundTarget).toBeTruthy();
+    expect(coop.forceMoveBuffer).toBeNull();
+  });
+
+  it("quick casts the bound skill and hands the equipped slot back", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.secondaryAttackSpell = "Ice Bolt";
+    const coop = component as any;
+    coop.cursorWorldPoint = { x: 260, y: 100 };
+    coop.attackSlotKeyBinds = { 1: "Fire Bolt" };
+    let equippedDuringCast = "";
+    const cast = spyOn(coop, "tryAttackSlotSpell").and.callFake(() => {
+      equippedDuringCast = coop.secondaryAttackSpell;
+      return true;
+    });
+
+    coop.handleAttackSlotKey(1, false);
+
+    // The hotkey's skill fired…
+    expect(cast).toHaveBeenCalled();
+    expect(equippedDuringCast).toBe("Fire Bolt");
+    // …and the pointer's own skill came straight back.
+    expect(component.secondaryAttackSpell).toBe("Ice Bolt");
+    expect(coop.quickCastHeldKey).toBe(1);
+  });
+
+  it("resumes a held force move after a quick cast", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    const coop = component as any;
+    coop.cursorWorldPoint = { x: 260, y: 100 };
+    coop.forceMoveHeld = true;
+    spyOn(coop, "tryAttackSlotSpell").and.returnValue(true);
+
+    coop.quickCastBoundSkill("Fire Bolt");
+    expect(coop.forceMoveBuffer).toEqual({ x: 260, y: 100 });
+
+    // The cast's own recovery frames own the hero until they run out.
+    coop.playerAttackLockRemaining = 0.3;
+    coop.consumeForceMoveBuffer();
+    expect(coop.clickGroundTarget).toBeNull();
+
+    coop.playerAttackLockRemaining = 0;
+    coop.consumeForceMoveBuffer();
+    expect(coop.clickGroundTarget).toBeTruthy();
+    expect(coop.forceMoveBuffer).toBeNull();
+  });
+
+  it("sends this hero's summons with their presence", () => {
+    const coop = component as any;
+    const skeleton = coop.makeEnemy("normal", false, "skeleton");
+    skeleton.summonType = "skeleton";
+    skeleton.summonSkill = "Raise Skeleton";
+    skeleton.x = 240;
+    skeleton.y = 260;
+    component.enemies = [skeleton];
+
+    const state = coop.coopHeroState();
+
+    expect(state.summons.length).toBe(1);
+    expect(state.summons[0].species).toBe("skeleton");
+    expect(state.summons[0].x).toBe(240);
+    expect(state.summons[0].skill).toBe("Raise Skeleton");
+  });
+
+  it("draws another hero's servant without making it a target", () => {
+    const coop = component as any;
+    coop.coopApplyPlayerSummons("other-hero", [{
+      key: 0, species: "skeleton", skill: "Raise Skeleton", element: null, name: null,
+      x: 300, y: 300, hp: 40, maxHp: 40, r: 12, facingX: 0, facingY: 1,
+      animation: "move", attack: 0,
+    }]);
+
+    expect(coop.remoteSummons.size).toBe(1);
+    // Their servant is not in this hero's enemy list, so nothing can hit it.
+    expect(component.enemies.length).toBe(0);
+
+    coop.updateRemoteSummons(16);
+    const drawn = [...coop.remoteSummons.values()][0];
+    expect(drawn.animationState).toBe("move");
+    expect(drawn.species).toBe("skeleton");
+
+    // A servant that is gone from the report is gone from the screen.
+    coop.coopApplyPlayerSummons("other-hero", []);
+    expect(coop.remoteSummons.size).toBe(0);
+  });
+
+  it("relays a cast as a flying picture that cannot land", () => {
+    const coop = component as any;
+    coop.coopZone = "A1:Blood Moor";
+    const send = spyOn(coop.coopService, "castShots");
+    coop.attackProjectiles.push({
+      x: 100, y: 100, startX: 100, startY: 100, targetX: 300, targetY: 100,
+      missileId: "d2-firebolt", skill: "Fire Bolt", kind: "fire", color: "#ff9a3c",
+      speed: 420, damage: 25, life: 2, age: 0, radius: 6,
+    });
+
+    coop.coopAnnounceCastShots();
+    expect(send).toHaveBeenCalled();
+    const shot = (send.calls.mostRecent().args as any[])[1][0] as any;
+    expect(shot.skill).toBe("Fire Bolt");
+    expect(shot.damage).toBeUndefined();
+
+    // The replay flies as a picture: no damage in it at all.
+    coop.coopApplyCastShots([shot]);
+    const replay = component.attackProjectiles[component.attackProjectiles.length - 1];
+    expect(replay.coopVisual).toBe(true);
+    expect(replay.damage).toBe(0);
+
+    // A replayed picture is never echoed back to the zone.
+    send.calls.reset();
+    coop.coopAnnounceCastShots();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("stands a guest's monster on the zone's report and plays its swing", () => {
+    const coop = component as any;
+    coop.coopZone = "A1:Blood Moor";
+    coop.coopIsHost = false;
+    const enemy = coop.makeEnemy("normal", false, "fallen");
+    enemy.coopId = 7;
+    enemy.x = 0;
+    enemy.y = 0;
+    enemy.hp = 60;
+    component.enemies = [enemy];
+
+    coop.coopApplyMonsterPoses([{
+      id: 7, hp: 40, maxHp: 60, x: 150, y: 100, animation: "attack",
+      facingX: 1, facingY: 0, attack: 0.3,
+    }]);
+    coop.updateGuestMonsters(1000 / 60);
+
+    expect(enemy.hp).toBe(40);
+    expect(enemy.animationState).toBe("attack");
+    // The report is the position: no local walk short of it.
+    expect(Math.abs(enemy.x - 150)).toBeLessThan(1);
+    expect(Math.abs(enemy.y - 100)).toBeLessThan(1);
+    expect(enemy.facingX).toBe(1);
+    expect(enemy.attackAnimationTime ?? 0).toBeGreaterThan(0);
+  });
+
+  it("leaves monster simulation to the host in co-op", () => {
+    const coop = component as any;
+    coop.coopZone = "A1:Blood Moor";
+    coop.coopIsHost = false;
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.playerHp = component.effectivePlayerMaxHp;
+    const enemy = coop.makeEnemy("normal", false, "fallen");
+    enemy.coopId = 9;
+    enemy.x = 112;
+    enemy.y = 100;
+    enemy.hp = 30;
+    enemy.maxHp = 30;
+    enemy.dmg = 25;
+    enemy.speed = 2;
+    enemy.cd = 0;
+    component.enemies = [enemy];
+    const hpBefore = component.playerHp;
+
+    component.updateEnemies(16);
+
+    // The host's monster holds still and lands no blow of its own on a guest.
+    expect(enemy.x).toBe(112);
+    expect(enemy.y).toBe(100);
+    expect(component.playerHp).toBe(hpBefore);
+  });
+
+  it("does not swing again on the same click that already cast", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.secondaryAttackSpell = "Ice Bolt";
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 125, y: 100,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).heldAttackTarget = null;
+    (component as any).heldMouseButton = 2;
+    (component as any).heldMouseSince = performance.now();
+    const cast = spyOn(component as any, "tryAttackSlotSpell").and.returnValue(true);
+
+    // The press fired its own cast; the frame after it must not fire a second.
+    expect((component as any).updateHeldAttackCommand()).toBeFalse();
+    expect(cast).not.toHaveBeenCalled();
+
+    // A button actually held down keeps the right hand working.
+    (component as any).heldMouseSince = performance.now() - 500;
+    expect((component as any).updateHeldAttackCommand()).toBeTrue();
+    expect(cast).toHaveBeenCalled();
+  });
+
   it("aims a right-click spell at the monster under the cursor and falls back to the nearest", () => {
     component.selectedClass = "sorceress";
     component.runActive = true;
@@ -951,10 +1338,20 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     press("F3");
     expect(component.attackSlotKeyBinds[3]).toBeUndefined();
 
-    // With the list closed the key drops its spell onto the right button.
+    // With the list closed a bare key is a Quick Cast: it fires the skill at the
+    // cursor and leaves the right button exactly as it was.
     component.closeBasicAttackPicker();
+    (component as any).cursorWorldPoint = { x: 300, y: 250 };
+    const quick = spyOn(component as any, "tryAttackSlotSpell").and.returnValue(true);
     expect(component.secondaryAttackSpell).toBeNull();
     press("F2");
+    expect(quick).toHaveBeenCalled();
+    expect(component.secondaryAttackSpell).toBeNull();
+
+    // Shift keeps the classic swap: the key only re-assigns the pointer.
+    const classic = new KeyboardEvent("keydown", { key: "F2", shiftKey: true, cancelable: true });
+    component.onGlobalAttackKey(classic);
+    expect(classic.defaultPrevented).toBeTrue();
     expect(component.secondaryAttackSpell).toBe("Ice Bolt");
     expect(component.basicAttackSpell).toBeNull();
 
@@ -1011,21 +1408,6 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // ...and the basic attack it hands off to casts at that same monster instead
     // of the one that merely happens to be nearer.
     (component as any).updateBasicAttack();
-    console.warn("DBG", JSON.stringify({
-      basic: component.basicAttackSpell,
-      held: !!(component as any).heldAttackTarget,
-      btn: (component as any).heldMouseButton,
-      chasing: (component as any).playerChasingClickedTarget,
-      reach: (component as any).heldAttackReach("basic", clicked),
-      dist: Math.hypot(clicked.x - component.playerX, clicked.y - component.playerY),
-      can: (component as any).canBasicAttackCastSpell("Fire Bolt"),
-      cd: component.skillCastCooldowns["Fire Bolt"],
-      stop: (component as any).clickedTargetStopDistance(clicked),
-      ranged: component.rangedBasicAttackRange,
-      clickMove: !!(component as any).clickMoveTarget,
-      leap: component.playerLeapRemaining,
-      proj: component.attackProjectiles.length,
-    }));
     expect(component.attackProjectiles.length).toBeGreaterThan(0);
     expect(component.attackProjectiles[0].target).toBe(clicked);
   });
@@ -2812,6 +3194,103 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.combatDefenseAvoidChance).toBeCloseTo(Math.min(45, 50 * 0.18) / 100);
   });
 
+  it("clamps D2's chance to hit between 5% and 95%", () => {
+    const chance = (ar: number, def: number, alvl: number, dlvl: number) =>
+      (component as any).chanceToHitPercent(ar, def, alvl, dlvl);
+
+    expect(chance(10_000, 0, 99, 1)).toBe(95);
+    expect(chance(1, 100_000, 1, 99)).toBe(5);
+    // Levels matter even before Defense: 75 against 99 loses 150/174 of the roll.
+    const even = chance(1_000, 1_000, 50, 50);
+    const outmatched = chance(1_000, 1_000, 75, 99);
+    expect(outmatched).toBeLessThan(even);
+    expect(outmatched).toBeCloseTo(even * 150 / 174, 1);
+  });
+
+  it("cuts the player's block to a third while running", () => {
+    const block = (dexterity: number, level: number, running: boolean) =>
+      (component as any).actualBlockChance(50, dexterity, level, running);
+
+    // 50% displayed, level 50, 100 dexterity: (100 - 15) / (2 * 50) = 0.85.
+    expect(block(100, 50, false)).toBeCloseTo(42.5, 5);
+    expect(block(100, 50, true)).toBeCloseTo(42.5 / 3, 5);
+    // Block never exceeds three quarters of incoming blows.
+    expect(block(10_000, 10, false)).toBe(75);
+  });
+
+  it("measures melee reach in sub-tiles from both bodies and the weapon", () => {
+    const normal = { kind: "normal", species: "fallen", x: 0, y: 0, hp: 10, maxHp: 10, r: 14 } as any;
+    const boss = { ...normal, r: 26, campaignBoss: true } as any;
+    // Bare hands against a normal monster: 2 (hero) + 2 (monster) + 0 = 4 sub-tiles.
+    expect((component as any).meleeReachAgainst(normal)).toBe(4 * 12);
+    // An act boss is Size 3, so the same swing reaches one sub-tile further.
+    expect((component as any).meleeReachAgainst(boss)).toBe(5 * 12);
+    component.equipment.weapon = { id: "w1", name: "Warpike", baseName: "Warpike", slot: "weapon", stats: {} } as any;
+    // A Rangeadder 4 weapon swings from eight sub-tiles out.
+    expect((component as any).meleeReachAgainst(normal)).toBe(8 * 12);
+    component.equipment.weapon = null;
+  });
+
+  it("ignores a normal monster's Defense but not a champion's", () => {
+    component.equipment.weapon = {
+      id: "grief", name: "Grief", baseName: "Phase Blade", slot: "weapon",
+      stats: { ignoreTargetDefense: 1 },
+    } as any;
+    const normal = { kind: "normal", species: "fallen", x: 0, y: 0, hp: 10, maxHp: 10, r: 14 } as any;
+    const champion = { ...normal, kind: "champion", championType: "fanatic", championLevel: 10 } as any;
+
+    expect((component as any).enemyDefense(normal)).toBe(0);
+    expect((component as any).enemyDefense(champion)).toBeGreaterThan(0);
+    component.equipment.weapon = null;
+  });
+
+  it("whiffs when the monster steps out of reach on the action frame", () => {
+    component.playerX = 100;
+    component.playerY = 100;
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 160, y: 100,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [enemy];
+
+    const dealt = (component as any).dealMeleeDamage(enemy, 50);
+
+    expect(dealt).toBe(0);
+    expect(enemy.hp).toBe(500);
+    expect(component.floatingTexts.some((entry) => entry.text === "OUT OF REACH")).toBeTrue();
+  });
+
+  it("misses when the Attack Rating roll fails", () => {
+    component.playerX = 100;
+    component.playerY = 100;
+    const enemy = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 120, y: 100,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).accuracyRoll = () => 99;
+
+    expect((component as any).dealMeleeDamage(enemy, 50)).toBe(0);
+    expect(enemy.hp).toBe(500);
+    expect(component.floatingTexts.some((entry) => entry.text === "MISS")).toBeTrue();
+  });
+
+  it("lets a shielded monster block the blow entirely", () => {
+    component.playerX = 100;
+    component.playerY = 100;
+    const enemy = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, x: 120, y: 100,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [enemy];
+    (component as any).accuracyRoll = () => 0;
+    (component as any).blockRoll = () => 1;
+
+    expect((component as any).dealMeleeDamage(enemy, 50)).toBe(0);
+    expect(enemy.hp).toBe(500);
+    expect(component.floatingTexts.some((entry) => entry.text === "BLOCKED")).toBeTrue();
+  });
+
   it("lands a mastery critical strike for double damage on a physical blow", () => {
     component.selectedClass = "barbarian";
     component.skillLevels = { "Axe Mastery": 5 };
@@ -3239,7 +3718,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(front.stunRemaining).toBeUndefined();
     for (let frame = 0; frame < 80; frame += 1) (component as any).updatePlayerLeap(16);
 
-    expect(front.x).toBeCloseTo(280);
+    // The world scrolled under the arc, then the landing wave shoved the body
+    // another 64 units away from where the barbarian came down.
+    expect(front.x).toBeCloseTo(280 + 64);
     expect(front.stunRemaining).toBeGreaterThan(0);
     expect(nearLanding.stunRemaining).toBeGreaterThan(0);
     expect(behind.stunRemaining).toBeUndefined();
@@ -3617,6 +4098,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.enemies = [near];
     (component as any).heldAttackTarget = null;
     (component as any).heldMouseButton = 0;
+    (component as any).heldMouseSince = performance.now() - 500;
     const swing = spyOn(component as any, "performBasicAttack").and.returnValue(true);
 
     expect((component as any).updateHeldAttackCommand()).toBeTrue();
@@ -3661,8 +4143,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).playerLeapDistance).toBeCloseTo(100, 5);
     for (let frame = 0; frame < 80; frame += 1) (component as any).updatePlayerLeap(16);
     // The camera holds the hero still and scrolls the world, so the 100-unit
-    // leap shows as the monster sliding back 100 units under him.
-    expect(blocker.x).toBeCloseTo(200, 5);
+    // leap shows as the monster sliding back 100 units under him, and the landing
+    // shockwave shoves it a further 64 units away.
+    expect(blocker.x).toBeCloseTo(200 - 64, 5);
   });
 
   it("stops a leap at a wall instead of crossing it", () => {
@@ -3832,7 +4315,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).playerChargeRemaining).toBe(0);
     expect((component as any).isPlayerMoving).toBeFalse();
     expect((component as any).attackAnimationStyle).toBe("paladinStrike");
-    expect(target.x).toBeCloseTo(282, 1);
+    // The bash lands and shoves the body back down the line of the charge.
+    expect(target.x).toBeCloseTo(282 + 24, 1);
     expect(target.stunRemaining).toBeGreaterThan(0);
     expect(besideTarget.stunRemaining).toBeGreaterThan(0);
     expect(passed.stunRemaining).toBeUndefined();
@@ -4163,6 +4647,54 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(enemySpriteDirectionRow("fallen", "death", 9, 0)).toBe(1);
     // The appended block does not change the facing maths of the living blocks.
     expect(enemySpriteRow("goatman", 1, 0)).toBe(7);
+  });
+
+  it("plays a servant's death block when the pet is recast, slain or out of time", () => {
+    component.runActive = true;
+    component.selectedClass = "necromancer";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerMana = 5000;
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Iron Golem"];
+    component.skillLevels = { "Clay Golem": 1, "Golem Mastery": 1, "Iron Golem": 1 };
+    component.enemies = [];
+    (component as any).corpses = [];
+    const corpses = (component as any).corpses as any[];
+
+    // Recasting the golem already standing replaces it, and the old body falls
+    // with the death block its sheet carries.
+    (component as any).summonCompanion("Clay Golem");
+    const clay = component.enemies.find((enemy: any) => enemy.summonSkill === "Clay Golem")!;
+    (component as any).summonCompanion("Clay Golem");
+    expect(component.enemies.filter((enemy: any) => enemy.summonType === "golem")).toHaveSize(1);
+    expect(corpses).toHaveSize(1);
+    expect(corpses[0].species).toBe("golem");
+    expect(corpses[0].x).toBe(clay.x);
+    // A servant's body is scenery: Corpse Explosion may not spend it.
+    expect(corpses[0].explodable).toBeFalse();
+    expect((component as any).nearestCorpse(clay.x, clay.y, 400)).toBeUndefined();
+
+    // Raising another kind retires the new body the same way.
+    (component as any).summonCompanion("Iron Golem");
+    expect(corpses).toHaveSize(2);
+    expect(corpses[1].species).toBe("golem");
+
+    // A servant cut down in combat leaves its body on the frame it goes.
+    const iron = component.enemies.find((enemy: any) => enemy.summonSkill === "Iron Golem")!;
+    iron.hp = 0;
+    component.updateEnemies(16);
+    expect(corpses).toHaveSize(3);
+    expect(corpses[2].species).toBe("ironGolem");
+
+    // A timed servant (Revive) leaves on its own when its clock runs out.
+    component.ownedSkills = ["Clay Golem", "Golem Mastery", "Revive"];
+    component.skillLevels = { "Clay Golem": 1, "Golem Mastery": 1, Revive: 1 };
+    (component as any).summonCompanion("Revive");
+    const revive = component.enemies.find((enemy: any) => enemy.summonSkill === "Revive")!;
+    revive.summonExpireSeconds = 0.001;
+    component.updateEnemies(16);
+    expect(corpses).toHaveSize(4);
+    expect(corpses[3].species).toBe("goatman");
   });
 
   it("casts an enemy-owned Arctic Blast that chills the hero but never hits monsters", () => {
@@ -4671,7 +5203,7 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect((component as any).findLeapTarget()).toBe(behind);
   });
 
-  it("flies out for Leap Attack and lands the combat table's blow with a knockback", () => {
+  it("flies out for Leap Attack and lands the blow with a knockback and a staggering wave", () => {
     component.selectedClass = "barbarian";
     component.playerX = 250;
     component.playerY = 250;
@@ -4703,7 +5235,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     expect(target.hp).toBeCloseTo(5000 - landingDamage);
     expect(target.x).withContext("the landing shoves the monster away").toBeGreaterThan(xBeforeLanding + 40);
-    expect(target.stunRemaining ?? 0).withContext("Leap Attack knocks back instead of dazing").toBe(0);
+    // The landing is a shockwave as well as a blow: it shoves and staggers.
+    expect(target.stunRemaining ?? 0).withContext("the landing wave staggers the target").toBeGreaterThan(0);
     expect(component.floatingTexts.some((entry) => entry.text === (component as any).floatingDamageText(landingDamage))).toBeTrue();
   });
 
@@ -5102,7 +5635,720 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(exposedLoss).toBeCloseTo(guardedLoss * 1.3, 5);
   });
 
-  it("spins Whirlwind through every monster in reach without full-rank damage", () => {
+  it("lets only one multi-hit effect land while a monster carries NextDelay", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 280, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [monster];
+    const coop = component as any;
+    coop.runTime = 10;
+
+    coop.queueEnemyDamage(monster, 50, "#9fd8ff", "cold", false, 4 / 25);
+    coop.flushPendingDamage();
+    const afterFirst = monster.hp;
+    expect(afterFirst).toBeLessThan(500);
+
+    // A second nova inside the 4-frame window passes straight through.
+    coop.queueEnemyDamage(monster, 50, "#9fd8ff", "cold", false, 4 / 25);
+    coop.flushPendingDamage();
+    expect(monster.hp).toBe(afterFirst);
+
+    // A skill outside the family (Fireball, Blessed Hammer, a plain arrow) still
+    // lands while the timer is running.
+    coop.queueEnemyDamage(monster, 10, "#ff9a3c", "fire");
+    coop.flushPendingDamage();
+    expect(monster.hp).toBeLessThan(afterFirst);
+
+    // Past the window the next nova lands again.
+    const afterUnflagged = monster.hp;
+    coop.runTime += 0.2;
+    coop.queueEnemyDamage(monster, 50, "#9fd8ff", "cold", false, 4 / 25);
+    coop.flushPendingDamage();
+    expect(monster.hp).toBeLessThan(afterUnflagged);
+  });
+
+  it("forces hit recovery on the guide's damage thresholds", () => {
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 280, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    } as any;
+    const coop = component as any;
+    const roll = spyOn(Math, "random").and.returnValue(0);
+
+    // Under 1/16 of maximum life a hit never interrupts.
+    coop.maybeForceHitRecovery(monster, 3);
+    expect(monster.hitRecoveryRemaining).toBeUndefined();
+
+    // 10% is the 37.5% bracket, and this roll is under it.
+    coop.maybeForceHitRecovery(monster, 10);
+    expect(monster.hitRecoveryRemaining).toBeGreaterThan(0);
+
+    // Above a quarter the interruption is guaranteed, whatever the roll.
+    monster.hitRecoveryRemaining = undefined;
+    roll.and.returnValue(0.99);
+    coop.maybeForceHitRecovery(monster, 30);
+    expect(monster.hitRecoveryRemaining).toBeGreaterThan(0);
+
+    // The 75% bracket still obeys its roll.
+    monster.hitRecoveryRemaining = undefined;
+    coop.maybeForceHitRecovery(monster, 15);
+    expect(monster.hitRecoveryRemaining).toBeUndefined();
+
+    // Champion modifiers shrug the threshold off, and act bosses never flinch.
+    monster.hitRecoveryRemaining = undefined;
+    monster.kind = "champion";
+    roll.and.returnValue(0);
+    coop.maybeForceHitRecovery(monster, 90);
+    expect(monster.hitRecoveryRemaining).toBeUndefined();
+    monster.kind = "normal";
+    monster.campaignBoss = true;
+    coop.maybeForceHitRecovery(monster, 90);
+    expect(monster.hitRecoveryRemaining).toBeUndefined();
+  });
+
+  it("lets a swirl-stunned monster be interrupted by any hit at all", () => {
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 280, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0, stunRemaining: 1,
+    } as any;
+    spyOn(Math, "random").and.returnValue(0.99);
+
+    (component as any).maybeForceHitRecovery(monster, 1);
+
+    // 1% of maximum life would never qualify, but the stun bypasses the check.
+    expect(monster.hitRecoveryRemaining).toBeGreaterThan(0);
+  });
+
+  it("traps a monster in hit recovery until the flinch finishes", () => {
+    component.activeTab = "run";
+    component.runActive = true;
+    component.playerX = 100;
+    component.playerY = 100;
+    component.playerHp = component.effectivePlayerMaxHp;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 112, y: 100,
+      hp: 100, maxHp: 100, speed: 2, r: 14, dmg: 25, cd: 0,
+    } as any;
+    component.enemies = [monster];
+    const coop = component as any;
+    const hpBefore = component.playerHp;
+
+    coop.applyHitRecovery(monster);
+    component.updateEnemies(16);
+
+    // The flinch owns the frames: no step, no swing, no damage.
+    expect(monster.x).toBe(112);
+    expect(component.playerHp).toBe(hpBefore);
+    expect(monster.hitRecoveryRemaining).toBeGreaterThan(0);
+
+    for (let frame = 0; frame < 40; frame += 1) component.updateEnemies(16);
+    expect(monster.hitRecoveryRemaining ?? 0).toBe(0);
+  });
+
+  it("ends a piercing missile after four bodies", () => {
+    component.playerX = 200;
+    component.playerY = 250;
+    const enemies = [300, 340, 380, 420, 460, 500].map((x) => ({
+      kind: "normal", species: "fallen", spriteFrame: 0, x, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    }) as any);
+    component.enemies = enemies;
+    component.attackProjectiles = [{
+      x: 260, y: 250, startX: 260, startY: 250, targetX: 700, targetY: 250,
+      speed: 200, damage: 10, life: 20, radius: 4, color: "#fff",
+      kind: "arrow", damageType: "physical", pathHit: true, age: 0, targetId: 1,
+    } as any];
+    (component as any).rebuildEnemyGrid();
+
+    for (let frame = 0; frame < 400; frame += 1) (component as any).updateAttackProjectiles(16);
+    (component as any).flushPendingDamage();
+
+    const struck = enemies.filter((enemy) => enemy.hp < 100).length;
+    // Four pierces, five bodies, then the arrow stops even though a sixth is there.
+    expect(struck).toBe(5);
+    expect(enemies[5].hp).toBe(100);
+  });
+
+  it("never lets two arrows of one volley damage the same monster", () => {
+    component.playerX = 200;
+    component.playerY = 250;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [monster];
+    const coop = component as any;
+    coop.rebuildEnemyGrid();
+    coop.runTime = 10;
+    const volleyId = 7;
+
+    // The first arrow of the volley lands.
+    component.attackProjectiles = [{
+      x: 240, y: 250, startX: 240, startY: 250, targetX: 300, targetY: 250,
+      target: monster, targetId: 1, volleyId, speed: 400, damage: 20, life: 3,
+      radius: 4, color: "#fff", kind: "arrow", damageType: "physical", age: 0,
+    } as any];
+    for (let frame = 0; frame < 20; frame += 1) coop.updateAttackProjectiles(16);
+    expect(monster.hp).toBeLessThan(100);
+
+    // A later arrow of the same volley, arriving long after the NextDelay window.
+    const afterFirst = monster.hp;
+    coop.runTime += 5;
+    component.attackProjectiles = [{
+      x: 240, y: 250, startX: 240, startY: 250, targetX: 300, targetY: 250,
+      target: monster, targetId: 2, volleyId, speed: 400, damage: 20, life: 3,
+      radius: 4, color: "#fff", kind: "arrow", damageType: "physical", age: 0,
+    } as any];
+    for (let frame = 0; frame < 20; frame += 1) coop.updateAttackProjectiles(16);
+    expect(monster.hp).toBe(afterFirst);
+  });
+
+  it("fans the spread wide up close and narrow at the screen's edge", () => {
+    const coop = component as any;
+    // Under 70 units the flow is at its widest, and it closes up with range.
+    expect(coop.castFanScale(60)).toBeCloseTo(1.8, 5);
+    expect(coop.castFanScale(150)).toBeCloseTo(1.8, 5);
+    expect(coop.castFanScale(600)).toBeCloseTo(0.5, 5);
+    expect(coop.castFanScale(60)).toBeGreaterThan(coop.castFanScale(600));
+  });
+
+  it("interpolates a neighbour's drift and snaps it past the tolerance", () => {
+    const coop = component as any;
+    const body = { x: 0, y: 0 };
+
+    // A gap the client and server agree on is walked out smoothly.
+    const snapped = coop.reconcileRemotePosition(body, 100, 0, 0.016);
+    expect(snapped).toBeFalse();
+    expect(body.x).toBeGreaterThan(0);
+    expect(body.x).toBeLessThan(100);
+
+    // Past the tolerance the mirror stops smoothing and takes the true spot.
+    const hardSnap = coop.reconcileRemotePosition(body, 5000, 0, 0.016);
+    expect(hardSnap).toBeTrue();
+    expect(body.x).toBe(5000);
+  });
+
+  it("snaps every remote body back onto its authoritative spot on a resync", () => {
+    const coop = component as any;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 300,
+      hp: 80, maxHp: 100, speed: 0, r: 14, dmg: 0, coopId: 42,
+    } as any;
+    component.enemies = [monster];
+    coop.coopMonsterMirror.set(42, {
+      fromX: 350, fromY: 340, toX: 360, toY: 340, vx: 0, vy: 0,
+      interval: 100, sampledAt: performance.now(),
+      hp: 70, maxHp: 100, animation: "walk", facingX: 1, facingY: 0, attack: 0,
+    });
+    component.coopPlayers = [{ connectionId: "abc", x: 100, y: 100 } as any];
+    coop.coopPlayerTargets.set("abc", { x: 140, y: 100 });
+
+    const snapped = coop.coopSnapToAuthoritative();
+
+    // The monster and the neighbour were both off their true sub-tile.
+    expect(snapped).toBe(2);
+    expect(monster.x).toBe(360);
+    expect(monster.y).toBe(340);
+    expect(monster.hp).toBe(70);
+    expect(component.coopPlayers[0].x).toBe(140);
+  });
+
+  it("only offers a forced resync inside a co-op zone", () => {
+    (component as any).coopZone = null;
+    expect(component.coopForceResync()).toBeFalse();
+  });
+
+  it("lets a Size 1 monster slip between the bolts at a Nova's edge", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const coop = component as any;
+    const step = (Math.PI * 2) / 32;
+    // With the ring's rotation pinned at zero, one bolt flies straight east and
+    // the next gap sits half a step away.
+    spyOn(Math, "random").and.returnValue(0);
+    const onABolt = { kind: "normal", species: "fallen", spriteFrame: 0, x: 310, y: 250, hp: 100, maxHp: 100, speed: 0, r: 1, dmg: 0 } as any;
+    const inTheGap = {
+      ...onABolt,
+      x: 250 + Math.cos(step / 2) * 140,
+      y: 250 + Math.sin(step / 2) * 140,
+    };
+    component.enemies = [onABolt, inTheGap];
+    coop.rebuildEnemyGrid();
+    coop.novaRingHits = [];
+
+    // 145-unit radius: a Size 1 body at 140 units is narrower than the gap
+    // between two neighbouring bolts, so it slips through.
+    coop.scheduleNovaRing(145, 10, "#a9dcff", "lightning", 0);
+
+    const scheduled = coop.novaRingHits.map((hit: any) => hit.enemy);
+    expect(scheduled).not.toContain(inTheGap);
+    expect(scheduled).toContain(onABolt);
+  });
+
+  it("destroys a Blessed Hammer whose centre touches a wall", () => {
+    const coop = component as any;
+    const hammer = {
+      x: 100, y: 100, targetX: 100, targetY: 100, damage: 50, radius: 10,
+      color: "#ffe7a3", life: 3.2, age: 0, kind: "holy", blessedHammer: true,
+      blessedHammerCenterX: 90, blessedHammerCenterY: 90,
+      blessedHammerAngle: 0, blessedHammerRadius: 20, blessedHammerHitEnemies: [],
+    } as any;
+    spyOn(coop, "projectArenaPoint").and.returnValue({ x: 5, y: 5 });
+    spyOn(coop, "campaignBlockedAt").and.returnValue(true);
+
+    coop.updateBlessedHammer(hammer, 0.016, {} as any);
+
+    expect(hammer.life).toBe(0);
+  });
+
+  it("puts a servant into its 15-frame AI Delay after every swing", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    const summon = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 260, y: 250, hp: 100, maxHp: 100,
+      speed: 60, r: 12, dmg: 10, summonAttackCooldown: 0,
+    } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 280, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [summon, target];
+    (component as any).summonAttackEffects = [];
+    (component as any).rebuildEnemyGrid();
+
+    (component as any).summonAttack(summon, target);
+
+    // Eleven frames of swing, fifteen frames of thinking: twenty-six per cycle.
+    expect(summon.summonAttackCooldown).toBeCloseTo(11 / 25, 5);
+    expect(summon.summonAiDelayRemaining).toBeCloseTo(15 / 25, 5);
+  });
+
+  it("makes a servant stand through its AI Delay instead of re-engaging", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const summon = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 260, y: 250, hp: 100, maxHp: 100,
+      speed: 200, r: 12, dmg: 10, summonAttackCooldown: 0,
+    } as any;
+    const target = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [summon, target];
+    (component as any).summonAttackEffects = [];
+    (component as any).rebuildEnemyGrid();
+    (component as any).summonAttack(summon, target);
+    const restingX = summon.x;
+
+    // Half a second is inside the AI Delay, so the servant does not take a step.
+    for (let frame = 0; frame < 20; frame += 1) (component as any).updateEnemies(16);
+
+    expect(summon.x).toBe(restingX);
+    expect(summon.summonLockedTarget).toBeUndefined();
+  });
+
+  it("keeps a servant locked on its target until that target dies", () => {
+    component.selectedClass = "necromancer";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const summon = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 260, y: 250, hp: 100, maxHp: 100,
+      speed: 0, r: 12, dmg: 10, summonAttackCooldown: 5,
+    } as any;
+    const first = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [summon, first];
+    (component as any).rebuildEnemyGrid();
+
+    (component as any).updateEnemies(16);
+    expect(summon.summonLockedTarget).toBe(first);
+
+    // A nearer monster does not pull the servant off its lock.
+    const newest = { ...first, x: 262, hp: 500 };
+    component.enemies.push(newest);
+    (component as any).rebuildEnemyGrid();
+    (component as any).updateEnemies(16);
+    expect(summon.summonLockedTarget).toBe(first);
+
+    // Killing the locked monster frees the servant to acquire again.
+    first.hp = 0;
+    (component as any).rebuildEnemyGrid();
+    (component as any).updateEnemies(16);
+    expect(summon.summonLockedTarget).toBe(newest);
+  });
+
+  it("keeps ground servants on separate sub-tiles and lets a raven fly over", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const make = (overrides: Record<string, unknown>) => ({
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 300, y: 250, hp: 100, maxHp: 100,
+      speed: 0, r: 12, dmg: 10, ...overrides,
+    }) as any;
+    const skeleton = make({});
+    const stacked = make({});
+    const raven = make({ summonType: "druid", summonSkill: "Raven", r: 10 });
+    component.enemies = [skeleton, stacked, raven];
+
+    (component as any).separateSummonBodies();
+
+    expect(Math.hypot(skeleton.x - stacked.x, skeleton.y - stacked.y)).toBeGreaterThan(20);
+    // The raven ignores entity collision and stays exactly where it was.
+    expect(raven.x).toBe(300);
+    expect(raven.y).toBe(250);
+  });
+
+  it("warps a servant that falls past the leash back beside the hero", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const stray = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 900, y: 250, hp: 100, maxHp: 100,
+      speed: 60, r: 12, dmg: 10, summonLockedTarget: { hp: 5 } as any,
+    } as any;
+    const near = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 300, y: 250, hp: 100, maxHp: 100,
+      speed: 60, r: 12, dmg: 10,
+    } as any;
+    component.enemies = [stray, near];
+
+    (component as any).leashSummons();
+
+    expect(Math.hypot(stray.x - 250, stray.y - 250)).toBeLessThanOrEqual(60);
+    expect(stray.summonLockedTarget).toBeUndefined();
+    // A servant already inside the tether is left where it stands.
+    expect(near.x).toBe(300);
+  });
+
+  it("drops the whole army on the caster's sub-tile after a Teleport", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const monster = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 330, y: 250,
+      hp: 500, maxHp: 500, speed: 0, r: 14, dmg: 0,
+    } as any;
+    const servant = {
+      kind: "normal", species: "skeleton", spriteFrame: 0, summonType: "skeleton",
+      summonSkill: "Raise Skeleton", x: 180, y: 250, hp: 100, maxHp: 100,
+      speed: 60, r: 12, dmg: 10,
+    } as any;
+    component.enemies = [monster, servant];
+    (component as any).rebuildEnemyGrid();
+
+    (component as any).castActiveTeleport({ x: 330, y: 250 }, monster);
+
+    // Telestomp: every servant shares the caster's sub-tile and locks the target.
+    expect(servant.x).toBe(component.playerX);
+    expect(servant.y).toBe(component.playerY);
+    expect(servant.summonLockedTarget).toBe(monster);
+  });
+
+  it("sizes a block animation by class, Holy Shield and Faster Block Rate", () => {
+    component.selectedClass = "sorceress";
+    expect(component.playerBlockFrames).toBe(9);
+    component.selectedClass = "necromancer";
+    expect(component.playerBlockFrames).toBe(9);
+    component.selectedClass = "paladin";
+    expect(component.playerBlockFrames).toBe(5);
+
+    // Holy Shield alone is the classic anti-block-lock: two frames.
+    (component as any).holyShieldRemaining = 10;
+    expect(component.playerBlockFrames).toBe(2);
+
+    // 86% FBR is the last breakpoint on the ladder: a single frame.
+    component.equipment.shield = {
+      id: "storm", name: "Storm Shield", slot: "shield", rarity: "unique",
+      stats: { fasterBlockRatePercent: 86 },
+    } as any;
+    expect(component.playerBlockFrames).toBe(1);
+    expect((component as any).equipmentStatTotal("fasterBlockRatePercent")).toBe(86);
+  });
+
+  it("locks the hero out for the block animation when a shield stops the blow", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.playerHp = 1000;
+    (component as any).playerMaxHp = 1000;
+    component.equipment.shield = {
+      id: "storm", name: "Storm Shield", baseName: "Storm Shield", slot: "armor",
+      equipmentType: "shield", rarity: "unique",
+      stats: { increasedBlockPercent: 40, fasterBlockRatePercent: 86 },
+    } as any;
+    const attacker = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 50, maxHp: 50, speed: 0, r: 14, dmg: 20,
+    } as any;
+    component.enemies = [attacker];
+    const coop = component as any;
+    coop.accuracyRoll = () => 0;
+    coop.blockRoll = () => 0;
+    spyOn(coop, "actualBlockChance").and.returnValue(75);
+
+    const dealt = coop.applyIncomingDamage(100, attacker, "melee", "physical");
+
+    expect(dealt).toBe(0);
+    expect(component.playerHp).toBe(1000);
+    // One frame of FBR-scaled block is a 0.04s lockout, not a free avoidance roll.
+    expect(coop.playerBlockRemaining).toBeCloseTo(1 / 25, 5);
+    expect(coop.playerMoveX).toBe(0);
+  });
+
+  it("refuses a cast and a step while blocked, then lets the hero go", () => {
+    component.selectedClass = "sorceress";
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Fire Bolt"];
+    component.skillLevels = { "Fire Bolt": 1 };
+    component.attackProjectiles = [];
+    const manaBefore = component.playerMana;
+    const coop = component as any;
+
+    coop.applyHeroBlock(9);
+    expect(coop.playerBlockRemaining).toBeCloseTo(9 / 25, 5);
+
+    component.activateOwnedSkill("Fire Bolt");
+    expect(component.attackProjectiles).toHaveSize(0);
+    expect(component.playerMana).toBe(manaBefore);
+
+    coop.keysDown.add("d");
+    coop.movePlayer(16);
+    expect(coop.playerMoveX).toBe(0);
+
+    // The animation runs out and the hero takes commands again.
+    for (let frame = 0; frame < 40; frame += 1) coop.movePlayer(16);
+    expect(coop.playerBlockRemaining).toBe(0);
+  });
+
+  it("staggers the hero only for blows over a sixteenth of maximum life", () => {
+    component.selectedClass = "barbarian";
+    component.equipment.weapon = null;
+    component.equipment.shield = null;
+    component.playerHp = 1000;
+    (component as any).playerMaxHp = 1000;
+    const coop = component as any;
+
+    // 40 of 1000 is under the 62.5 threshold: damage, but no stagger.
+    coop.applyIncomingDamage(40);
+    expect(coop.playerHitRecoveryRemaining).toBe(0);
+
+    coop.applyIncomingDamage(300);
+    expect(coop.playerHitRecoveryRemaining).toBeCloseTo(8 / 25, 5);
+
+    // Whirlwind cannot be staggered out of its animation.
+    coop.playerHitRecoveryRemaining = 0;
+    coop.whirlwindOverlayRemaining = 1;
+    coop.applyIncomingDamage(300);
+    expect(coop.playerHitRecoveryRemaining).toBe(0);
+
+    // An airborne Leap is uninterruptible too.
+    coop.whirlwindOverlayRemaining = 0;
+    coop.playerLeapRemaining = 1;
+    coop.applyIncomingDamage(300);
+    expect(coop.playerHitRecoveryRemaining).toBe(0);
+  });
+
+  it("does not let Evade sidestep an area effect", () => {
+    component.selectedClass = "amazon";
+    component.skillLevels = { Evade: 20, Dodge: 20, Avoid: 20 };
+    spyOn(Math, "random").and.returnValue(0);
+
+    // Area damage has no attack to sidestep, so no D/A/E layer applies.
+    expect((component as any).rollAmazonDodge("area")).toBeNull();
+  });
+
+  it("keeps monsters dormant until a hero comes inside their aggro radius", () => {
+    component.runActive = true;
+    component.playerX = 250;
+    component.playerY = 250;
+    const far = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 900, y: 250,
+      hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+    } as any;
+    component.enemies = [far];
+    (component as any).rebuildEnemyGrid();
+
+    component.updateEnemies(500);
+    expect(far.awake).toBeFalsy();
+    expect(far.x).toBe(900);
+
+    // Stepping inside the radius rouses it and it comes for the hero.
+    far.x = 500;
+    component.updateEnemies(500);
+    expect(far.awake).toBeTrue();
+    expect(far.x).toBeLessThan(500);
+  });
+
+  it("alerts the rest of the pack when one monster wakes", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const first = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 5,
+    } as any;
+    // 330 units from the hero: dormant on its own, but 180 from its packmate.
+    const mate = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 580, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 6, cd: 5,
+    } as any;
+    component.enemies = [first, mate];
+    (component as any).rebuildEnemyGrid();
+
+    component.updateEnemies(16);
+
+    expect(first.awake).toBeTrue();
+    expect(mate.awake).toBeTrue();
+  });
+
+  it("wakes a monster the moment it takes damage", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const far = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 900, y: 250,
+      hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+    } as any;
+    component.enemies = [far];
+    (component as any).rebuildEnemyGrid();
+
+    (component as any).queueEnemyDamage(far, 10, "#fff");
+
+    expect(far.awake).toBeTrue();
+  });
+
+  it("holds a blinded monster still until the hero is right beside it", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const blinded = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250,
+      hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+      curseName: "Dim Vision", curseRemaining: 10,
+    } as any;
+    component.enemies = [blinded];
+
+    // 150 units away is inside a normal aggro radius, but Dim Vision blinds it.
+    component.updateEnemies(500);
+    expect(blinded.awake).toBeFalsy();
+    expect(blinded.x).toBe(400);
+  });
+
+  it("breaks a fallen pack's nerve when one of them dies", () => {
+    component.playerX = 250;
+    component.playerY = 250;
+    const victim = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 10, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+    } as any;
+    const mate = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 330, y: 250,
+      hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
+    } as any;
+    component.enemies = [victim, mate];
+    (component as any).rebuildEnemyGrid();
+    // The morale check fails.
+    spyOn(Math, "random").and.returnValue(0);
+
+    (component as any).queueEnemyDamage(victim, 500, "#fff");
+    (component as any).flushPendingDamage();
+
+    expect(victim.hp).toBeLessThanOrEqual(0);
+    expect(mate.fearRemaining).toBeGreaterThan(0);
+  });
+
+  it("pulses a damaging aura on the 50-frame clock and the rest every second", () => {
+    const coop = component as any;
+    expect(coop.paladinAuraPulseInterval("Holy Fire")).toBe(2);
+    expect(coop.paladinAuraPulseInterval("Holy Shock")).toBe(2);
+    expect(coop.paladinAuraPulseInterval("Conviction")).toBe(1);
+    expect(coop.paladinAuraPulseInterval("Prayer")).toBe(1);
+  });
+
+  it("snaps a teleport out of a wall onto the nearest walkable sub-tile", () => {
+    const blocked = new Uint8Array(500 * 500);
+    for (let y = 0; y < 500; y += 1) {
+      for (let x = 300; x <= 340; x += 1) blocked[y * 500 + x] = 1;
+    }
+    spyOn(component as any, "projectArenaPoint").and.callFake((x: number, y: number) => ({ x, y }));
+    spyOn(component as any, "campaignCollisionContext").and.returnValue({
+      mask: { width: 500, height: 500, blocked },
+      geometry: { scale: 1, width: 500, height: 500, left: 0, top: 0 },
+      wraps: false,
+      clearance: 4,
+      blocksSight: true,
+      edgeBlocks: true,
+    } as any);
+    component.playerX = 250;
+    component.playerY = 250;
+
+    const landing = (component as any).teleportLanding(320, 250);
+
+    expect(landing).toBeTruthy();
+    // The cursor sat inside the wall; the landing is the nearest clear ground.
+    // Clear of the wall band, on the near side of it the ring search reached.
+    expect(landing.x > 340 || landing.x < 300).toBeTrue();
+    expect((component as any).campaignBlockedSamples(
+      (component as any).campaignCollisionContext(), landing.x, landing.y,
+    )).toBe(0);
+
+    // A lone solid spot with nothing walkable near it refuses the warp.
+    expect((component as any).teleportLanding(2500, 2500)).toBeFalsy();
+  });
+
+  it("warps onto the monster a name-locked teleport holds", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    const named = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 300, y: 250,
+      hp: 40, maxHp: 40, speed: 0, r: 14, dmg: 0,
+    } as any;
+    component.enemies = [named];
+
+    (component as any).castActiveTeleport(undefined, named);
+
+    // Telestomp: the bodies share the sub-tile the monster stood on.
+    expect(Math.hypot(named.x - component.playerX, named.y - component.playerY)).toBeLessThan(2);
+  });
+
+  it("swings instead of charging when the target is already too close", () => {
+    component.selectedClass = "paladin";
+    component.playerX = 250;
+    component.playerY = 250;
+    component.ownedSkills = ["Charge"];
+    component.skillLevels = { Charge: 1 };
+    component.equipment.shield = { name: "Buckler", baseName: "Buckler", slot: "armor", equipmentType: "shield" } as any;
+    component.playerMana = 500;
+    component.playerMaxMana = 500;
+    const close = {
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 266, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 2,
+    } as any;
+    component.enemies = [close];
+    (component as any).clickMoveTarget = close;
+    const swing = spyOn(component as any, "attackNearestEnemy");
+
+    component.activateOwnedSkill("Charge");
+
+    // No room to build speed: D2 falls back to a normal attack.
+    expect((component as any).playerChargeRemaining).toBe(0);
+    expect(swing).toHaveBeenCalledWith(close);
+  });
+
+  it("cuts on Whirlwind's check frames, one monster each, and never the far ones", () => {
     component.selectedClass = "barbarian";
     component.ownedSkills = ["Whirlwind"];
     component.skillLevels = { Whirlwind: 1 };
@@ -5122,12 +6368,24 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.enemies = [near, behind, far];
 
     component.activateOwnedSkill("Whirlwind");
+    const coop = component as any;
 
-    // The rank-one table cuts at half a normal blow, but it hits both sides.
-    expect((component as any).pendingDamage.get(near)?.damage ?? 0).toBeGreaterThan(0);
-    expect((component as any).pendingDamage.get(behind)?.damage ?? 0).toBeGreaterThan(0);
-    expect((component as any).pendingDamage.get(far)).toBeUndefined();
-    expect((component as any).whirlwindOverlayRemaining).toBeGreaterThan(0);
+    // No instant sweep: the first cut waits for frame 4 of the spin.
+    expect(coop.pendingDamage.get(near)).toBeUndefined();
+    expect(coop.pendingDamage.get(behind)).toBeUndefined();
+    expect(coop.whirlwindOverlayRemaining).toBeGreaterThan(0);
+
+    spyOn(Math, "random").and.returnValues(0, 0);
+    coop.advanceWhirlwindChecks(0.16);
+    expect(coop.whirlwindCheckCount).toBe(1);
+    // One body per check frame: the wheel does not cut the whole crowd at once.
+    expect(coop.pendingDamage.size).toBe(1);
+    expect(coop.pendingDamage.get(far)).toBeUndefined();
+
+    coop.advanceWhirlwindChecks(0.16);
+    expect(coop.whirlwindCheckCount).toBe(2);
+    expect(coop.pendingDamage.size).toBe(2);
+    expect(coop.pendingDamage.get(far)).toBeUndefined();
   });
 
   it("whirls to the clicked floor and keeps spinning while the button is held", () => {
@@ -6393,7 +7651,12 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     // levels past rank 1, and soft points count towards that level.
     const expectations: Array<[number, number]> = [[1, 5], [5, 6], [10, 7], [20, 9], [30, 11]];
     for (const [rank, targets] of expectations) {
-      for (const enemy of enemies) enemy.hp = 100;
+      for (const enemy of enemies) {
+        enemy.hp = 100;
+        // Each rank is a fresh cast on its own timeline, so no NextDelay tag is
+        // left over from the previous one.
+        enemy.nextDelayUntil = undefined;
+      }
       component.skillLevels = { "Chain Lightning": rank };
       (component as any).skillCastCooldowns = {};
       component.attackProjectiles = [];
@@ -12514,9 +13777,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     component.activateOwnedSkill("Blizzard", target);
     const storms = (component as any).playerBlizzards;
     expect(storms).toHaveSize(2);
-    // 68.5 damage per second over four seconds, split across 24 shards.
-    expect(storms[0].damagePerShard).toBeCloseTo(68.5 * 4 / 24, 5);
-    expect(storms[1].damagePerShard).toBeCloseTo(68.5 * 4 / 24, 5);
+    // 68.5 damage per second over four seconds, split across 25 shards.
+    expect(storms[0].damagePerShard).toBeCloseTo(68.5 * 4 / 25, 5);
+    expect(storms[1].damagePerShard).toBeCloseTo(68.5 * 4 / 25, 5);
   });
 
   it("keeps one cold armor up and answers the attacks each one covers", () => {
@@ -13517,6 +14780,32 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attributePointsRemaining).toBe(0);
     component.spendAttributePoint("strength");
     expect(component.spentAttributes[0]).toBe(1);
+  });
+
+  it("spends a point from the character sheet's own + button", () => {
+    component.runActive = true;
+    component.playerLevel = 2;
+    component.spentAttributes = [0, 0, 0, 0];
+    fixture.detectChanges();
+
+    // One button per attribute, each a real target beside its row.
+    const buttons = Array.from(
+      fixture.nativeElement.querySelectorAll(".d2s-attribute-spend"),
+    ) as HTMLButtonElement[];
+    expect(buttons).toHaveSize(4);
+    const dexterity = component.attributeDexterity;
+
+    buttons[1].click();
+    fixture.detectChanges();
+
+    expect(component.spentAttributes[1]).toBe(1);
+    expect(component.attributeDexterity).toBe(dexterity + 1);
+    expect(component.attributePointsRemaining).toBe(4);
+    // The sheet row redraws with the new number, not just the model.
+    const rows = fixture.nativeElement.querySelectorAll(
+      ".d2s-attribute-stats .d2s-stat-line",
+    ) as NodeListOf<HTMLElement>;
+    expect(rows[1].querySelector("b")!.textContent).toContain(String(component.attributeDexterity));
   });
 
   it("credits the level-up with both skill and attribute points", () => {
@@ -14861,6 +16150,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).rebuildEnemyGrid();
 
     component.activateOwnedSkill("Frost Nova");
+    // The nova's bolts travel: the hit lands once the ring reaches the monster.
+    (component as any).updateNovaRingHits(1);
     (component as any).flushPendingDamage();
 
     // 3 cold from the Frost Nova table, 25% harder from the helm's Energy.
@@ -15776,6 +17067,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       kind: "normal", species: "leaper", spriteFrame: 0, x: 700, y: 250,
       hp: 100, maxHp: 100, speed: 80, r: 14, dmg: 6, cd: 2,
       animationState: "idle", facingX: -1, facingY: 0,
+      // Already roused: this spec measures the chase, not the awareness check.
+      awake: true,
     } as any;
 
     const speed = (component as any).enemyMoveSpeed(leaper);
@@ -15798,6 +17091,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
       kind: "normal", species: "sandMaggot", spriteFrame: 0, x: 700, y: 250,
       hp: 100, maxHp: 100, speed: 120, r: 14, dmg: 6, cd: 0,
       burrowCooldown: 99, eggCooldown: 0, animationState: "idle", facingX: -1, facingY: 0,
+      // Already roused: this spec measures the crawl, not the awareness check.
+      awake: true,
     } as any;
     component.enemies = [maggot];
 
@@ -15950,6 +17245,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     (component as any).cycloneArmorRemaining = duration;
     const shielded = (component as any).applyIncomingDamage(100, undefined, "melee", "cold");
     expect(shielded).toBeLessThan(unshielded);
+    // Those artificial blows are heavy enough to stagger the hero now, which is
+    // its own lockout: clear it so the recast logic below is what is measured.
+    (component as any).playerHitRecoveryRemaining = 0;
 
     // The hero's hands are free again: the cast animation had finished.
     (component as any).playerAttackLockRemaining = 0;
@@ -15985,6 +17283,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
 
     const baseArmor = component.equippedArmor;
     const baseDamage = (component as any).applyIncomingDamage(100);
+    // The probe blow staggers the hero; a staggered hero cannot start a cast.
+    (component as any).playerHitRecoveryRemaining = 0;
     component.activateOwnedSkill("Holy Shield");
 
     expect((component as any).holyShieldRemaining).toBe(30);
@@ -15992,6 +17292,9 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.enemies[0].hp).toBe(100);
     expect(component.equippedArmor).toBe(baseArmor + 25);
     expect((component as any).applyIncomingDamage(100)).toBeLessThan(baseDamage);
+    // That second probe staggers the hero again; clear it before asking the
+    // auto-caster to put the buff back up.
+    (component as any).playerHitRecoveryRemaining = 0;
 
     (component as any).updateSkillVisualEffects(30_100);
     expect((component as any).holyShieldRemaining).toBe(0);
@@ -16855,6 +18158,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "queueEnemyDamage").and.callFake((enemy: any) => hits.push(enemy));
 
     component.activateOwnedSkill("Frost Nova");
+    // The bolts travel: the hits land as the ring reaches each monster.
+    (component as any).updateNovaRingHits(1);
 
     expect(hits).toContain(inside);
     expect(hits).toContain(edge);
@@ -17213,34 +18518,62 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     expect(component.attackProjectiles).toHaveSize(0);
     expect(storms).toHaveSize(1);
     expect(storms[0].x).toBe(400);
-    expect(storms[0].shards).toHaveSize(24);
-    expect(storms[0].duration).toBe(2.4);
+    expect(storms[0].shards).toHaveSize(25);
+    expect(storms[0].duration).toBe(4);
   });
 
-  it("damages and chills every monster inside the Blizzard storm", () => {
+  it("spawns one shard every four frames on a rolled sub-tile of its grid", () => {
     component.selectedClass = "sorceress";
     component.playerX = 250;
     component.playerY = 250;
     component.ownedSkills = ["Blizzard"];
     component.skillLevels = { Blizzard: 1 };
-    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
-    const nearby = { ...primary, x: 450 };
-    const outside = { ...primary, x: 600 };
-    component.enemies = [primary, nearby, outside];
-    component.attackProjectiles = [];
+    component.enemies = [{
+      kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250,
+      hp: 100, maxHp: 100, speed: 0, r: 14, dmg: 0,
+    } as any];
     (component as any).rebuildEnemyGrid();
+    (component as any).playerBlizzards.length = 0;
 
     component.activateOwnedSkill("Blizzard");
+
+    const storm = (component as any).playerBlizzards[0] as any;
+    expect(storm.shards).toHaveSize(25);
+    expect(storm.duration).toBe(4);
+    // The 100-frame spawner drops a shard every four frames.
+    expect(storm.shards[1].delay - storm.shards[0].delay).toBeCloseTo(4 / 25, 5);
+    // The grid is rolled rather than laid out on a spiral, so no two shards share
+    // a sub-tile and every one lands inside the 11x11 square.
+    const spots = new Set(storm.shards.map((shard: any) => `${Math.round(shard.x)},${Math.round(shard.y)}`));
+    expect(spots.size).toBeGreaterThan(20);
+    for (const shard of storm.shards) {
+      expect(Math.abs(shard.x - storm.x)).toBeLessThanOrEqual(66.001);
+      expect(Math.abs(shard.y - storm.y)).toBeLessThanOrEqual(66.001);
+    }
+  });
+
+  it("hits only the sub-tiles a Blizzard shard lands on", () => {
+    component.selectedClass = "sorceress";
+    component.playerX = 250;
+    component.playerY = 250;
+    const primary = { kind: "normal", species: "fallen", spriteFrame: 0, x: 400, y: 250, hp: 100, maxHp: 100, speed: 100, r: 14, dmg: 2 } as any;
+    const nearby = { ...primary, x: 450 };
+    component.enemies = [primary, nearby];
     (component as any).rebuildEnemyGrid();
-    (component as any).updatePlayerBlizzards(2);
+    // One shard falling squarely on the primary: its 3x3 patch is the whole check.
+    (component as any).playerBlizzards = [{
+      x: 400, y: 250, time: 0.5, duration: 4, radius: 110, damagePerShard: 10, seed: 0,
+      shards: [{ x: 400, y: 250, delay: 0.2, fallArt: "a", impactArt: "b", hit: false }],
+    }];
+
+    (component as any).updatePlayerBlizzards(0.16);
     (component as any).flushPendingDamage();
 
     expect(primary.hp).toBeLessThan(100);
-    expect(nearby.hp).toBeLessThan(100);
-    expect(outside.hp).toBe(100);
     expect(primary.coldRemaining).toBeGreaterThan(0);
-    expect(nearby.coldRemaining).toBeGreaterThan(0);
-    expect(outside.coldRemaining).toBeUndefined();
+    // Fifty units away is outside the shard's patch, however wide the storm looks.
+    expect(nearby.hp).toBe(100);
+    expect(nearby.coldRemaining).toBeUndefined();
   });
 
   it("draws Blizzard with the original falling-shard and impact cels", () => {
@@ -18310,6 +19643,8 @@ describe("D2SurvivorsComponent combat and equipment", () => {
     spyOn(component as any, "queueEnemyDamage").and.callFake((enemy: any) => hits.push(enemy));
 
     component.activateOwnedSkill("Nova");
+    // Nova is a ring of bolts: the damage lands as the ring reaches the monster.
+    (component as any).updateNovaRingHits(1);
 
     expect(hits).toContain(inside);
     expect(hits).not.toContain(outside);

@@ -13,44 +13,44 @@ export interface WarcryVoiceLine {
 
 export const WARCRY_VOICE_LINES: Record<string, WarcryVoiceLine[]> = {
   "Shout": [
-    { path: "assets/d2survivors/audio/voice/barbarian/shout1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/shout2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/shout3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/shout1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/shout2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/shout3.ogg" },
   ],
   "Howl": [
-    { path: "assets/d2survivors/audio/voice/barbarian/howl1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/howl2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/howl3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/howl1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/howl2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/howl3.ogg" },
   ],
   "Taunt": [
-    { path: "assets/d2survivors/audio/voice/barbarian/taunt1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/taunt2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/taunt3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/taunt1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/taunt2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/taunt3.ogg" },
   ],
   "Battle Cry": [
-    { path: "assets/d2survivors/audio/voice/barbarian/battlecry1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/battlecry2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/battlecry3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/battlecry1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/battlecry2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/battlecry3.ogg" },
   ],
   "Battle Orders": [
-    { path: "assets/d2survivors/audio/voice/barbarian/order1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/order2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/order3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/order1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/order2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/order3.ogg" },
   ],
   "Battle Command": [
-    { path: "assets/d2survivors/audio/voice/barbarian/command1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/command2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/command3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/command1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/command2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/command3.ogg" },
   ],
   "War Cry": [
-    { path: "assets/d2survivors/audio/voice/barbarian/warcry1.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/warcry2.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/warcry3.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/warcry1.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/warcry2.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/warcry3.ogg" },
   ],
   "Grim Ward": [
-    { path: "assets/d2survivors/audio/voice/barbarian/grimward3.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/grimward4.flac" },
-    { path: "assets/d2survivors/audio/voice/barbarian/grimward5.flac" },
+    { path: "assets/d2survivors/audio/voice/barbarian/grimward3.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/grimward4.ogg" },
+    { path: "assets/d2survivors/audio/voice/barbarian/grimward5.ogg" },
   ]
 };
 

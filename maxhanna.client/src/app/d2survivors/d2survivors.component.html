@@ -429,14 +429,28 @@
           <div class="d2s-orb-text"><strong>Mana</strong><span>{{ playerMana | number:'1.0-0' }} / {{ effectivePlayerMaxMana }}</span></div>
         </div>
       </div>
-      <div class="d2s-act-banner" [class.portal-open]="actPortalOpen" aria-label="Campaign act">
-        <span>ACT {{ currentAct }} / 5</span>
-        <strong>{{ currentActDetails.region }}</strong>
-        <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
-        <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
-        <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
-        <small class="d2s-act-portal-message" *ngIf="actPortalOpen; else actBossLine" role="status">Walk into the red portal to {{ actPortalLead }}</small>
-        <ng-template #actBossLine><small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small></ng-template>
+      <div class="d2s-top-left">
+        <div class="d2s-act-banner" [class.portal-open]="actPortalOpen" aria-label="Campaign act">
+          <span>ACT {{ currentAct }} / 5</span>
+          <strong>{{ currentActDetails.region }}</strong>
+          <small>{{ currentArea.name }} · Area level {{ currentArea.level }}</small>
+          <small class="d2s-campaign-area-name">{{ currentActDetails.name }}</small>
+          <span class="d2s-act-progress" role="progressbar" [attr.aria-valuenow]="actProgress" aria-valuemin="0" aria-valuemax="100" aria-label="Time until the act boss arrives"><i [style.width.%]="actProgress"></i></span>
+          <small class="d2s-act-portal-message" *ngIf="actPortalOpen; else actBossLine" role="status">Walk into the red portal to {{ actPortalLead }}</small>
+          <ng-template #actBossLine><small>{{ actBossSpawned ? 'Boss battle' : (actMinionClearPrompt || ('Area boss in ' + (actSecondsRemaining | number:'1.0-0') + 's')) }}</small></ng-template>
+        </div>
+        <div class="d2s-party-frames" *ngIf="coopPlayers.length" aria-label="Heroes sharing this area">
+          <div class="d2s-party-frame" *ngFor="let player of coopPlayers; trackBy: trackByCoopPlayer" [attr.title]="player.name + ' · ' + coopPlayerClassName(player.classId) + ' · Level ' + player.level">
+            <span class="d2s-party-portrait">
+              <img [src]="coopPortraitPath(player.classId)" alt="" aria-hidden="true" draggable="false" />
+              <span class="d2s-party-life" aria-hidden="true"><i [style.transform]="'scaleX(' + coopPlayerLifeFill(player) + ')'"></i></span>
+            </span>
+            <span class="d2s-party-name">
+              <strong>{{ player.name }}</strong>
+              <small>{{ coopPlayerClassName(player.classId) }} · Level {{ player.level }}</small>
+            </span>
+          </div>
+        </div>
       </div>
       <div class="d2s-act-transition" *ngIf="actTransitionReady && !actPortalOpen" role="dialog" aria-modal="true" aria-labelledby="d2s-act-transition-title">
         <section><p>ACT {{ currentAct }} CLEARED</p><h2 id="d2s-act-transition-title">{{ currentActDetails.name }}</h2><p>The way forward is open. Your wounds partially mend.</p><button type="button" class="d2s-menu-button primary" (click)="openActPortal()"><span>Open the red portal</span></button></section>
@@ -532,7 +546,7 @@
               <span>{{ attribute.name }}</span>
               <b>{{ attribute.value }}<small *ngIf="attribute.gear"> (+{{ attribute.gear }})</small><small class="d2s-stat-preview" *ngIf="getPreviewItemStatDelta(attribute.key) as attributeDelta" [class.negative]="attributeDelta < 0"> {{ formatItemStatDelta(attributeDelta) }} {{ attribute.name.slice(0, 3).toLowerCase() }}</small></b>
               <button *ngIf="attributePointsRemaining > 0" type="button" class="d2s-attribute-spend"
-                (click)="spendAttributePoint(attribute.key)"
+                (click)="$event.stopPropagation(); spendAttributePoint(attribute.key)"
                 [attr.title]="'Spend 1 of ' + attributePointsRemaining + ' attribute points on ' + attribute.name"
                 [attr.aria-label]="'Spend an attribute point on ' + attribute.name">+</button>
             </div>
@@ -775,8 +789,7 @@
         <img
           class="d2s-loading-strip"
           [src]="loadingScreenArt.path"
-          [style.animation-duration.s]="loadingScreenArt.frames / loadingScreenArt.frameRate"
-          [style.animation-timing-function]="'steps(' + loadingScreenArt.frames + ', end)'"
+          [style.transform]="loadingScreenStripOffset"
           alt="" />
       </div>
       <span class="d2s-loading-track" aria-hidden="true"><i [style.transform]="'scaleX(' + assetsLoadingProgress + ')'"></i></span>

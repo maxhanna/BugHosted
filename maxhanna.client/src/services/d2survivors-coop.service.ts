@@ -15,7 +15,56 @@ export interface CoopPlayerState {
   hpFraction: number;
   /** The hero's current clip, so a guest can pose the other player. */
   animation: string;
+  /** Worn gear as JSON: weapon, helmet and shield, for dressing the model. */
+  look?: string;
+  /** The servants this hero has raised, so neighbours can draw them too. */
+  summons?: CoopSummonState[];
   sentAt: number;
+}
+
+/** One servant of one hero, reported with that hero's presence. */
+export interface CoopSummonState {
+  /** Stable slot on the owner's side, so a neighbour can tell servants apart. */
+  key: number;
+  species: string;
+  skill?: string | null;
+  element?: string | null;
+  name?: string | null;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  r: number;
+  facingX: number;
+  facingY: number;
+  animation: string;
+  attack: number;
+}
+
+/** A cast's missile as a flyable picture: replayed with no damage in it. */
+export interface CoopCastShot {
+  x: number;
+  y: number;
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  missileId?: string | null;
+  skill?: string | null;
+  kind: string;
+  color: string;
+  speed: number;
+  life: number;
+  age: number;
+  radius: number;
+  artScale?: number | null;
+  sourceOnlyArt: boolean;
+  cold: boolean;
+  damageType?: string | null;
+  impactRadius?: number | null;
+  impactX?: number | null;
+  impactY?: number | null;
+  impactDuration?: number | null;
 }
 
 /** A monster the zone's host has placed; guests build the same one. */
@@ -33,13 +82,22 @@ export interface CoopMonsterSpawn {
   elite: boolean;
 }
 
-export interface CoopMonsterState {
+/**
+ * The hub's authoritative picture of one monster: where it stands, how hurt it
+ * is, which way it faces and how far into a swing it is. Every guest replays
+ * these, so no screen walks a monster on its own.
+ */
+export interface CoopMonsterPose {
   id: number;
-  hp: number;
-  maxHp: number;
   x: number;
   y: number;
+  hp: number;
+  maxHp: number;
   animation: string;
+  facingX: number;
+  facingY: number;
+  /** Seconds left in the monster's current attack swing. */
+  attack: number;
 }
 
 /** An item lying on the shared zone floor. */
@@ -56,6 +114,9 @@ export interface CoopZoneSnapshot {
   hostConnectionId: string;
   connectionId: string;
   players: CoopPlayerState[];
+  /** The zone's monsters, so a hero walking in draws them at once. */
+  monsters?: CoopMonsterSpawn[];
+  poses?: CoopMonsterPose[];
 }
 
 export type CoopEvent =
@@ -64,18 +125,22 @@ export type CoopEvent =
   | { type: 'left'; connectionId: string }
   | { type: 'host'; hostConnectionId: string }
   | { type: 'monstersSpawned'; monsters: CoopMonsterSpawn[] }
-  | { type: 'monsterStates'; states: CoopMonsterState[] }
+  | { type: 'monsterPoses'; poses: CoopMonsterPose[]; at: number }
+  | { type: 'resyncRequested'; connectionId: string }
   | { type: 'monstersRemoved'; ids: number[] }
   | { type: 'monsterDamaged'; id: number; amount: number }
   | { type: 'lootAdded'; drops: CoopLootAdd[] }
   | { type: 'lootRemoved'; itemIds: string[] }
   | { type: 'lootTaken'; itemId: string }
-  | { type: 'lootDropped'; drop: CoopLootAdd };
+  | { type: 'lootDropped'; drop: CoopLootAdd }
+  | { type: 'castShots'; from: string; shots: CoopCastShot[] };
 
 /**
  * The co-op session for Diablo II: Survivors. Every hero in the same zone joins
  * one hub group; the hub relays presence, the zone host's monster roster and
- * the loot lying on the floor. The hub never simulates the game, and it has no
+ * the loot lying on the floor. The hub also keeps the zone's monster roster and
+ * each monster's latest pose, so every guest stands them in the same place; the
+ * host reports those poses and the hub hands them out. It has no
  * player-versus-player message: another hero can only ever be seen.
  */
 @Injectable({ providedIn: 'root' })
@@ -122,7 +187,10 @@ export class D2SurvivorsCoopService implements OnDestroy {
           this.events$.next({ type: 'host', hostConnectionId: connectionId });
         });
         hub.on('MonstersSpawned', (monsters: CoopMonsterSpawn[]) => this.events$.next({ type: 'monstersSpawned', monsters }));
-        hub.on('MonsterStates', (states: CoopMonsterState[]) => this.events$.next({ type: 'monsterStates', states }));
+        hub.on('MonsterPoses', (poses: CoopMonsterPose[], at: number) =>
+          this.events$.next({ type: 'monsterPoses', poses, at }));
+        // A neighbour asked for the truth: tell the zone's host to dump its state now.
+        hub.on('ResyncRequested', (connectionId: string) => this.events$.next({ type: 'resyncRequested', connectionId }));
         hub.on('MonstersRemoved', (ids: number[]) => this.events$.next({ type: 'monstersRemoved', ids }));
         hub.on('MonsterDamaged', (hit: { id: number; amount: number }) =>
           this.events$.next({ type: 'monsterDamaged', id: hit.id, amount: hit.amount }));
@@ -131,6 +199,8 @@ export class D2SurvivorsCoopService implements OnDestroy {
         hub.on('LootTakenByGuest', (taken: { itemId: string }) =>
           this.events$.next({ type: 'lootTaken', itemId: taken.itemId }));
         hub.on('LootDroppedByGuest', (drop: CoopLootAdd) => this.events$.next({ type: 'lootDropped', drop }));
+        hub.on('CastShots', (from: string, shots: CoopCastShot[]) =>
+          this.events$.next({ type: 'castShots', from, shots }));
         hub.onreconnected(() => {
           this.connectionId = hub.connectionId ?? '';
           // Rejoining re-syncs presence and hands back whatever the zone holds.
@@ -167,6 +237,10 @@ export class D2SurvivorsCoopService implements OnDestroy {
       this.events$.next({ type: 'joined', player });
     }
     this.events$.next({ type: 'host', hostConnectionId: snapshot.hostConnectionId });
+    // The hub's roster is the zone's truth, so its monsters are drawn at once
+    // instead of waiting for the host's next report.
+    if (snapshot.monsters?.length) this.events$.next({ type: 'monstersSpawned', monsters: snapshot.monsters });
+    if (snapshot.poses?.length) this.events$.next({ type: 'monsterPoses', poses: snapshot.poses, at: 0 });
   }
 
   /** Enters a zone: everything standing in it is handed back in the snapshot. */
@@ -205,8 +279,13 @@ export class D2SurvivorsCoopService implements OnDestroy {
     this.send('MonsterSpawned', zone, monsters);
   }
 
-  monsterStates(zone: string, states: CoopMonsterState[]): void {
-    this.send('MonsterStates', zone, states);
+  monsterPoses(zone: string, poses: CoopMonsterPose[]): void {
+    this.send('MonsterStates', zone, poses);
+  }
+
+  /** Ask the hub for the zone's authoritative roster and poses right away. */
+  requestResync(zone: string): void {
+    this.send('RequestResync', zone);
   }
 
   monsterRemoved(zone: string, ids: number[]): void {
@@ -231,6 +310,10 @@ export class D2SurvivorsCoopService implements OnDestroy {
 
   lootDropped(zone: string, drop: CoopLootAdd): void {
     this.send('LootDropped', zone, drop);
+  }
+
+  castShots(zone: string, shots: CoopCastShot[]): void {
+    this.send('CastShots', zone, shots);
   }
 
   private send(method: string, ...args: unknown[]): void {

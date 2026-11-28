@@ -3,14 +3,17 @@
 The D2R extract keeps an NPC's barks under ``data/local/sfx/act<N>/<npc>/`` and
 their subtitle text under the same key in ``data/local/lng/strings/vo.json``.
 Only keys whose file name is the string key are used, so every quote here is
-exactly the line Gheed says in the recording. This copies those barks into the
-client assets and writes ``d2-gheed-voice.ts`` with the matching text.
+exactly the line Gheed says in the recording. Each bark is re-encoded to the
+client's small mono Ogg/Opus format (``d2r_voice_encode.py``) and written into
+the client assets, and ``d2-gheed-voice.ts`` carries the matching text.
 """
 
 import json
 import os
 import re
-import shutil
+from pathlib import Path
+
+from d2r_voice_encode import ENCODED_SUFFIX, build_take, drop_stale_flacs
 
 EXTRACT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "d2", "d2r extract", "data", "local")
 EXTRACT = os.path.abspath(EXTRACT)
@@ -51,12 +54,12 @@ def main():
             raise SystemExit("missing subtitle text for " + key)
         if not os.path.isfile(source):
             raise SystemExit("missing voice file " + source)
-        shutil.copyfile(source, os.path.join(VOICE_DIR, key + ".flac"))
+        build_take(Path(source), Path(VOICE_DIR) / (key + ENCODED_SUFFIX))
         lines.append((key, text))
 
     body = "\n".join(
         '  { path: %s, text: %s },'
-        % (json.dumps("assets/d2survivors/audio/voice/gheed/%s.flac" % key), json.dumps(text, ensure_ascii=False))
+        % (json.dumps("assets/d2survivors/audio/voice/gheed/%s%s" % (key, ENCODED_SUFFIX)), json.dumps(text, ensure_ascii=False))
         for key, text in lines
     )
 
@@ -94,7 +97,10 @@ export function randomGheedVoiceLine(random: () => number = Math.random): GheedV
     with open(OUT_FILE, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(source)
 
-    print("copied", len(lines), "files")
+    removed = drop_stale_flacs(Path(VOICE_DIR))
+    if removed:
+        print("removed", removed, "lossless leftover(s)")
+    print("encoded", len(lines), "files")
     for key, text in lines:
         print("  ", key, "->", text)
 

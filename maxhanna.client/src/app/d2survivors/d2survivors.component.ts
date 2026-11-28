@@ -13,10 +13,11 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkinnedModel } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Subscription } from "rxjs";
 import { D2LeaderboardEntry, D2LobbyMessage, D2RecordCharacterRequest, D2SurvivorsService } from "../../services/d2survivors.service";
 import { User } from "../../services/datacontracts/user/user";
-import { CoopEvent, CoopLootAdd, CoopMonsterSpawn, CoopMonsterState, CoopPlayerState, D2SurvivorsCoopService } from "../../services/d2survivors-coop.service";
+import { CoopCastShot, CoopEvent, CoopLootAdd, CoopMonsterPose, CoopMonsterSpawn, CoopPlayerState, CoopSummonState, D2SurvivorsCoopService } from "../../services/d2survivors-coop.service";
 import { UserEventService } from "../../services/user-event.service";
 import { D2_WORLDS_BY_AREA, type D2WorldEntry } from "./d2-worlds.generated";
 import { D2_LOADING_SCREEN } from "./d2-loading-screen.generated";
@@ -385,8 +386,13 @@ const MEPHISTO_BLIZZARD_COOLDOWN = 3.2;
 // Player Blizzard is a 24-shard rain over the target pack, using the original
 // ice-storm fall and impact cels.
 const PLAYER_BLIZZARD_RADIUS = 110;
-const PLAYER_BLIZZARD_DURATION = 2.4;
-const PLAYER_BLIZZARD_SHARDS = 24;
+// D2's Blizzard is a four-second spawner: one shard lands every four frames
+// on a random sub-tile inside an 11x11 grid, so its snow is not a sure hit.
+const PLAYER_BLIZZARD_DURATION = 4;
+const PLAYER_BLIZZARD_SHARDS = 25;
+const PLAYER_BLIZZARD_SHARD_INTERVAL = 4 / 25;
+const PLAYER_BLIZZARD_SHARD_SPAN = 66;
+const PLAYER_BLIZZARD_SHARD_RADIUS = 20;
 const PLAYER_BLIZZARD_FALL_SECONDS = 0.34;
 const PLAYER_BLIZZARD_IMPACT_SECONDS = 0.42;
 const PLAYER_BLIZZARD_FALL_ART = [
@@ -536,9 +542,6 @@ interface MiniBossSchedule {
 // halfway mark of the act; Nihlathak waits until two thirds of the way to Baal.
 /** How long the hero's spoken line stays on screen, in seconds. */
 const HERO_SPEECH_SECONDS = 6;
-/** How long Gheed's greeting stays in his shop, in seconds. */
-const GHEED_SPEECH_SECONDS = 4;
-
 const MINI_BOSSES: Partial<Record<number, MiniBossSchedule>> = {
   2: { species: "sandMaggotQueen", time: ACT_BOSS_TIME_SECONDS / 2, announcement: "THE SAND MAGGOT QUEEN SURFACES", color: "#e6c168", health: 110, damage: 5, radius: 22, speed: 62 },
   5: { species: "nihlathak", time: 90, announcement: "NIHLATHAK APPEARS", color: "#a9d8ff", health: 90, damage: 5, radius: 20, speed: 74 },
@@ -859,6 +862,8 @@ const ENERGY_SHIELD_ABSORB_BY_RANK = [
 const ENERGY_SHIELD_DURATION_BY_RANK = Array.from({ length: 20 }, (_, index) => 144 + index * 60);
 const LIGHTNING_MASTERY_BY_RANK = Array.from({ length: 20 }, (_, index) => 50 + index * 12);
 const TELEPORT_RANGE = 320;
+// How far the landing search looks outward from a cursor buried in a wall.
+const TELEPORT_SNAP_SEARCH = 180;
 
 // Druid elemental tree, from the guidebook tables. Firestorm, Arctic Blast,
 // Fissure and Molten Boulder's trail columns are per second.
@@ -914,6 +919,8 @@ const HURRICANE_DAMAGE_BY_RANK: [number, number][] = [
 ];
 const HURRICANE_BASE_SECONDS = 10;
 const HURRICANE_RADIUS_YARDS = 6;
+// Hurricane is a mobile radial scan on a 20-frame clock (0.8 s per hit).
+const HURRICANE_TICK_SECONDS = 20 / 25;
 const ARMAGEDDON_DAMAGE_BY_RANK: [number, number][] = [
   [25, 75], [40, 91], [55, 107], [70, 123], [85, 139], [100, 155],
   [115, 171], [130, 187], [150, 209], [170, 231], [190, 253], [210, 275],
@@ -1286,6 +1293,72 @@ const CHARGE_BASE_STUN_SECONDS = 1.2;
 const CHARGE_STUN_SECONDS_PER_RANK = 0.08;
 const CHARGE_MAX_STUN_SECONDS = 2.2;
 const CHARGE_FRONT_DOT = 0.2;
+// D2's NextDelay families, measured in 25 fps frames. While a monster carries
+// one of these, every other NextDelay hit passes harmlessly through it.
+const NEXT_DELAY_SHORT_SECONDS = 4 / 25;
+const NEXT_DELAY_LONG_SECONDS = 25 / 25;
+const NEXT_DELAY_SHORT_SKILLS = new Set([
+  "Nova", "Frost Nova", "Shock Web", "Wake of Fire", "Twister", "Tornado",
+  "Strafe", "Multiple Shot", "Multishot", "Lightning Strike", "Chain Lightning",
+  "Lightning Fury",
+]);
+const NEXT_DELAY_LONG_SKILLS = new Set(["Battle Cry", "War Cry", "Plague Javelin", "Poison Nova"]);
+// Eight frames of Hit Recovery, the guide's ordinary-monster recovery.
+const HIT_RECOVERY_SECONDS = 8 / 25;
+// D2 arrows pierce at most four bodies, so one missile can strike five.
+const MAX_PIERCE_TARGETS = 5;
+// D2R decouples its renderer from the 25 fps simulation by walking remote
+// bodies into every new snapshot. Past this gap the mirror stops smoothing
+// and snaps instead: that is what a resync looks like on screen.
+const COOP_PLAYER_BLEND_RATE = 16;
+const COOP_PLAYER_SNAP_DISTANCE = 200;
+// D2 casts a Nova as evenly spaced bolts flying out of the caster, so the
+// damage lands as the ring reaches each monster and a small body at the very
+// edge can pass between two bolts.
+const NOVA_RING_BOLTS = 32;
+const NOVA_RING_SPEED = 380;
+// D2's servant AI runs on a decision clock. A melee swing is 11 frames and is
+// followed by a 15-frame AI Delay, so a full cycle is the guide's 26 frames.
+const SUMMON_ATTACK_ANIMATION_SECONDS = 11 / 25;
+const SUMMON_AI_DELAY_SECONDS = 15 / 25;
+// Leash: a servant left this far behind is warped to a walkable spot beside
+// the hero rather than being abandoned (or, in legacy D2, deleted).
+const SUMMON_LEASH_DISTANCE = 430;
+const SUMMON_LEASH_LANDING_RADIUS = 34;
+// Ground servants hold their own sub-tiles; the ones with a gap between them.
+const SUMMON_BODY_GAP = 2;
+// Blocking is an animation, not a free avoidance roll: its frames are a
+// lockout. These are D2's base block lengths per class, before Faster Block
+// Rate (the same diminishing-returns ladder as FCR/FHR) shortens them.
+const BLOCK_FRAMES_SORCERESS = 9;
+const BLOCK_FRAMES_NECROMANCER = 9;
+const BLOCK_FRAMES_AMAZON = 6;
+const BLOCK_FRAMES_BARBARIAN = 6;
+const BLOCK_FRAMES_DRUID = 6;
+const BLOCK_FRAMES_ASSASSIN = 7;
+const BLOCK_FRAMES_PALADIN = 5;
+const BLOCK_FRAMES_PALADIN_HOLY_SHIELD = 2;
+// Weapon Block uses a fixed two-frame animation and ignores FBR entirely.
+const WEAPON_BLOCK_FRAMES = 2;
+const FBR_BREAKPOINTS = [0, 7, 15, 27, 48, 86, 152];
+// Hit Recovery is checked only after every avoidance layer failed, and only
+// for a blow worth more than a sixteenth of maximum life.
+const PLAYER_HIT_RECOVERY_SHARE = 1 / 16;
+const PLAYER_HIT_RECOVERY_SECONDS = 8 / 25;
+// Monsters spawn dormant and wake when a hostile unit comes close with a clear
+// line, shouting the rest of their pack awake at the same time.
+const MONSTER_AGGRO_RADIUS = 320;
+const PACK_ALERT_RADIUS = 200;
+// Pack morale: a Fallen whose neighbour dies usually breaks and runs.
+const FALLEN_MORALE_RADIUS = 200;
+const FALLEN_MORALE_FAIL_CHANCE = 0.6;
+const FALLEN_FLEE_SECONDS = 2.5;
+const FALLEN_SPECIES = new Set<EnemySpecies>(["fallen", "fetish", "boneFetish", "vileChild"]);
+// Charge needs room to build speed: inside roughly three sub-tiles the skill
+// cannot start and the paladin swings a normal attack instead.
+const CHARGE_MIN_DISTANCE = 42;
+// The shove a landed charge puts on an ordinary monster, in world units.
+const CHARGE_KNOCKBACK = 24;
 // Blessed Hammer is a short-lived spiral: it starts beside the paladin and
 // drifts outward from that cast point while its six cels spin, rather than
 // flying at a target or following the paladin after the cast.
@@ -1454,6 +1527,13 @@ const WHIRLWIND_SPIN_SECONDS = 0.7;
 // A held right button keeps the spin going: every whirl pays the skill's mana
 // again on this cadence, so the orb - not the cast cooldown - is what ends it.
 const WHIRLWIND_HOLD_INTERVAL = 0.45;
+// Whirlwind's hit-checks sit on the 25 fps clock: frames 4 and 8 are fixed at
+// any weapon speed, then the checks follow the swing's own cadence, floored at
+// four frames (0.16 s) the way maximum IAS reaches it in D2.
+const WHIRLWIND_CHECK_FIRST_SECONDS = 0.16;
+const WHIRLWIND_CHECK_SECOND_SECONDS = 0.32;
+const WHIRLWIND_CHECK_FLOOR_SECONDS = 0.16;
+const WHIRLWIND_CHECK_CEILING_SECONDS = 0.4;
 // Whirlwind carries the barbarian toward the point he named at running speed.
 const WHIRLWIND_DASH_SPEED = PLAYER_BASE_MOVE_SPEED;
 // One spin chases a click for this long at most, so a far click cannot drag the
@@ -2828,6 +2908,10 @@ const VIGOR_BASE_DURATION_SECONDS = 8;
 const VIGOR_DURATION_PER_RANK_SECONDS = 2;
 // Defensive aura tables. The arena keeps the warcry scale of 20 units to a
 // D2 yard, so a radius column reads straight across.
+// Every damaging aura pulses on D2's 50-frame (2.0 s) clock instead of once per
+// second. The tick tables hold the guidebook's per-pulse figures.
+const PALADIN_AURA_PULSE_SECONDS = 2;
+const PALADIN_AURA_DAMAGING_SKILLS = new Set(["Holy Fire", "Holy Freeze", "Holy Shock", "Sanctuary"]);
 const PALADIN_AURA_PX_PER_YARD = 20;
 const PALADIN_AURA_RADIUS_LONG_YARDS = [10.6, 12, 13.3, 14.6, 16, 17.3, 18.6, 20, 21.3, 22.6, 24, 25.3, 26.6, 28, 29.3, 30.6, 32, 33.3, 34.6, 36];
 const PALADIN_AURA_RADIUS_SHORT_YARDS = [7.3, 8.6, 10, 11.3, 12.6, 14, 15.3, 16.6, 18, 19.3, 20.6, 22, 23.3, 24.6, 26, 27.3, 28.3, 30, 31.3, 32.6];
@@ -3215,6 +3299,8 @@ const CLICK_PURSUIT_MOVEMENT_SKILLS = new Set([
 
 /** The floor-click route is precise but tolerates the final path cell's centre. */
 const CLICK_GROUND_ARRIVAL_DISTANCE = 3;
+/** How long a button must stay down before it repeats as a held attack. */
+const HOLD_SWEEP_DELAY_MS = 220;
 const CLICK_GROUND_REPATH_SECONDS = 0.35;
 const CLICK_GROUND_CELL_SIZE = 8;
 const CLICK_GROUND_MAX_CELLS = 140;
@@ -3700,7 +3786,7 @@ const D2_STAT_TOOLTIPS: Record<D2StatTooltipKey, { title: string; description: s
   },
   attackRating: {
     title: "Attack Rating",
-    description: "Chance-to-hit rating from level, Dexterity and gear. Survivor mode resolves basic hits automatically, so this figure is shown for item parity and future accuracy checks.",
+    description: "Chance-to-hit rating from level, Dexterity and gear. Melee swings roll this rating against the monster's Defense and both levels, and the line below names the last monster you swung at with its chance to hit.",
   },
   damage: {
     title: "Damage",
@@ -3747,6 +3833,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Measured tooltip box, invalidated whenever the panel is rebuilt. */
   private skillTooltipSize?: { width: number; height: number };
   hoveredStatTooltip: { title: string; description: string; lines: D2StatTooltipLine[]; x: number; y: number } | null = null;
+  /**
+   * The monster this hero last swung at, kept as a snapshot so the character
+   * sheet's Attack Rating hover can still name it once it has died and been
+   * cleared off the arena.
+   */
+  private lastAttackedTarget: { name: string; defense: number; level: number } | null = null;
   private skillTooltipHideTimeout?: number;
   private readonly d2SurvivorsService = inject(D2SurvivorsService);
   private readonly coopService = inject(D2SurvivorsCoopService);
@@ -3848,11 +3940,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * of it.
    */
   private heldAttackTarget: { enemy: Enemy; hand: "basic" | "secondary" } | null = null;
+  /** D2R's Force Move: while held, a click is a raw coordinate order. */
+  private forceMoveHeld = false;
+  /** A walking order held back until the hero's recovery frames finish. */
+  private forceMoveBuffer: { x: number; y: number } | null = null;
+  /** The pointer over the battlefield, for casting at the cursor by hotkey. */
+  private cursorWorldPoint: { x: number; y: number } | null = null;
+  /** The quick-cast hotkey being held, so it repeats at the skill's breakpoint. */
+  private quickCastHeldKey: number | null = null;
+  private quickCastRepeatAcc = 0;
   /** Which mouse button is down over the battlefield: 0 left, 2 right. */
   private heldMouseButton: 0 | 2 | null = null;
   /** A left press that started on bare floor keeps steering while it is held. */
   private heldGroundSteer = false;
   private heldGroundSteerAt = 0;
+  /** When the current button went down, so a click is not read as a hold. */
+  private heldMouseSince = 0;
   /** True when the right-button press already cast at the floor it hit. */
   private groundCastHandled = false;
   private clickLootTarget: { radius: number; source: GoldDrop | PotionDrop | ItemDrop } | null = null;
@@ -3926,6 +4029,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** The floor spot a held right button keeps spinning at. */
   private heldWhirlwindGround: { x: number; y: number } | null = null;
   private whirlwindHoldCooldown = 0;
+  /** Seconds since the spin's last hit-check, and how many have run. */
+  private whirlwindCheckAcc = 0;
+  private whirlwindCheckCount = 0;
   private readonly combatEffectImages = new Map<string, HTMLImageElement>();
   private readonly activePaladinAuras: Record<string, { remaining: number; tick: number }> = {};
   private hydraGroupSequence = 0;
@@ -3944,6 +4050,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Cyclone Armor's flat elemental absorb pool. */
   private cycloneArmorAbsorptionRemaining = 0;
   /** Hurricane is a storm that follows the druid. */
+  /** Nova/Frost Nova bolts still in flight, each due when its ring reaches it. */
+  private novaRingHits: Array<{
+    enemy: Enemy;
+    at: number;
+    damage: number;
+    color: string;
+    damageType: EnemyDamageType;
+    chillSeconds: number;
+    nextDelaySeconds: number;
+  }> = [];
+  private novaRingClock = 0;
   private hurricaneRemaining = 0;
   private hurricaneDamagePerSecond = 0;
   private hurricaneTickRemaining = 0;
@@ -3954,6 +4071,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private boneArmorAbsorptionRemaining = 0;
   private cycloneArmorRemaining = 0;
   private holyShieldRemaining = 0;
+  /** Seconds left in a block animation: the hero cannot act during it. */
+  private playerBlockRemaining = 0;
+  /** Seconds left of a damage-forced hit recovery. */
+  private playerHitRecoveryRemaining = 0;
   private blazeRemaining = 0;
   private blazeDropRemaining = 0;
   private blazeDamagePerTick = 0;
@@ -4154,6 +4275,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private menuHeroLastPointerX = 0;
   menuHeroDragging = false;
   private previewRenderer?: THREE.WebGLRenderer;
+  /** Keeps the preview's buffer and camera on the panel's real size, not a stale
+   *  measurement taken while the subpanel was still opening. */
+  private classPreviewResizeObserver?: ResizeObserver;
   private previewScene?: THREE.Scene;
   private previewCamera?: THREE.PerspectiveCamera;
   previewModel?: THREE.Group;
@@ -4802,6 +4926,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** How fast the running attack clip plays: attack speed, or cast rate for a cast. */
   private attackAnimationRate = 1;
   private attackSequence = 0;
+  /** One id per Multiple Shot/Strafe volley; its arrows share a hit list. */
+  private volleySequence = 1;
+  private volleyHits = new Map<number, Set<Enemy>>();
   private zealStrikeTarget?: Enemy;
   private zealStrikeRemaining = 0;
   private zealStrikeTimer = 0;
@@ -4945,9 +5072,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   heroSpeech: { speaker: string; text: string } | null = null;
   private heroSpeechTimer: number | null = null;
   private heroVoiceAudio: HTMLAudioElement | null = null;
-  /** Gheed's greeting for this visit to his shop. */
+  /** Gheed's greeting for this visit to his shop; it stays while the shop is open. */
   gheedSpeech: string | null = null;
-  private gheedSpeechTimer: number | null = null;
   private gheedVoiceAudio: HTMLAudioElement | null = null;
   /** The coin take every sale rattles; D2 plays it whenever gold changes hands. */
   private goldSoundAudio: HTMLAudioElement | null = null;
@@ -5050,6 +5176,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.releaseCampaignWorldsExcept(entry?.slug);
     // A walk order made on the old map points into ground that no longer exists.
     this.clearClickMoveCommands();
+    // The monster named on the Attack Rating hover belonged to the last area.
+    this.lastAttackedTarget = null;
     // The loot left behind was lying on the old map's tiles, so it goes with
     // it: items, gold piles and potions alike.
     this.itemDrops = [];
@@ -8948,6 +9076,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       fillLight.position.set(150, 130, -140);
       this.previewScene.add(fillLight);
       this.resizeClassPreview();
+      // The panel can still be settling when the preview first measures it, which
+      // left the first hero (the barbarian) drawn with a wider aspect than the
+      // rest. Watching the canvas resizes it whenever the frame actually moves.
+      this.classPreviewResizeObserver?.disconnect();
+      this.classPreviewResizeObserver = new ResizeObserver(() => this.resizeClassPreview());
+      this.classPreviewResizeObserver.observe(canvas);
       this.loadPreviewModel();
       this.previewLastFrameAt = performance.now();
       this.animateClassPreview(this.previewLastFrameAt);
@@ -8958,6 +9092,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   private stopClassPreview(): void {
+    this.classPreviewResizeObserver?.disconnect();
+    this.classPreviewResizeObserver = undefined;
     if (this.previewFrameId) {
       cancelAnimationFrame(this.previewFrameId);
       this.previewFrameId = 0;
@@ -9359,6 +9495,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   // ---- Co-op: the other heroes sharing this zone -------------------------
   /** Heroes the hub reports standing in this zone, drawn beside the player. */
   coopPlayers: CoopPlayerView[] = [];
+  /** The hub's last authoritative spot for each neighbour; the draw walks to it. */
+  private coopPlayerTargets = new Map<string, { x: number; y: number }>();
   private coopSubscription: Subscription | null = null;
   /** The zone this hero currently shares, e.g. `A1:Cold Plains`. */
   private coopZone: string | null = null;
@@ -9367,6 +9505,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private coopSendAcc = 0;
   private coopSyncAcc = 0;
   private coopNextMonsterId = 1;
+  /** One real character model per hero standing in this zone. */
+  private remoteHeroes = new Map<string, RemoteHero>();
+  /** One loaded, textured class model that every hero of that class clones. */
+  private remoteClassSources = new Map<string, Promise<THREE.Group | null>>();
+  private remoteHeroPending = new Set<string>();
+  /** Neighbours' servants, keyed by owner and slot: drawn, never simulated. */
+  private remoteSummons = new Map<string, Enemy>();
+  private remoteSummonMirrors = new Map<string, {
+    x: number; y: number; hp: number; maxHp: number;
+    animation: string; facingX: number; facingY: number; attack: number; at: number;
+  }>();
+  /** Projectiles already weighed for the cast relay, so none is sent twice. */
+  private coopSentShots = new Set<AttackProjectile>();
+  /**
+   * The zone's last authoritative report on each monster. A guest replays the
+   * newest report and carries it forward with the velocity the previous report
+   * implies, so a monster stands where the server says it does on every screen
+   * instead of easing into place a few steps behind.
+   */
+  private coopMonsterMirror = new Map<number, {
+    fromX: number; fromY: number; toX: number; toY: number;
+    vx: number; vy: number; interval: number; sampledAt: number;
+    hp: number; maxHp: number;
+    animation: string; facingX: number; facingY: number; attack: number;
+  }>();
   private coopAnnouncedMonsters = new Set<number>();
   private coopAnnouncedLoot = new Set<string>();
   private readonly itemDropArt = new Map<string, HTMLImageElement>();
@@ -9769,6 +9932,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.sanctuaryGold -= offer.cost;
     this.playerGold = Math.max(0, this.playerGold - offer.cost);
     this.shopMessage = `${item.name} purchased and added to ${this.selectedClassName}'s pack.`;
+    // The coins leave the purse, so they rattle on the way out too.
+    this.playGoldSound();
     this.persistRunProgress(true);
   }
 
@@ -10760,8 +10925,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       && !this.campaignVictory && this.playerLeapRemaining <= 0) {
       this.updateHoveredEnemy(event);
       this.updateHoveredGroundPickup(event);
+      const pressCursor = this.arenaWorldPointAt(event.clientX, event.clientY);
+      if (pressCursor) this.cursorWorldPoint = pressCursor;
       this.heldMouseButton = 0;
       this.heldGroundSteer = false;
+      this.heldMouseSince = performance.now();
       if (event.shiftKey) {
         // Diablo II's shift-click: attack in place toward the pointer instead of
         // walking there. The basic-attack spell fires at the clicked spot; a
@@ -10770,6 +10938,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (shiftWorld) {
           this.clearClickMoveCommands();
           this.attackTowardPoint(shiftWorld.x, shiftWorld.y);
+          event.preventDefault();
+          return;
+        }
+      }
+      if (this.forceMoveHeld) {
+        // Force Move skips the monster and interactable checks: no name-lock,
+        // no loot walk, no portal walk, just the sub-tile under the cursor.
+        const forced = this.arenaWorldPointAt(event.clientX, event.clientY);
+        if (forced) {
+          this.forceMoveOrder(forced.x, forced.y);
           event.preventDefault();
           return;
         }
@@ -10816,8 +10994,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       && !this.skillTreeOpen && !(this.actTransitionReady && !this.actPortalOpen)
       && !this.campaignVictory && this.playerLeapRemaining <= 0) {
       this.updateHoveredEnemy(event);
+      const rightCursor = this.arenaWorldPointAt(event.clientX, event.clientY);
+      if (rightCursor) this.cursorWorldPoint = rightCursor;
       this.heldMouseButton = 2;
       this.heldGroundSteer = false;
+      this.heldMouseSince = performance.now();
       const named = this.hoveredEnemy;
       if (named) {
         const distance = Math.hypot(named.x - this.playerX, named.y - this.playerY) || 1;
@@ -10926,12 +11107,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.updateHoveredPortal(event);
       // A held left button keeps re-aiming the walk at the cursor instead of
       // walking to the first spot it was pressed on.
+      const cursor = this.arenaWorldPointAt(event.clientX, event.clientY);
+      if (cursor) this.cursorWorldPoint = cursor;
       if (this.heldMouseButton === 0 && this.heldGroundSteer) {
         const now = performance.now();
         if (now - this.heldGroundSteerAt >= 80) {
           this.heldGroundSteerAt = now;
-          const world = this.arenaWorldPointAt(event.clientX, event.clientY);
-          if (world) this.startClickGroundMove(world.x, world.y);
+          if (cursor) {
+            // Force Move keeps steering as a bare coordinate order.
+            if (this.forceMoveHeld) this.forceMoveOrder(cursor.x, cursor.y);
+            else this.startClickGroundMove(cursor.x, cursor.y);
+          }
         }
       }
     }
@@ -11302,6 +11488,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
+      return;
+    }
+    if (key === "e") {
+      event.preventDefault();
+      this.forceMoveHeld = true;
+      return;
+    }
+    // D2's forced resync. W is movement here, so the verification pulse lives on V.
+    if (key === "v") {
+      event.preventDefault();
+      this.coopForceResync();
       return;
     }
     if (key === " " || key === "j" || key === "f") {
@@ -11743,6 +11940,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private releaseMovementKey(event: KeyboardEvent): void {
     const key = event.key?.toLowerCase();
     if (key) this.keysDown.delete(key);
+    if (key === "e") {
+      // Letting go ends the hold cleanly: no entity was ever named, so there is
+      // no chase to drag the hero on toward.
+      this.forceMoveHeld = false;
+      this.forceMoveBuffer = null;
+    }
+    if (key && /^f([1-8])$/.test(key)) this.quickCastHeldKey = null;
     if (key === "alt") this.altLootLabelsHeld = false;
   }
 
@@ -11798,7 +12002,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // mouse button once the picker is closed.
       if (this.escapeMenuOpen || this.inventoryOpen || this.skillTreeOpen) return;
       event.preventDefault();
-      this.handleAttackSlotKey(Number(functionKey[1]));
+      // Shift keeps the classic behaviour: equip the binding on right click.
+      this.handleAttackSlotKey(Number(functionKey[1]), event.shiftKey);
       return;
     }
     if (key === "alt") {
@@ -11841,6 +12046,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key)) {
       event.preventDefault();
       this.keysDown.add(key);
+      return;
+    }
+    if (key === "e") {
+      // Force Move: hold E to walk by coordinate only, whatever is under the
+      // pointer.
+      event.preventDefault();
+      this.forceMoveHeld = true;
       return;
     }
     if (![" ", "j", "f"].includes(key)) return;
@@ -12152,12 +12364,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const flatGear = this.equipmentStatTotal("attackRating") + this.equipmentStatTotal("attackRatingPerLevel") * this.playerLevel;
     const base = 20 + dexterity * 5 + this.playerLevel * 2;
     const percent = Math.min(1_000, this.equipmentStatTotal("attackRatingPercent") + this.equipmentStatTotal("attackRatingPercentPerLevel") * this.playerLevel);
-    return [
+    const lines = [
       this.statTooltipLine("Level & Dexterity", `${base}`),
       this.statTooltipLine("Gear & charms", `+${Math.round(flatGear)}`),
       this.statTooltipLine("Bonus to Attack Rating", `+${Math.round(percent)}%`),
       this.statTooltipLine("Total Attack Rating", `${this.inventoryAttackRating}`, true),
     ];
+    const target = this.lastAttackedTarget;
+    if (target) {
+      // The rating's own verdict, rolled exactly as the melee swing rolls it
+      // against the monster the hero last attacked.
+      const chance = this.chanceToHitPercent(
+        this.inventoryAttackRating, target.defense, this.playerLevel, target.level,
+      );
+      lines.push(this.statTooltipLine(`Chance to hit ${target.name}`, `${Math.round(chance)}%`));
+    }
+    return lines;
   }
 
   private damageStatTooltipLines(): D2StatTooltipLine[] {
@@ -15203,7 +15425,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
    * closed they drop that spell straight onto the right mouse button, which is
    * how a player swaps between two attacks without opening the list.
    */
-  private handleAttackSlotKey(keyNumber: number): void {
+  private handleAttackSlotKey(keyNumber: number, classic = false): void {
     if (this.basicAttackPickerOpen) {
       const pointed = this.basicAttackPickerHoveredSkill;
       if (!pointed) return;
@@ -15215,8 +15437,123 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const bound = this.attackSlotKeyBinds[keyNumber];
     if (!bound) return;
     const skill = bound === this.basicAttackName ? null : bound;
-    this.selectAttackSpellForSlot("secondary", skill);
-    this.announceAttackSlot(`${skill ?? this.basicAttackName} on right click`);
+    if (classic) {
+      // Classic skill swapping: the hotkey only re-assigns the pointer.
+      this.selectAttackSpellForSlot("secondary", skill);
+      this.announceAttackSlot(`${skill ?? this.basicAttackName} on right click`);
+      return;
+    }
+    // Quick Cast: the hotkey alone fires the skill and the slot it was on stays
+    // equipped. Holding it keeps casting at the skill's own breakpoint.
+    this.quickCastHeldKey = keyNumber;
+    this.quickCastRepeatAcc = 0;
+    this.quickCastBoundSkill(skill);
+  }
+
+  /**
+   * D2R's quick-cast macro: remember the equipped right hand, put the hotkey's
+   * skill on it for the one turn the cast takes, then hand the old skill back.
+   * A left-click style binding (the plain weapon attack) is a stand-still order
+   * at the cursor, the Shift flag D2R injects for those skills.
+   */
+  private quickCastBoundSkill(skill: string | null): void {
+    const point = this.cursorWorldPoint;
+    if (!point) return;
+    const distance = Math.hypot(point.x - this.playerX, point.y - this.playerY) || 1;
+    this.playerFacingX = (point.x - this.playerX) / distance;
+    this.playerFacingY = (point.y - this.playerY) / distance;
+    // A cast is an order to stand and fire, so the walk it interrupts is dropped
+    // and only buffered back if Force Move is still held. A hotkey that turns out
+    // to have nothing to cast hands that walk straight back below.
+    const walkTarget = this.clickGroundTarget
+      ? { x: this.clickGroundTarget.x, y: this.clickGroundTarget.y }
+      : null;
+    const walkPath = this.clickGroundPath.map((waypoint) => ({ x: waypoint.x, y: waypoint.y }));
+    this.clearClickMoveCommands();
+    if (!skill) {
+      this.attackTowardPoint(point.x, point.y);
+      this.bufferForceMoveAfterCast();
+      return;
+    }
+    if (this.playerLeapRemaining > 0) return;
+    const previous = this.secondaryAttackSpell;
+    this.secondaryAttackSpell = skill;
+    let fired = false;
+    try {
+      fired = this.tryAttackSlotSpell(
+        "secondary",
+        this.hoveredEnemy ?? undefined,
+        this.hoveredEnemy ? undefined : point,
+      );
+    } finally {
+      // Restored as the animation starts, so an aura never drops for longer
+      // than the one tick the cast took.
+      this.secondaryAttackSpell = previous;
+    }
+    if (fired) {
+      this.bufferForceMoveAfterCast();
+      return;
+    }
+    // No mana, still recovering, nothing in reach: the walk the hotkey
+    // interrupted is restored instead of leaving the hero planted.
+    if (walkTarget && !this.forceMoveHeld) {
+      this.clickGroundTarget = walkTarget;
+      this.clickGroundPath = walkPath;
+    }
+  }
+
+  /** Repeats a held quick cast at the skill's breakpoint, as D2R does. */
+  private repeatQuickCast(dt: number): void {
+    if (this.quickCastHeldKey === null) return;
+    this.quickCastRepeatAcc += dt;
+    if (this.quickCastRepeatAcc < 60) return;
+    this.quickCastRepeatAcc = 0;
+    const bound = this.attackSlotKeyBinds[this.quickCastHeldKey];
+    if (!bound) return;
+    this.quickCastBoundSkill(bound === this.basicAttackName ? null : bound);
+  }
+
+  /** Stutter-step: a cast made while Force Move is held resumes the walk. */
+  private bufferForceMoveAfterCast(): void {
+    if (!this.forceMoveHeld) return;
+    const point = this.cursorWorldPoint;
+    if (point) this.forceMoveBuffer = { x: point.x, y: point.y };
+  }
+
+  /**
+   * Force Move: a raw move to the cursor's sub-tile. Nothing under the pointer
+   * is named or walked to, and an order given mid-swing waits for the recovery
+   * frames instead of cancelling the swing.
+   */
+  private forceMoveOrder(worldX: number, worldY: number): void {
+    this.clickMoveTarget = null;
+    this.clickLootTarget = null;
+    this.heldAttackTarget = null;
+    this.clickedPortalTone = null;
+    if (this.playerLeapRemaining > 0) return;
+    this.cursorWorldPoint = { x: worldX, y: worldY };
+    if (this.playerAttackLockRemaining > 0) {
+      // The swing owns the hero until its recovery frames finish; the walk is
+      // buffered and runs on the first free frame, so no reaction time is wasted
+      // between them.
+      this.forceMoveBuffer = { x: worldX, y: worldY };
+      this.heldGroundSteer = true;
+      return;
+    }
+    this.forceMoveBuffer = null;
+    this.startClickGroundMove(worldX, worldY);
+    this.heldGroundSteer = true;
+  }
+
+  /** Runs the buffered Force Move order once the hero is free again. */
+  private consumeForceMoveBuffer(): void {
+    if (!this.forceMoveBuffer) return;
+    // Only the recovery clock gates the order: the stance lock is released by the
+    // move itself once it starts, exactly as a normal floor click releases it.
+    if (this.playerAttackLockRemaining > 0 || this.playerLeapRemaining > 0) return;
+    const target = this.forceMoveBuffer;
+    this.forceMoveBuffer = null;
+    this.startClickGroundMove(target.x, target.y);
   }
 
   private announceAttackSlot(text: string): void {
@@ -15284,6 +15621,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // `quiet` marks the automatic caster, which exists for touch play alone; on
     // a desktop its attempts must never become casts.
     if (quiet && !this.spellsAutoCastOnDevice) return;
+    // Block lock and hit recovery refuse a cast outright: no mana is spent.
+    if (this.playerBlockRemaining > 0 || this.playerHitRecoveryRemaining > 0) return;
     if (!this.canUseSkill(skill)) return;
     // A frozen hero is fully encased in ice, not merely slowed.
     if (this.playerFrozenRemaining > 0) return;
@@ -15291,7 +15630,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Sorceress to the clicked spot (or away from the nearest monster).
     if (skill === "Teleport" && this.selectedClass === "sorceress") {
       if (!this.paySkillManaCost(skill, quiet)) return;
-      this.castActiveTeleport(groundPoint);
+      this.castActiveTeleport(groundPoint, preferred);
       this.playSkillSound(skill);
       this.triggerAttackAnimation("sorceressCast");
       return;
@@ -15853,9 +16192,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const boltRange = Math.hypot(this.arenaW, this.arenaH);
       // Keep the fan's width fixed and let extra bolts thicken it, so a high-rank
       // volley does not turn into a shotgun blast across half the screen.
-      const fanStep = isChargedBolt ? 0.48 / Math.max(1, boltCount - 1) : 0;
+      // Fanning: a click close to the hero opens the cone across the screen,
+      // a click at the view's edge compresses it into a narrow beam.
+      const fanScale = this.castFanScale(distance);
+      const fanStep = isChargedBolt ? 0.48 * fanScale / Math.max(1, boltCount - 1) : 0;
+      // Every arrow of one release shares a volley id, so the engine can stop
+      // two of them from damaging the same monster.
+      const volleyId = multishotArrows !== undefined ? this.volleySequence++ : undefined;
       for (let index = 0; index < boltCount; index += 1) {
-        const spread = (index - (boltCount - 1) / 2) * (skill === "Teeth" ? 0.14 : 13);
+        const spread = (index - (boltCount - 1) / 2) * (skill === "Teeth" ? 0.14 * fanScale : 13);
         const rayX = skill === "Teeth" ? this.playerFacingX + perpendicularX * spread : 0;
         const rayY = skill === "Teeth" ? this.playerFacingY + perpendicularY * spread : 0;
         const rayLength = Math.hypot(rayX, rayY) || 1;
@@ -15893,6 +16238,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           teethFan: skill === "Teeth" ? spread : undefined,
           teethDirectionX: skill === "Teeth" ? this.playerFacingX : undefined,
           teethDirectionY: skill === "Teeth" ? this.playerFacingY : undefined,
+          volleyId,
           speed: isTornado ? TORNADO_SPEED
             : isChargedBolt ? CHARGED_BOLT_PROJECTILE_SPEED
             : skill === "Teeth" ? 700
@@ -16202,6 +16548,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** Diablo II's loading cel, played over a run until its art is in cache. */
   loadingScreenActive = false;
   readonly loadingScreenArt = D2_LOADING_SCREEN;
+
+  /**
+   * The cel is a strip of ten cels of a gate opening. It used to loop on a CSS
+   * keyframe; now it is scrubbed by the run's own preload, so a run opens the
+   * gate exactly once, in step with the track filling under it.
+   */
+  get loadingScreenStripOffset(): string {
+    const frames = this.loadingScreenArt.frames;
+    const frame = Math.min(frames - 1, Math.floor(this.assetsLoadingProgress * frames));
+    return `translateX(${-frame * 100 / frames}%)`;
+  }
 
   /**
    * Warm only what the front end itself shows. Class models, their textures,
@@ -17827,7 +18184,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           activeAura.tick -= seconds;
           if (activeAura.tick <= 0) {
             this.applyPaladinAuraTick(skill);
-            activeAura.tick = 1;
+            activeAura.tick = this.paladinAuraPulseInterval(skill);
           }
           if (activeAura.remaining <= 0) {
             delete this.activePaladinAuras[skill];
@@ -17908,7 +18265,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   /** The distance at which click-to-move hands the clicked monster to combat. */
   private clickedTargetStopDistance(target: Enemy): number {
     const rangedRange = this.rangedBasicAttackRange;
-    return rangedRange > 0 ? rangedRange - 8 : this.meleeReachAgainst(target) - 4;
+    // The walk stops exactly at the weapon's sub-tile reach, so the swing that
+    // follows is inside range on its action frame.
+    return rangedRange > 0 ? rangedRange - 8 : this.meleeReachAgainst(target);
   }
 
   /**
@@ -18374,7 +18733,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       // A button held down keeps the hand working at whatever is already in
       // reach, the way Diablo II sweeps a pack. A walk order owns the frame
       // instead, so holding the floor still moves the hero.
-      if (!heldHand || this.clickGroundTarget || this.clickMoveTarget || this.clickLootTarget) return false;
+      // A click already resolved its own action (a right click fires at the
+      // pointer once). Only a button still down after that press counts as a
+      // hold, so one click never swings a second time.
+      if (!heldHand || performance.now() - this.heldMouseSince < HOLD_SWEEP_DELAY_MS) return false;
+      if (this.clickGroundTarget || this.clickMoveTarget || this.clickLootTarget) return false;
       const reachable = this.nearestEnemyInReach(heldHand);
       if (!reachable) return false;
       if (this.attackCooldown > 0 || this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return true;
@@ -18595,6 +18958,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   attackNearestEnemy(preferred?: Enemy): void {
     if (!this.runActive || this.attackCooldown > 0 || this.enemies.length === 0) return;
+    if (this.playerBlockRemaining > 0 || this.playerHitRecoveryRemaining > 0) return;
     if (this.playerLeapRemaining > 0) return;
     if (this.playerFrozenRemaining > 0) return;
     if (this.playerRunning) return;
@@ -18853,6 +19217,80 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * Ground servants hold sub-tiles of their own, so a doorway packs them into a
+   * queue instead of letting the army walk through itself. Ravens and the
+   * druid's spirits fly over the crush and are exempt.
+   */
+  private separateSummonBodies(): void {
+    const summons = this.enemies.filter((enemy) => !!enemy.summonType && enemy.hp > 0
+      && !this.summonFliesOverBodies(enemy));
+    if (summons.length < 2) return;
+    const context = this.campaignCollisionContext();
+    for (let index = 0; index < summons.length; index += 1) {
+      const summon = summons[index];
+      for (let other = index + 1; other < summons.length; other += 1) {
+        const neighbour = summons[other];
+        const dx = neighbour.x - summon.x;
+        const dy = neighbour.y - summon.y;
+        const distance = Math.hypot(dx, dy);
+        const minimum = summon.r + neighbour.r + SUMMON_BODY_GAP;
+        if (distance >= minimum) continue;
+        // Bodies dropped on the same sub-tile have no heading of their own, so
+        // that case separates straight along +x and the next pass splits it.
+        const headingX = distance > 0.001 ? dx / distance : 1;
+        const headingY = distance > 0.001 ? dy / distance : 0;
+        const push = (minimum - distance) * 0.5;
+        this.nudgeEnemyBody(summon, -headingX * push, -headingY * push, context);
+        this.nudgeEnemyBody(neighbour, headingX * push, headingY * push, context);
+      }
+    }
+  }
+
+  /** Flying servants and planted turrets ignore unit collision entirely. */
+  private summonFliesOverBodies(summon: Enemy): boolean {
+    if (summon.summonStationary) return true;
+    const skill = summon.summonSkill ?? "";
+    return skill === "Raven" || SUPPORT_SPIRIT_SKILLS.has(skill);
+  }
+
+  /**
+   * D2's leash: the moment a servant is further from the hero than the tether
+   * allows, it is warped onto a walkable sub-tile beside them. Revives are
+   * treated like every other servant, which is the D2R fix over legacy D2's
+   * habit of deleting them.
+   */
+  private leashSummons(): void {
+    for (const summon of this.enemies) {
+      if (!summon.summonType || summon.hp <= 0) continue;
+      if (Math.hypot(summon.x - this.playerX, summon.y - this.playerY) <= SUMMON_LEASH_DISTANCE) continue;
+      const landing = this.summonLandingPoint();
+      summon.x = landing.x;
+      summon.y = landing.y;
+      summon.summonLockedTarget = undefined;
+      summon.summonAiDelayRemaining = 0;
+    }
+  }
+
+  /** A random walkable spot beside the hero, as the leash warp describes. */
+  private summonLandingPoint(): { x: number; y: number } {
+    const context = this.campaignCollisionContext();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 16 + Math.random() * SUMMON_LEASH_LANDING_RADIUS;
+      const x = this.playerX + Math.cos(angle) * radius;
+      const y = this.playerY + Math.sin(angle) * radius;
+      if (x < SUB_TILE_WORLD_SIZE || y < SUB_TILE_WORLD_SIZE
+        || x > this.arenaW - SUB_TILE_WORLD_SIZE || y > this.arenaH - SUB_TILE_WORLD_SIZE) continue;
+      if (context) {
+        const point = this.projectArenaPoint(x, y);
+        if (this.campaignBlockedSamples(context, point.x, point.y) > 0) continue;
+      }
+      return { x, y };
+    }
+    return { x: this.playerX, y: this.playerY };
+  }
+
   /** Slide one monster body by a separation push, never into scenery or off the floor. */
   private nudgeEnemyBody(
     enemy: Enemy,
@@ -18945,6 +19383,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private blockRoll: () => number = () => Math.random() * 100;
 
   private dealMeleeDamage(enemy: Enemy, damage: number, autoHit = false): number {
+    // The Attack Rating hover reports the chance to hit this monster, taken
+    // from the same Defense and level the roll below uses.
+    this.lastAttackedTarget = {
+      name: this.getEnemyDisplayName(enemy),
+      defense: this.enemyDefense(enemy),
+      level: this.enemyLevel(enemy),
+    };
     // Step 0: the swing is re-checked in sub-tiles when it actually lands. A
     // monster that stepped out of reach during the startup frames is a whiff.
     const reach = this.meleeReachAgainst(enemy);
@@ -19108,10 +19553,21 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     color: string,
     damageType: EnemyDamageType = "physical",
     meleeLeech = false,
+    /** 0 for skills D2 leaves out of the NextDelay rule. */
+    nextDelaySeconds = 0,
   ): void {
     if (!(damage > 0) || enemy.hp <= 0) return;
     const dealt = damage * this.enemyResistanceMultiplier(enemy, damageType);
     if (!(dealt > 0)) return;
+    // Taking a hit is the loudest wake-up call there is.
+    if (!enemy.summonType) this.wakeMonster(enemy);
+    // NextDelay is global per monster: while one multi-hit effect has it
+    // tagged, every other flagged hit passes through, whoever cast it. A blow
+    // the target is immune to never opens a window.
+    if (nextDelaySeconds > 0) {
+      if (this.runTime < (enemy.nextDelayUntil ?? 0)) return;
+      enemy.nextDelayUntil = this.runTime + nextDelaySeconds;
+    }
     // A guest's blow is resolved here for the immediate hit feedback, then
     // sent to the host so the shared monster loses the same health there.
     if (!this.coopIsHost && this.coopZone && enemy.coopId !== undefined) {
@@ -19204,7 +19660,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.hp -= damage;
       }
       if (damage > 0) this.applyMeleeLeech(damage * meleeShare);
-      if (enemy.hp > 0) this.maybeReleaseLightningEnchanted(enemy);
+      if (enemy.hp > 0) {
+        // A heavy enough blow can interrupt whatever the monster was doing.
+        this.maybeForceHitRecovery(enemy, damage);
+        this.maybeReleaseLightningEnchanted(enemy);
+      } else {
+        // The pack's nerve breaks when one of its own goes down.
+        this.rollFallenMorale(enemy);
+      }
       if (enemy.hp <= 0) {
         this.playerHp = Math.min(this.effectivePlayerMaxHp, this.playerHp + Math.max(0, this.equipmentStatTotal("lifeAfterEachKill")));
         this.playerMana = Math.min(this.effectivePlayerMaxMana, this.playerMana + Math.max(0, this.equipmentStatTotal("manaAfterEachKill")));
@@ -19275,7 +19738,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, radius + 96)) {
       if (enemy.hp <= 0 || enemy.summonType) continue;
       if (Math.hypot(enemy.x - projectile.x, enemy.y - projectile.y) > radius + enemy.r) continue;
-      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, damageType);
+      // A tornado crossing a wide body re-hits it every 4 frames, not every frame.
+      this.queueEnemyDamage(enemy, projectile.damage, projectile.color, damageType, false, NEXT_DELAY_SHORT_SECONDS);
     }
   }
 
@@ -19365,6 +19829,29 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         projectile.age += seconds;
         continue;
       }
+      if (projectile.coopVisual) {
+        // A neighbour's cast, replayed for the picture only: it flies its line,
+        // plays its impact and fades, and never strikes this client's monsters.
+        projectile.age += seconds;
+        const remainingX = projectile.targetX - projectile.x;
+        const remainingY = projectile.targetY - projectile.y;
+        const remaining = Math.hypot(remainingX, remainingY);
+        if (remaining <= 0.5) {
+          if (projectile.impactPoint) {
+            projectile.impactAge = (projectile.impactAge ?? 0) + seconds;
+            if (projectile.impactAge >= (projectile.impactDuration ?? 0.25)) projectile.life = 0;
+          } else {
+            projectile.life = 0;
+          }
+          continue;
+        }
+        projectile.life -= seconds;
+        if (projectile.life <= 0) continue;
+        const coopTravel = Math.min(projectile.speed * seconds / this.worldZoom, remaining);
+        projectile.x += remainingX / remaining * coopTravel;
+        projectile.y += remainingY / remaining * coopTravel;
+        continue;
+      }
       if (projectile.fireWall) {
         this.updateFireWall(projectile, seconds);
         continue;
@@ -19402,7 +19889,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         continue;
       }
       if (projectile.blessedHammer) {
-        this.updateBlessedHammer(projectile, seconds);
+        this.updateBlessedHammer(projectile, seconds, wallContext ?? undefined);
         continue;
       }
       if (projectile.frozenOrb) {
@@ -19562,11 +20049,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         const segmentY = nextY - projectile.y;
         const segmentLengthSquared = segmentX * segmentX + segmentY * segmentY;
         const alreadyHit = projectile.pathHitEnemies ?? (projectile.pathHitEnemies = []);
+        if (alreadyHit.length >= MAX_PIERCE_TARGETS) {
+          // The fifth body ends the missile; a piercer cannot plough a whole pack.
+          projectile.life = 0;
+          continue;
+        }
         const crossed: Array<{ enemy: Enemy; along: number }> = [];
         // collectEnemiesNear hands back a shared scratch array, so gather first
         // and damage afterwards rather than re-entering the query mid-loop.
         for (const enemy of this.collectEnemiesNear(projectile.x, projectile.y, step + 96)) {
           if (enemy.hp <= 0 || enemy.summonType || alreadyHit.includes(enemy)) continue;
+          if (projectile.volleyId !== undefined && this.volleyBlocked(projectile.volleyId, enemy)) continue;
           const relativeX = enemy.x - projectile.x;
           const relativeY = enemy.y - projectile.y;
           const along = segmentLengthSquared > 0
@@ -19591,7 +20084,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           }
         } else {
           for (const { enemy } of crossed) {
+            if (alreadyHit.length >= MAX_PIERCE_TARGETS) break;
             alreadyHit.push(enemy);
+            if (projectile.volleyId !== undefined) this.markVolleyHit(projectile.volleyId, enemy);
             this.playProjectileImpactSound(projectile);
             this.queueEnemyDamage(enemy, projectile.damage, projectile.color, this.damageTypeForProjectile(projectile));
             if (projectile.freezeSeconds !== undefined) this.applyEnemyFreeze(enemy, projectile.freezeSeconds);
@@ -19699,7 +20194,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
           else if (projectile.cold) this.applyEnemyChill(target, projectile.coldSeconds);
           if (projectile.impactRadius === undefined) {
             const dealt = projectile.damage * this.enemyResistanceMultiplier(target, this.damageTypeForProjectile(projectile));
-            if (dealt > 0) {
+            const missileNextDelay = this.nextDelayForProjectile(projectile);
+            const delayed = missileNextDelay > 0 && this.runTime < (target.nextDelayUntil ?? 0);
+            // Two arrows of one volley never damage the same monster, no matter
+            // how far apart they arrive.
+            const volleyBlocked = projectile.volleyId !== undefined
+              && this.volleyBlocked(projectile.volleyId, target);
+            if (!delayed && !volleyBlocked && dealt > 0) {
+              if (missileNextDelay > 0) target.nextDelayUntil = this.runTime + missileNextDelay;
+              if (projectile.volleyId !== undefined) this.markVolleyHit(projectile.volleyId, target);
               target.hp -= dealt;
               this.floatingTexts.push({ x: target.x, y: target.y - target.r - 8, text: this.floatingDamageText(dealt), color: projectile.color, life: 0.65 });
             }
@@ -20941,6 +21444,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.poisonClouds.length = 0;
     this.skillLevels = { [this.basicAttackName]: 1 };
     this.enemies = [];
+    this.lastAttackedTarget = null;
     // The area opens at full strength instead of trickling waves in.
     if (this.coopIsHost || !this.coopZone) this.populateAreaGarrison();
     this.chests = [];
@@ -21072,6 +21576,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       * this.burstOfSpeedAttackMultiplier;
     this.attackCooldown = Math.max(0, this.attackCooldown - dt / 1000 * attackRate);
     this.playerAttackLockRemaining = Math.max(0, this.playerAttackLockRemaining - dt / 1000);
+    // A Force Move order given mid-swing starts the moment recovery ends, and a
+    // held quick cast keeps firing at its breakpoint.
+    this.consumeForceMoveBuffer();
+    this.repeatQuickCast(dt);
     // "Cannot Be Frozen" is a hard immunity in D2, so it clears the chill the
     // frame it lands instead of just shortening it.
     if (this.equipmentStatTotal("freezeLengthReductionPercent") >= 100) this.playerChilledRemaining = 0;
@@ -21101,9 +21609,15 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updateDoubleSwingStrikes(dt);
 
     this.updateSummonAttacks(dt);
+    this.leashSummons();
+    this.separateSummonBodies();
     this.updateEnemies(dt);
+    this.updateCoopPlayerInterpolation(dt);
+    if (!this.coopIsHost && this.coopZone) this.updateGuestMonsters(dt);
+    this.updateRemoteSummons(dt);
     // Bodies settle after they act, so a pack crowds into ranks instead of stacking.
-    this.separateEnemyBodies();
+    // Guests take the host's spacing with the host's positions.
+    if (this.coopIsHost || !this.coopZone) this.separateEnemyBodies();
     this.updateDiabloThunderEffects(dt / 1000);
     this.updateDiabloSpellEffects(dt / 1000);
     this.updateBaalEffects(dt / 1000);
@@ -21790,6 +22304,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   movePlayer(dt: number): void {
+    this.playerBlockRemaining = Math.max(0, this.playerBlockRemaining - dt / 1000);
+    this.playerHitRecoveryRemaining = Math.max(0, this.playerHitRecoveryRemaining - dt / 1000);
+    if (this.playerBlockRemaining > 0 || this.playerHitRecoveryRemaining > 0) {
+      // A block animation or a stagger owns the hero's frames: the walk stops
+      // dead on this sub-tile and no click is accepted until it finishes.
+      this.playerMoveX = 0;
+      this.playerMoveY = 0;
+      this.isPlayerMoving = false;
+      this.clearClickMoveCommands();
+      return;
+    }
     if (this.playerChargeRemaining > 0) {
       // Charge owns world movement until its shield bash lands.
       this.playerMoveX = 0;
@@ -22665,7 +23190,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const enemy = this.enemies[index];
       if (enemy.summonSkill === skill) continue;
       if (!SUPPORT_SPIRIT_SKILLS.has(enemy.summonSkill ?? "")) continue;
-      this.enemies.splice(index, 1);
+      this.retireSummon(enemy);
     }
   }
 
@@ -22683,11 +23208,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       .find((skill) => skills.includes(skill));
   }
 
+  /**
+   * A necromancer keeps one golem: raising another kind retires the old one, and
+   * so does recasting the kind already standing — Diablo II replaces the golem
+   * rather than stacking a second, and the old body falls with its death clip.
+   */
   private replaceActiveGolem(skill: string): void {
     if (!this.isGolemSkill(skill)) return;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
-      if (enemy.summonType === "golem" && enemy.summonSkill !== skill) this.enemies.splice(index, 1);
+      if (enemy.summonType === "golem") this.retireSummon(enemy);
     }
   }
 
@@ -22703,8 +23233,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     while (summoned.length >= summonCap) {
       const oldest = summoned.shift();
       if (!oldest) break;
-      const index = this.enemies.indexOf(oldest);
-      if (index >= 0) this.enemies.splice(index, 1);
+      this.retireSummon(oldest);
     }
     if (this.enemies.length >= 220) return;
     this.summonCompanion(skill);
@@ -22725,24 +23254,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       while (raised.length > summonCap) {
         const excess = raised.pop();
         if (!excess) break;
-        const index = this.enemies.indexOf(excess);
-        if (index >= 0) this.enemies.splice(index, 1);
+        this.retireSummon(excess);
       }
     }
   }
 
-  private restoreSummonsFromOwnedSkills(): void {
-    const ownedGolemSkill = this.highestOwnedGolemSkill();
-    if (ownedGolemSkill) this.summonCompanion(ownedGolemSkill);
-    this.syncCastSummonCaps();
+  /** True while a saved run re-raises its servants; their swaps leave no bodies. */
+  private restoringSummons = false;
 
-    for (const skill of this.ownedSkills) {
-      if (!this.isPersistentSummonSkill(skill)) continue;
-      if (this.isCastSummonSkill(skill)) continue;
-      if (this.isGolemSkill(skill)) continue;
-      while (this.activeSummonCount(skill) < this.summonLimitForSkill(skill) && this.enemies.length < 220) {
-        this.summonCompanion(skill);
+  private restoreSummonsFromOwnedSkills(): void {
+    this.restoringSummons = true;
+    try {
+      const ownedGolemSkill = this.highestOwnedGolemSkill();
+      if (ownedGolemSkill) this.summonCompanion(ownedGolemSkill);
+      this.syncCastSummonCaps();
+
+      for (const skill of this.ownedSkills) {
+        if (!this.isPersistentSummonSkill(skill)) continue;
+        if (this.isCastSummonSkill(skill)) continue;
+        if (this.isGolemSkill(skill)) continue;
+        while (this.activeSummonCount(skill) < this.summonLimitForSkill(skill) && this.enemies.length < 220) {
+          this.summonCompanion(skill);
+        }
       }
+    } finally {
+      this.restoringSummons = false;
     }
   }
 
@@ -22801,8 +23337,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const vines = ["Poison Creeper", "Carrion Vine", "Solar Creeper"];
     const family = WOLF_SUMMON_SKILLS.has(skill) ? WOLF_SUMMON_SKILLS : vines.includes(skill) ? new Set(vines) : undefined;
     if (!family) return;
-    this.enemies = this.enemies.filter((enemy) =>
-      enemy.hp <= 0 || enemy.summonSkill === skill || !family.has(enemy.summonSkill ?? ""));
+    for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+      const enemy = this.enemies[index];
+      if (enemy.hp <= 0 || enemy.summonSkill === skill) continue;
+      if (!family.has(enemy.summonSkill ?? "")) continue;
+      this.retireSummon(enemy);
+    }
   }
 
   /** Carrion Vine pulls a corpse under and gives its life to the druid. */
@@ -23046,8 +23586,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (skill === "Shadow Warrior" || skill === "Shadow Master") {
       // An assassin keeps one shadow: casting the other replaces it.
       const replaced = skill === "Shadow Warrior" ? "Shadow Master" : "Shadow Warrior";
-      for (const enemy of this.enemies) if (enemy.summonSkill === replaced) enemy.hp = 0;
-      this.enemies = this.enemies.filter((enemy) => enemy.summonSkill !== replaced);
+      for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
+        if (this.enemies[index].summonSkill === replaced) this.retireSummon(this.enemies[index]);
+      }
       if (skill === "Shadow Master") companion.summonResistPercent = SHADOW_MASTER_RESIST_BY_RANK[summonSteps];
     }
     this.enemies.push(companion);
@@ -23179,12 +23720,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
         .sort((a, b) => Math.hypot(a.x - this.playerX, a.y - this.playerY) - Math.hypot(b.x - this.playerX, b.y - this.playerY))[0];
     if (!target) return;
-    this.cancelChannelingSpells();
     const dx = target.x - this.playerX;
     const dy = target.y - this.playerY;
     const distance = Math.hypot(dx, dy);
     const directionX = distance > 0.001 ? dx / distance : this.playerFacingX;
     const directionY = distance > 0.001 ? dy / distance : this.playerFacingY;
+    // Standing inside the target's own body leaves no run-up: D2 refuses the
+    // charge at this range and the paladin simply swings.
+    if (distance - target.r < CHARGE_MIN_DISTANCE) {
+      this.playerFacingX = directionX;
+      this.playerFacingY = directionY;
+      this.attackNearestEnemy(target);
+      return;
+    }
+    this.cancelChannelingSpells();
     const rank = Math.max(1, this.skillLevels["Charge"] ?? 1);
     this.playerFacingX = directionX;
     this.playerFacingY = directionY;
@@ -23253,6 +23802,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!enemy.campaignBoss) {
         this.applyEnemyStun(enemy, this.playerChargeStunSeconds);
         this.floatingTexts.push({ x: enemy.x, y: enemy.y - enemy.r - 6, text: "STUN", color: "#ffe27a", life: 0.7 });
+        // A charge shoves what it hits back down the line of the run; act
+        // bosses hold their ground and only take the blow.
+        const pushX = enemy.x + this.playerChargeDirectionX * CHARGE_KNOCKBACK;
+        const pushY = enemy.y + this.playerChargeDirectionY * CHARGE_KNOCKBACK;
+        enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, pushX));
+        enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, pushY));
       }
       this.queueEnemyDamage(enemy, this.playerChargeDamage, "#fff0a8", "physical", true);
     }
@@ -23380,7 +23935,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.whirlwindDashDamage = damage;
     this.whirlwindDashColor = color;
     this.whirlwindDashHits = new Set<Enemy>();
-    this.cutWhirlwindReach(false);
+    this.whirlwindCheckAcc = 0;
+    this.whirlwindCheckCount = 0;
+    // The first cut is frame 4 of the spin, not the instant it begins.
     this.triggerAttackAnimation("spin");
     this.whirlwindDashTarget = null;
     this.whirlwindDashRemaining = 0;
@@ -23401,17 +23958,43 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Cut every monster the spin touches; `onlyNew` skips this spin's earlier cuts. */
-  private cutWhirlwindReach(onlyNew: boolean): void {
-    const damage = this.whirlwindDashDamage;
-    const color = this.whirlwindDashColor;
-    for (const target of this.enemies) {
-      if (target.hp <= 0 || target.summonType) continue;
-      if (onlyNew && this.whirlwindDashHits.has(target)) continue;
-      if (Math.hypot(target.x - this.playerX, target.y - this.playerY) > WHIRLWIND_REACH + target.r) continue;
-      this.whirlwindDashHits.add(target);
-      // The whirl cuts everything it passes; its rank table already carries the
-      // early damage penalty, so nothing else scales it.
-      this.queueEnemyDamage(target, damage, color, "physical", true);
+  /**
+   * One whirlwind hit-check. D2 does not swing a cone every frame: on each
+   * check frame it scans weapon reach and rolls the attack against a single
+   * random monster, so the wheel cuts one body at a time.
+   */
+  private whirlwindCutOnce(): void {
+    const candidates = this.enemies.filter((target) => target.hp > 0 && !target.summonType
+      && !this.whirlwindDashHits.has(target)
+      && Math.hypot(target.x - this.playerX, target.y - this.playerY) <= WHIRLWIND_REACH + target.r);
+    if (!candidates.length) return;
+    const target = candidates[Math.floor(Math.random() * candidates.length)];
+    this.whirlwindDashHits.add(target);
+    // The rank table already carries the early damage penalty, so nothing else
+    // scales these cuts.
+    this.queueEnemyDamage(target, this.whirlwindDashDamage, this.whirlwindDashColor, "physical", true);
+  }
+
+  /** The gap between checks after the two fixed ones: the swing's own speed. */
+  private whirlwindCheckInterval(): number {
+    return Math.min(WHIRLWIND_CHECK_CEILING_SECONDS, Math.max(WHIRLWIND_CHECK_FLOOR_SECONDS, this.basicAttackCooldown));
+  }
+
+  /** Frames 4 and 8 at any weapon speed, then every breakpoint of the swing. */
+  private advanceWhirlwindChecks(seconds: number): void {
+    this.whirlwindCheckAcc += seconds;
+    let due = this.whirlwindCheckCount === 0
+      ? WHIRLWIND_CHECK_FIRST_SECONDS
+      : this.whirlwindCheckCount === 1
+        ? WHIRLWIND_CHECK_SECOND_SECONDS - WHIRLWIND_CHECK_FIRST_SECONDS
+        : this.whirlwindCheckInterval();
+    let guard = 0;
+    while (this.whirlwindCheckAcc >= due && guard < 6) {
+      guard += 1;
+      this.whirlwindCheckAcc -= due;
+      this.whirlwindCheckCount += 1;
+      this.whirlwindCutOnce();
+      due = this.whirlwindCheckInterval();
     }
   }
 
@@ -23457,7 +24040,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // Arena points are relative to a hero who never leaves the middle of the
     // screen, so the ground the spin is heading for moves with the world.
     this.shiftWhirlwindPoints(-movedX, -movedY);
-    this.cutWhirlwindReach(true);
+    // The cut lands on the check frames, not on every frame of the spin.
+    this.advanceWhirlwindChecks(seconds);
     if (this.whirlwindDashRemaining <= 0
       || Math.hypot(aim.x - this.playerX, aim.y - this.playerY) <= 0.5) {
       this.whirlwindDashTarget = null;
@@ -23624,6 +24208,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         if (dealt > 0) this.floatingTexts.push({
           x: enemy.x, y: enemy.y - enemy.r, text: this.floatingDamageText(dealt), color: strike.color, life: 0.8,
         });
+        // The landing is a shockwave as well as a blow: everything nearby is
+        // staggered into hit recovery, no attack roll involved.
+        if (!enemy.campaignBoss) this.applyEnemyStun(enemy, this.leapStunSecondsForRank(
+          this.skillLevels[strike.skill] ?? 1,
+        ));
         // Act bosses stand their ground: the blow lands, the shove does not.
         if (enemy.campaignBoss) continue;
         const pushX = enemy.x + (dx / distance) * LEAP_ATTACK_KNOCKBACK;
@@ -23639,8 +24228,17 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const seconds = this.leapStunSecondsForRank(rank);
     for (const enemy of this.enemies) {
       if (enemy.hp <= 0 || enemy.summonType) continue;
-      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
+      const dx = enemy.x - this.playerX;
+      const dy = enemy.y - this.playerY;
+      const distance = Math.hypot(dx, dy) || 1;
+      if (distance > radius + enemy.r) continue;
       this.applyEnemyStun(enemy, seconds);
+      // The landing wave shoves as well as staggers; act bosses only stagger.
+      if (enemy.campaignBoss) continue;
+      const pushX = enemy.x + (dx / distance) * LEAP_ATTACK_KNOCKBACK;
+      const pushY = enemy.y + (dy / distance) * LEAP_ATTACK_KNOCKBACK;
+      enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, pushX));
+      enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, pushY));
     }
     this.addLeapDust(this.playerX, this.playerY, 1);
   }
@@ -23897,6 +24495,88 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       : { x: nextX, y: nextY };
     enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, step.x));
     enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, step.y));
+  }
+
+  /** The NextDelay family a missile belongs to, or 0 for skills outside it. */
+  private nextDelayForProjectile(projectile: AttackProjectile): number {
+    const skill = projectile.skill ?? "";
+    if (NEXT_DELAY_SHORT_SKILLS.has(skill)) return NEXT_DELAY_SHORT_SECONDS;
+    if (NEXT_DELAY_LONG_SKILLS.has(skill)) return NEXT_DELAY_LONG_SECONDS;
+    return 0;
+  }
+
+  /**
+   * D2's damage-based Hit Recovery. A blow's share of the target's maximum life
+   * decides whether it can interrupt: under 1/16 never, then 37.5%, 75% and a
+   * guaranteed interruption above a quarter. Act bosses never flinch, and a
+   * swirl-stunned monster is interrupted by every hit, however small.
+   */
+  private maybeForceHitRecovery(enemy: Enemy, damage: number): void {
+    if (!(damage > 0) || enemy.hp <= 0 || enemy.maxHp <= 0) return;
+    if (enemy.campaignBoss) return;
+    const stunned = (enemy.stunRemaining ?? 0) > 0;
+    if (!stunned) {
+      const share = damage / enemy.maxHp;
+      const chance = share > 0.25 ? 1 : share > 0.125 ? 0.75 : share > 0.0625 ? 0.375 : 0;
+      // Champions carry the guide's hit-recovery immunity until they are stunned.
+      if (chance <= 0 || enemy.kind === "champion") return;
+      if (Math.random() >= chance) return;
+    }
+    this.applyHitRecovery(enemy);
+  }
+
+  /** Start (or restart) the flinch. A hit during it traps the target again. */
+  private applyHitRecovery(enemy: Enemy): void {
+    if (enemy.hp <= 0 || enemy.campaignBoss) return;
+    enemy.hitRecoveryRemaining = HIT_RECOVERY_SECONDS;
+    enemy.animationState = "idle";
+    enemy.attackAnimationTime = 0;
+  }
+
+  /**
+   * D2's activation check. A dormant monster wakes when the hero or one of the
+   * hero's servants comes inside its aggro radius with an unbroken line; bosses,
+   * champions and uniques are always awake, and a blinded one has to be touched.
+   */
+  private monsterWakes(enemy: Enemy): boolean {
+    if (enemy.kind === "boss" || enemy.campaignBoss || enemy.miniBoss || enemy.championType) return true;
+    // Dim Vision (and Cloak of Shadows) shrinks the radius to arm's reach.
+    const radius = enemy.curseName === "Dim Vision" || (enemy.cloakOfShadowsRemaining ?? 0) > 0 ? 30 : MONSTER_AGGRO_RADIUS;
+    // Room proximity is enough: a monster rouses to a hero it can hear through a
+    // doorway, it merely advances along the wall instead of shooting through it.
+    const noticed = (x: number, y: number): boolean => Math.hypot(x - enemy.x, y - enemy.y) <= radius;
+    if (noticed(this.playerX, this.playerY)) return true;
+    for (const summon of this.enemies) {
+      if (summon.hp <= 0 || !summon.summonType) continue;
+      if (noticed(summon.x, summon.y)) return true;
+    }
+    return false;
+  }
+
+  /** Wake one monster and alert the pack standing around it. */
+  private wakeMonster(enemy: Enemy): void {
+    if (enemy.awake || enemy.hp <= 0) return;
+    enemy.awake = true;
+    for (const other of this.enemies) {
+      if (other === enemy || other.awake || other.hp <= 0 || other.summonType) continue;
+      if (Math.hypot(other.x - enemy.x, other.y - enemy.y) > PACK_ALERT_RADIUS) continue;
+      other.awake = true;
+    }
+  }
+
+  /**
+   * D2's pack morale check: when a Fallen, Fetish or Carver goes down, its
+   * neighbours roll morale and usually break for a few seconds.
+   */
+  private rollFallenMorale(dead: Enemy): void {
+    if (!FALLEN_SPECIES.has(dead.species)) return;
+    for (const other of this.enemies) {
+      if (other === dead || other.hp <= 0 || other.summonType) continue;
+      if (!FALLEN_SPECIES.has(other.species)) continue;
+      if (Math.hypot(other.x - dead.x, other.y - dead.y) > FALLEN_MORALE_RADIUS) continue;
+      if (Math.random() >= FALLEN_MORALE_FAIL_CHANCE) continue;
+      other.fearRemaining = Math.max(other.fearRemaining ?? 0, FALLEN_FLEE_SECONDS);
+    }
   }
 
   private applyEnemyStun(enemy: Enemy, seconds: number): void {
@@ -24988,10 +25668,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * A servant leaves a body when it goes, whether it was slain, replaced by a
+   * recast, dismissed for another servant, or simply out of time. The sheets in
+   * ENEMY_DEATH_SPECIES carry the death block tools/add_enemy_death_blocks.py
+   * appends, so the golem's, wolf's or bear's own fall plays through the corpse
+   * pass instead of the pet blinking out of existence.
+   */
+  private recordSummonDeath(summon: Enemy): void {
+    // A run restoring its save re-raises and re-shuffles servants before anyone
+    // sees the arena; those are not deaths, so they leave no body behind.
+    if (this.restoringSummons) return;
+    // The raven borrows a fetish sheet but flies home when its Hits run out.
+    if (summon.summonSkill === "Raven") return;
+    if (!ENEMY_DEATH_SPECIES.has(summon.species)) return;
+    this.corpses.push({
+      x: summon.x,
+      y: summon.y,
+      maxHp: Math.max(1, summon.maxHp),
+      life: CORPSE_LIFE_SECONDS,
+      seed: Math.random(),
+      species: summon.species,
+      facingX: summon.facingX ?? (this.playerX - summon.x),
+      facingY: summon.facingY ?? (this.playerY - summon.y),
+      tint: this.enemyBaseTint(summon),
+      height: this.enemySpriteHeight(summon),
+      // A servant is not a monster: its body can never be Corpse Explosion fuel.
+      explodable: false,
+    });
+    if (this.corpses.length > CORPSE_LIMIT) {
+      this.corpses.splice(0, this.corpses.length - CORPSE_LIMIT);
+    }
+  }
+
+  /** Plays a servant's death clip and takes it off the field. */
+  private retireSummon(summon: Enemy): void {
+    this.recordSummonDeath(summon);
+    summon.hp = 0;
+    const index = this.enemies.indexOf(summon);
+    if (index >= 0) this.enemies.splice(index, 1);
+  }
+
   private nearestCorpse(x: number, y: number, range: number): Corpse | undefined {
     let nearest: Corpse | undefined;
     let nearestDistance = range;
     for (const corpse of this.corpses) {
+      // A servant's body is only a picture: Corpse Explosion, Death Sentry and
+      // Nihlathak all look for a monster corpse, never a dismissed golem.
+      if (corpse.explodable === false) continue;
       const distance = Math.hypot(corpse.x - x, corpse.y - y);
       if (distance > nearestDistance) continue;
       nearest = corpse;
@@ -25496,6 +26220,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       summon.attackAnimationTime = Math.max(0, (summon.attackAnimationTime ?? 0) - elapsedSeconds);
       summon.summonAttackCooldown = Math.max(0, (summon.summonAttackCooldown ?? 0) - elapsedSeconds);
       summon.summonSkillCooldown = Math.max(0, (summon.summonSkillCooldown ?? 0) - elapsedSeconds);
+      summon.summonAiDelayRemaining = Math.max(0, (summon.summonAiDelayRemaining ?? 0) - elapsedSeconds);
       if (summon.summonType === "hydra") {
         this.updateHydraHead(summon, elapsedSeconds);
         continue;
@@ -25505,7 +26230,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (summon.summonExpireSeconds !== undefined) {
         summon.summonExpireSeconds -= elapsedSeconds;
         if (summon.summonExpireSeconds <= 0) {
-          summon.hp = 0;
+          // Revive and Decoy run out of time the same way a slain pet leaves.
+          this.retireSummon(summon);
           continue;
         }
       }
@@ -25516,6 +26242,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       }
       const attackStillLocked = (summon.attackAnimationTime ?? 0) > 0;
       if (attackStillLocked) summon.animationState = "attack";
+      // AI Delay: a servant that has just acted stands in its think pause before
+      // it re-acquires a target or takes another step. This is the 15 frames that
+      // make attack speed on a mercenary worth less than it looks.
+      if ((summon.summonAiDelayRemaining ?? 0) > 0) continue;
       const isSupportSpirit = SUPPORT_SPIRIT_SKILLS.has(summon.summonSkill ?? "");
       const raisedSkeleton = summon.summonSkill === "Raise Skeleton";
       const summonDistanceToHero = Math.hypot(summon.x - this.playerX, summon.y - this.playerY);
@@ -25525,17 +26255,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       const canEngageTarget = !isSupportSpirit && (!raisedSkeleton || summonDistanceToHero <= 220);
       let target: Enemy | undefined;
       let targetDistance = Number.POSITIVE_INFINITY;
-      if (canEngageTarget) {
+      const locked = summon.summonLockedTarget;
+      // Target stickiness: a servant keeps the monster it locked onto until that
+      // monster dies, leaves the leash range it can reach, or gets knocked clear.
+      if (canEngageTarget && locked && locked.hp > 0 && !locked.summonType
+        && Math.hypot(locked.x - this.playerX, locked.y - this.playerY) < targetRange
+        && (!raisedSkeleton || Math.hypot(locked.x - summon.x, locked.y - summon.y) < 220)) {
+        target = locked;
+      } else if (canEngageTarget) {
+        // Melee servants will not commit to a monster they cannot walk to: a body
+        // behind a wall is left alone, which is why mercenaries idle at doorways.
+        // A Skeleton Mage or a Raven shoots over the obstruction and ignores this.
+        const rangedServant = summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven";
+        const sightContext = rangedServant ? null : this.campaignCollisionContext();
         for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, targetRange + 96)) {
           if (enemy.summonType) continue;
           if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) >= targetRange) continue;
           if (raisedSkeleton && Math.hypot(enemy.x - summon.x, enemy.y - summon.y) >= 190) continue;
+          if (sightContext && this.campaignLineBlocked(sightContext, summon.x, summon.y, enemy.x, enemy.y)) continue;
           const candidateDistance = Math.hypot(enemy.x - summon.x, enemy.y - summon.y);
           if (candidateDistance >= targetDistance) continue;
           target = enemy;
           targetDistance = candidateDistance;
         }
+        // Proximity bias decides only on acquisition; afterwards the lock holds.
+        summon.summonLockedTarget = target;
+      } else {
+        summon.summonLockedTarget = undefined;
       }
+      if (!target) summon.summonLockedTarget = undefined;
       let targetX: number;
       let targetY: number;
       if (target) {
@@ -25596,6 +26344,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (enemy.summonType || enemy.hp <= 0) continue;
       // Hatching eggs are stationary targets handled by updateMaggotEggs.
       if (enemy.eggProxy) continue;
+      // Co-op guests never simulate a monster: the zone host decides where it
+      // stands, what it attacks and when it swings, and every guest mirrors
+      // that. Summons above are the guest's own and keep acting locally.
+      if (!this.coopIsHost && this.coopZone) continue;
       // A spawn or a burrow can leave a monster inside a tree or the river.
       // Put it back on clear ground before it gets a movement step, otherwise
       // its centre could slide through the barrier to the opposite bank.
@@ -25659,9 +26411,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         enemy.fearRemaining = Math.max(0, enemy.fearRemaining - elapsedSeconds);
         if (enemy.fearRemaining === 0) enemy.fearRemaining = undefined;
       }
+      if (!enemy.awake) {
+        if (!this.monsterWakes(enemy)) {
+          // Dormant: the monster holds its spawn and never spends a frame on the
+          // fight until something walks into its aggro radius or hits it.
+          enemy.animationState = "idle";
+          enemy.attackAnimationTime = Math.max(0, (enemy.attackAnimationTime ?? 0) - elapsedSeconds);
+          enemy.cd = Math.max(0, (enemy.cd ?? 0) - this.enemyCooldownStep(enemy, elapsedSeconds));
+          continue;
+        }
+        this.wakeMonster(enemy);
+      }
       if (enemy.frenzyRemaining !== undefined) {
         enemy.frenzyRemaining = Math.max(0, enemy.frenzyRemaining - elapsedSeconds);
         if (enemy.frenzyRemaining === 0) enemy.frenzyRemaining = undefined;
+      }
+      if (enemy.hitRecoveryRemaining !== undefined && enemy.hitRecoveryRemaining > 0) {
+        // Hit Recovery owns the monster's frames: it cannot act until the flinch
+        // plays out, and a fresh blow restarts the timer from the top.
+        enemy.hitRecoveryRemaining = Math.max(0, enemy.hitRecoveryRemaining - elapsedSeconds);
+        if (enemy.hitRecoveryRemaining === 0) enemy.hitRecoveryRemaining = undefined;
+        enemy.animationState = "idle";
+        enemy.attackAnimationTime = 0;
+        enemy.cd = Math.max(0, (enemy.cd ?? 0) - this.enemyCooldownStep(enemy, elapsedSeconds));
+        continue;
       }
       if (enemy.stunRemaining !== undefined && enemy.stunRemaining > 0) {
         // Stunned monsters cannot move, aim, or attack; they shake off the stun
@@ -26152,6 +26925,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       else if (enemy.species === "vileChild") vileChildCount += 1;
     }
     const vileChildCapacity = vileMothers.length * 10;
+    // A hatch is the host's decision; guests receive the children in the roster.
+    if (!this.coopIsHost && this.coopZone) vileMothers.length = 0;
     for (const mother of vileMothers) {
       mother.hatchCooldown = Math.max(0, (mother.hatchCooldown ?? 6) - elapsedSeconds);
       if (mother.hatchCooldown > 0) continue;
@@ -26243,6 +27018,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const keepEnemies = this.playerHp > 0;
     let liveEnemies = 0;
     for (const enemy of this.enemies) {
+      // A slain golem or pet leaves the body its sheet's death block draws; the
+      // kill loop above skips summons, so this is where their fall is recorded.
+      if (enemy.summonType && enemy.hp <= 0) this.recordSummonDeath(enemy);
       if (keepEnemies && enemy.hp > 0) this.enemies[liveEnemies++] = enemy;
     }
     this.enemies.length = liveEnemies;
@@ -26562,7 +27340,13 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   }
 
   /** Teleport rematerialises at the clicked spot, or away from the nearest threat. */
-  private castActiveTeleport(target?: { x: number; y: number }): void {
+  private castActiveTeleport(target?: { x: number; y: number }, preferred?: Enemy): void {
+    // Name-locked Teleport: holding the button on a monster warps onto the exact
+    // sub-tile that monster occupies. D2 lets the bodies overlap for the frame
+    // that follows, which is what makes telestomping work.
+    if (preferred && preferred.hp > 0 && !preferred.summonType) {
+      target = { x: preferred.x, y: preferred.y };
+    }
     if (!target) {
       const threat = this.enemies
         .filter((enemy) => enemy.hp > 0 && !enemy.summonType)
@@ -26578,8 +27362,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const distance = Math.hypot(dx, dy);
     if (!(distance > 1)) return;
     const travel = Math.min(TELEPORT_RANGE, distance);
-    const destinationX = Math.max(edge, Math.min(this.arenaW - edge, originX + dx / distance * travel));
-    const destinationY = Math.max(edge, Math.min(this.arenaH - edge, originY + dy / distance * travel));
+    const wantedX = Math.max(edge, Math.min(this.arenaW - edge, originX + dx / distance * travel));
+    const wantedY = Math.max(edge, Math.min(this.arenaH - edge, originY + dy / distance * travel));
+    // Teleport crosses walls but cannot stand inside one: a cursor buried in
+    // solid rock lands on the nearest walkable sub-tile around it.
+    const landing = this.teleportLanding(wantedX, wantedY);
+    if (!landing) return;
+    const destinationX = landing.x;
+    const destinationY = landing.y;
     const moveX = destinationX - originX;
     const moveY = destinationY - originY;
     if (Math.hypot(moveX, moveY) < 1) return;
@@ -26594,8 +27384,54 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.isPlayerMoving = false;
     this.addAssassinTeleportEffect(this.playerX - moveX, this.playerY - moveY, "Teleport");
     this.addSkillVisualEffect("Teleport");
+    // Telestomp: D2 drops the whole army on the caster's sub-tile, so every melee
+    // servant is inside weapon range on the landing frame. Collision re-engages
+    // as soon as they take their next step.
+    const stompTarget = preferred && preferred.hp > 0 && !preferred.summonType ? preferred : undefined;
+    for (const summon of this.enemies) {
+      if (!summon.summonType || summon.hp <= 0) continue;
+      summon.x = this.playerX;
+      summon.y = this.playerY;
+      summon.summonAiDelayRemaining = 0;
+      summon.summonAttackCooldown = 0;
+      summon.summonLockedTarget = stompTarget;
+    }
   }
 
+
+  /**
+   * The nearest walkable sub-tile to a teleport cursor, searched in concentric
+   * rings. Returns null when nothing walkable is close enough, so the warp is
+   * refused rather than dropping the hero into scenery.
+   */
+  private teleportLanding(x: number, y: number): { x: number; y: number } | null {
+    // Off the battlefield entirely: no sub-tile out there to land on.
+    if (x < 0 || y < 0 || x > this.arenaW || y > this.arenaH) return null;
+    const context = this.campaignCollisionContext();
+    if (!context) return { x, y };
+    const start = this.projectArenaPoint(this.playerX, this.playerY);
+    // A hero already overlapping scenery may still teleport out of it.
+    const baseline = this.campaignBlockedSamples(context, start.x, start.y);
+    const walkable = (candidateX: number, candidateY: number): boolean => {
+      const projected = this.projectArenaPoint(candidateX, candidateY);
+      const blocked = this.campaignBlockedSamples(context, projected.x, projected.y);
+      return baseline > 0 ? blocked <= baseline : blocked === 0;
+    };
+    if (walkable(x, y)) return { x, y };
+    const ringStep = Math.max(3, context.geometry.scale * 0.25);
+    const maxRing = Math.ceil(TELEPORT_SNAP_SEARCH / ringStep);
+    for (let ring = 1; ring <= maxRing; ring += 1) {
+      const radius = ring * ringStep;
+      const samples = Math.max(12, ring * 8);
+      for (let index = 0; index < samples; index += 1) {
+        const angle = index / samples * Math.PI * 2;
+        const candidateX = Math.max(SUB_TILE_WORLD_SIZE, Math.min(this.arenaW - SUB_TILE_WORLD_SIZE, x + Math.cos(angle) * radius));
+        const candidateY = Math.max(SUB_TILE_WORLD_SIZE, Math.min(this.arenaH - SUB_TILE_WORLD_SIZE, y + Math.sin(angle) * radius));
+        if (walkable(candidateX, candidateY)) return { x: candidateX, y: candidateY };
+      }
+    }
+    return null;
+  }
 
   private druidElementalSteps(skill: string): number {
     return Math.min(19, Math.max(0, (this.skillLevels[skill] ?? 1) - 1));
@@ -26685,12 +27521,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     this.hurricaneTickRemaining -= seconds;
     if (this.hurricaneTickRemaining > 0) return;
-    this.hurricaneTickRemaining += 0.5;
+    this.hurricaneTickRemaining += HURRICANE_TICK_SECONDS;
     const radius = HURRICANE_RADIUS_YARDS * 20;
     for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
       if (enemy.hp <= 0 || enemy.summonType) continue;
       if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
-      this.queueEnemyDamage(enemy, this.hurricaneDamagePerSecond * 0.5, "#8bdcff", "cold");
+      this.queueEnemyDamage(enemy, this.hurricaneDamagePerSecond * HURRICANE_TICK_SECONDS, "#8bdcff", "cold");
       this.applyEnemyChill(enemy, 2);
     }
   }
@@ -26821,17 +27657,20 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return false;
   }
 
-  /** Player Blizzard: 24 original ice-storm shards fall across the target pack. */
+  /**
+   * Player Blizzard: the original ice-storm spawner. One shard every four
+   * frames, 25 in all, each dropped on a random sub-tile of the 11x11 grid under
+   * the cursor. Because the spots are rolled, a small stationary monster can
+   * stand in the snow untouched while a walker crosses shard after shard.
+   */
   private castPlayerBlizzard(target: { x: number; y: number }, damage: number): void {
     const seed = Math.random() * Math.PI * 2;
     const shards: PlayerBlizzardShard[] = [];
     for (let index = 0; index < PLAYER_BLIZZARD_SHARDS; index += 1) {
-      const angle = seed + index * 2.399963229728653;
-      const distance = PLAYER_BLIZZARD_RADIUS * Math.sqrt((index + 0.5) / PLAYER_BLIZZARD_SHARDS);
       shards.push({
-        x: target.x + Math.cos(angle) * distance,
-        y: target.y + Math.sin(angle) * distance,
-        delay: 0.18 + index * ((PLAYER_BLIZZARD_DURATION - PLAYER_BLIZZARD_IMPACT_SECONDS - 0.2) / (PLAYER_BLIZZARD_SHARDS - 1)),
+        x: target.x + (Math.random() * 2 - 1) * PLAYER_BLIZZARD_SHARD_SPAN,
+        y: target.y + (Math.random() * 2 - 1) * PLAYER_BLIZZARD_SHARD_SPAN,
+        delay: PLAYER_BLIZZARD_SHARD_INTERVAL * (index + 1),
         fallArt: PLAYER_BLIZZARD_FALL_ART[index % PLAYER_BLIZZARD_FALL_ART.length],
         impactArt: PLAYER_BLIZZARD_IMPACT_ART[index % PLAYER_BLIZZARD_IMPACT_ART.length],
         hit: false,
@@ -26858,9 +27697,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       for (const shard of effect.shards) {
         if (shard.hit || effect.time < shard.delay) continue;
         shard.hit = true;
-        for (const enemy of this.collectEnemiesNear(effect.x, effect.y, effect.radius + 96)) {
+        // A shard only checks the 3x3 sub-tile patch it landed on, not the
+        // whole storm: standing in the same snow as a neighbour is no guarantee.
+        for (const enemy of this.collectEnemiesNear(shard.x, shard.y, PLAYER_BLIZZARD_SHARD_RADIUS + 96)) {
           if (enemy.hp <= 0 || enemy.summonType) continue;
-          if (Math.hypot(enemy.x - effect.x, enemy.y - effect.y) > effect.radius + enemy.r) continue;
+          if (Math.hypot(enemy.x - shard.x, enemy.y - shard.y) > PLAYER_BLIZZARD_SHARD_RADIUS + enemy.r) continue;
           this.queueEnemyDamage(enemy, effect.damagePerShard, "#bfefff", "cold");
           this.applyEnemyChill(enemy);
         }
@@ -28291,6 +29132,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         - Math.hypot(right.x - this.playerX, right.y - this.playerY))
       .slice(0, maxTargets);
     if (!inRange.length) return;
+    const volleyId = this.volleySequence++;
     const volley: Enemy[] = [...inRange];
     // A lone monster still eats the minimum number of arrows.
     while (volley.length < minimumShots) volley.push(inRange[0]);
@@ -28305,9 +29147,37 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         radius: 6, color: "#d7c5aa", kind: "arrow",
         missileId: this.missileOverlayId("Strafe"), damageType: "physical",
         pathHit: this.amazonPierceRoll() || undefined,
+        volleyId,
         sourceOnlyArt: true, age: 0,
       });
     }
+  }
+
+  /** Arrows of one volley share a hit list so none of them doubles up. */
+  private volleyBlocked(volleyId: number, enemy: Enemy): boolean {
+    return this.volleyHits.get(volleyId)?.has(enemy) ?? false;
+  }
+
+  private markVolleyHit(volleyId: number, enemy: Enemy): void {
+    let hits = this.volleyHits.get(volleyId);
+    if (!hits) {
+      hits = new Set<Enemy>();
+      this.volleyHits.set(volleyId, hits);
+      // Volleys are short-lived; forget the oldest id instead of growing forever.
+      if (this.volleyHits.size > 64) {
+        const oldest = this.volleyHits.keys().next();
+        if (!oldest.done) this.volleyHits.delete(oldest.value);
+      }
+    }
+    hits.add(enemy);
+  }
+
+  /**
+   * D2's fan spread: a click near the hero opens the cone wide, one at the
+   * edge of the view squeezes it into a beam.
+   */
+  private castFanScale(distance: number): number {
+    return Math.min(1.8, Math.max(0.45, 300 / Math.max(70, distance)));
   }
 
   private amazonPierceRoll(): boolean {
@@ -28356,9 +29226,22 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     };
   }
 
-  private updateBlessedHammer(projectile: AttackProjectile, seconds: number): void {
+  private updateBlessedHammer(
+    projectile: AttackProjectile,
+    seconds: number,
+    wallContext?: Parameters<D2SurvivorsComponent["campaignLineBlocked"]>[0],
+  ): void {
     projectile.age += seconds;
     projectile.life -= seconds;
+    // CollideType Wall: a hammer whose centre touches scenery is destroyed, so
+    // casting beside a wall costs the paladin most of the spiral.
+    if (wallContext) {
+      const point = this.projectArenaPoint(projectile.x, projectile.y);
+      if (this.campaignBlockedAt(wallContext, point.x, point.y)) {
+        projectile.life = 0;
+        return;
+      }
+    }
     const previousX = projectile.x;
     const previousY = projectile.y;
     const angle = (projectile.blessedHammerAngle ?? 0) + BLESSED_HAMMER_ANGULAR_SPEED * seconds;
@@ -28398,16 +29281,65 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (projectile.life <= 0 || radius >= BLESSED_HAMMER_MAX_RADIUS) projectile.life = 0;
   }
 
+  /**
+   * D2's circular AoEs leave the caster as a ring of separate bolts. Each is
+   * placed 360 degrees / 32 apart and flies at a fixed speed, so damage is
+   * scheduled for the frame the ring front reaches the monster. A body whose
+   * angular width is narrower than the gap between two bolts is missed, which
+   * is why Size 1 monsters can slip through a Nova's outer edge.
+   */
+  private scheduleNovaRing(
+    radius: number,
+    damage: number,
+    color: string,
+    damageType: EnemyDamageType,
+    chillSeconds: number,
+  ): void {
+    const step = (Math.PI * 2) / NOVA_RING_BOLTS;
+    const seedAngle = Math.random() * step;
+    const boltRadius = 8;
+    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
+      if (enemy.hp <= 0 || enemy.summonType) continue;
+      const dx = enemy.x - this.playerX;
+      const dy = enemy.y - this.playerY;
+      const distance = Math.hypot(dx, dy);
+      if (distance > radius + enemy.r) continue;
+      // Angular half-width of the target from the caster, against the gap.
+      const halfWidth = Math.asin(Math.min(1, (enemy.r + boltRadius) / Math.max(1, distance)));
+      const relative = (((Math.atan2(dy, dx) - seedAngle) % step) + step) % step;
+      const delta = relative > step / 2 ? relative - step : relative;
+      if (Math.abs(delta) > halfWidth) continue;
+      this.novaRingHits.push({
+        enemy,
+        at: this.novaRingClock + Math.max(0.04, distance / NOVA_RING_SPEED),
+        damage,
+        color,
+        damageType,
+        chillSeconds,
+        nextDelaySeconds: NEXT_DELAY_SHORT_SECONDS,
+      });
+    }
+  }
+
+  /** Land every Nova bolt whose ring front has caught up with its target. */
+  private updateNovaRingHits(seconds: number): void {
+    if (!this.novaRingHits.length) return;
+    this.novaRingClock += seconds;
+    for (let index = this.novaRingHits.length - 1; index >= 0; index -= 1) {
+      const hit = this.novaRingHits[index];
+      if (hit.at > this.novaRingClock) continue;
+      this.novaRingHits.splice(index, 1);
+      if (hit.enemy.hp <= 0) continue;
+      this.queueEnemyDamage(hit.enemy, hit.damage, hit.color, hit.damageType, false, hit.nextDelaySeconds);
+      if (hit.chillSeconds > 0) this.applyEnemyChill(hit.enemy, hit.chillSeconds);
+    }
+  }
+
   /** Frost Nova erupts around the caster, damaging every monster inside the ring. */
   private castFrostNova(rank: number, damage: number): void {
     const radius = FROST_NOVA_RADIUS + Math.max(0, rank - 1) * FROST_NOVA_RADIUS_PER_RANK;
     const color = this.skillVisualColorForName("Frost Nova", "burst");
-    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
-      if (enemy.hp <= 0 || enemy.summonType) continue;
-      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
-      this.queueEnemyDamage(enemy, damage, color, "cold");
-      this.applyEnemyChill(enemy);
-    }
+    this.scheduleNovaRing(radius, damage, color, "cold", 3);
     this.skillVisualEffects.push({
       name: "Frost Nova",
       kind: "burst",
@@ -28443,6 +29375,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
       if (enemy.hp <= 0 || enemy.summonType) continue;
       if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
+      // Poison Nova's ring shares one 25-frame NextDelay, so two overlapping
+      // rings (or two necromancers) do not double the packet.
+      if (this.runTime < (enemy.nextDelayUntil ?? 0)) continue;
+      enemy.nextDelayUntil = this.runTime + NEXT_DELAY_LONG_SECONDS;
       // The ring poisons; the packet ticks out over its two seconds.
       this.applyEnemyPoison(enemy, damage, POISON_NOVA_POISON_SECONDS);
     }
@@ -28521,11 +29457,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private castLightningNova(rank: number, damage: number): void {
     const radius = NOVA_RADIUS + Math.max(0, rank - 1) * NOVA_RADIUS_PER_RANK;
     const color = this.skillVisualColorForName("Nova", "burst") ?? NOVA_COLOR;
-    for (const enemy of this.collectEnemiesNear(this.playerX, this.playerY, radius + 96)) {
-      if (enemy.hp <= 0 || enemy.summonType) continue;
-      if (Math.hypot(enemy.x - this.playerX, enemy.y - this.playerY) > radius + enemy.r) continue;
-      this.queueEnemyDamage(enemy, damage, color, "lightning");
-    }
+    this.scheduleNovaRing(radius, damage, color, "lightning", 0);
     this.skillVisualEffects.push({
       name: "Nova",
       kind: "burst",
@@ -29204,6 +30136,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.updatePlayerBlizzards(seconds);
     this.updateRockShowers(seconds);
     this.updateThunderStorm(seconds);
+    this.updateNovaRingHits(seconds);
     this.updateHurricane(seconds);
     if (this.energyShieldRemaining > 0) {
       this.energyShieldRemaining = Math.max(0, this.energyShieldRemaining - seconds);
@@ -30144,11 +31077,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return true;
   }
 
-  /** A quiet cue on the hero: which spell was short, and by how much it asks. */
+  /**
+   * The hero's refusal: the class says "Not enough mana." in its own recorded
+   * voice, and the numbers of the shortfall float over its head. Both share one
+   * throttle so a held click cannot bark on every frame.
+   */
   private showNotEnoughMana(cost: number): void {
     const now = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (now - this.lastNotEnoughManaAt < NOT_ENOUGH_MANA_REPEAT_MS) return;
     this.lastNotEnoughManaAt = now;
+    this.speakHeroVoice("notenoughmana");
     if (this.floatingTexts.length >= 64) return;
     this.floatingTexts.push({
       x: this.playerX,
@@ -30231,7 +31169,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // D2's hit chance for the monster: its Attack Rating against the hero's
     // Defense, scaled by both levels. Running throws Defense away entirely,
     // and Berserk drops the guard for its duration.
-    if (attacker) {
+    // Only physical blows are rolled this way; a monster's fire or poison spell
+    // still lands on its own timing.
+    if (attacker && damageType === "physical") {
       const running = this.playerRunning;
       const defense = this.berserkRemaining > 0 || running ? 0 : this.playerDefense;
       const chance = this.chanceToHitPercent(
@@ -30279,19 +31219,31 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         this.floatingTexts.push({ x: this.playerX, y: this.playerY - 30, text: `-${Math.round(paidMana)} MANA`, color: "#8fdcff", life: 0.6 });
       }
     }
-    // Two claws block through Weapon Block instead of a shield, and only while
-    // the assassin stands still or swings.
-    const displayedBlock = (this.hasEquippedShield()
-      ? 20 + this.equipmentStatTotal("increasedBlockPercent") + this.holyShieldBlockBonus
-      : 0) + this.weaponBlockChance;
-    if (attacker && displayedBlock > 0) {
-      const blockChance = this.actualBlockChance(
-        displayedBlock, this.attributeDexterity, this.playerLevel, this.playerRunning,
-      );
-      if (this.blockRoll() < blockChance) {
+    // Avoidance resolves in D2's order: the assassin's claws first (two frames,
+    // never scaled by FBR), then the shield (class frames, shortened by FBR).
+    // Either way the block is an animation that locks the hero out of input.
+    if (attacker) {
+      const weaponBlock = this.weaponBlockChance;
+      if (weaponBlock > 0 && this.blockRoll() < this.actualBlockChance(
+        weaponBlock, this.attributeDexterity, this.playerLevel, this.playerRunning,
+      )) {
+        if (this.floatingTexts.length < 64) {
+          this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "WEAPON BLOCK", color: "#d9d3c4", life: 0.6 });
+        }
+        this.applyHeroBlock(WEAPON_BLOCK_FRAMES);
+        return 0;
+      }
+      const shieldBlock = this.hasEquippedShield()
+        ? 20 + this.equipmentStatTotal("increasedBlockPercent") + this.holyShieldBlockBonus
+        : 0;
+      // A shield stops melee and missiles, not an area effect landing on the tile.
+      if (shieldBlock > 0 && kind !== "area" && this.blockRoll() < this.actualBlockChance(
+        shieldBlock, this.attributeDexterity, this.playerLevel, this.playerRunning,
+      )) {
         if (this.floatingTexts.length < 64) {
           this.floatingTexts.push({ x: this.playerX, y: this.playerY - 34, text: "BLOCKED", color: "#d9d3c4", life: 0.6 });
         }
+        this.applyHeroBlock(this.playerBlockFrames);
         return 0;
       }
     }
@@ -30306,7 +31258,35 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
     if (attacker && reducedDamage > 0) this.retaliateWithColdArmor(attacker, kind);
     if (damage > 0) this.tryPassiveTeleport(attacker);
-    return Math.max(0, this.absorbBoneArmorDamage(reducedDamage * (1 - manaShare)));
+    const applied = Math.max(0, this.absorbBoneArmorDamage(reducedDamage * (1 - manaShare)));
+    // Only now, with every avoidance layer spent, does Hit Recovery get its
+    // check: a blow over a sixteenth of maximum life staggers the hero.
+    if (applied > this.effectivePlayerMaxHp * PLAYER_HIT_RECOVERY_SHARE) this.applyPlayerHitRecovery();
+    return applied;
+  }
+
+  /**
+   * The damage-forced stagger. Whirlwind, an airborne Leap, a landed Charge and
+   * the follow-up hits of the timed multi-hit skills are flagged uninterruptible
+   * and keep their animation.
+   */
+  private applyPlayerHitRecovery(): void {
+    if (this.playerActionUninterruptible()) return;
+    this.playerHitRecoveryRemaining = PLAYER_HIT_RECOVERY_SECONDS;
+    this.playerMoveX = 0;
+    this.playerMoveY = 0;
+    this.isPlayerMoving = false;
+    this.cancelAttackAnimation();
+  }
+
+  /** Skills whose execution frames cannot be interrupted once they have begun. */
+  private playerActionUninterruptible(): boolean {
+    if (this.playerLeapRemaining > 0 || this.playerChargeRemaining > 0) return true;
+    if (this.whirlwindOverlayRemaining > 0 || this.whirlwindDashRemaining > 0) return true;
+    // Zeal, Fury, Fend and Strafe: once the first swing has started, the
+    // remaining strikes play out.
+    if (this.zealStrikeRemaining > 0) return true;
+    return false;
   }
 
   private teleportChanceForRank(rank: number): number {
@@ -30502,6 +31482,14 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
   }
 
+  /**
+   * Damaging auras keep D2's 50-frame (2.0 s) pulse; the party buffs and the
+   * restorative ones stay on their per-second upkeep here.
+   */
+  private paladinAuraPulseInterval(skill: string): number {
+    return PALADIN_AURA_DAMAGING_SKILLS.has(skill) ? PALADIN_AURA_PULSE_SECONDS : 1;
+  }
+
   private applyPaladinAuraTick(skill: string): void {
     const rank = Math.max(1, this.skillLevels[skill] ?? 1);
     const radius = this.paladinAuraRadius(skill, rank);
@@ -30648,7 +31636,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   /**
    * The coins from sounds.txt's `item_gold`, which Diablo II plays whenever gold
-   * changes hands: a sale is paid out with the same rattle as a pickup.
+   * changes hands: a sale is paid out, and a purchase in Gheed's shop is spent,
+   * with the same rattle a pickup makes.
    */
   private playGoldSound(): void {
     if (!this.menuSoundPreferred) return;
@@ -31144,6 +32133,40 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     return rank > 0 ? this.weaponBlockByRank[Math.min(19, rank - 1)] : 0;
   }
 
+  /**
+   * Frames one shield block costs this hero. Faster Block Rate shortens it on
+   * the same ladder as the other breakpoints, and Holy Shield drops a paladin's
+   * animation to two frames on its own, which is why it is the classic
+   * anti-block-lock tool.
+   */
+  get playerBlockFrames(): number {
+    const base = this.selectedClass === "sorceress" ? BLOCK_FRAMES_SORCERESS
+      : this.selectedClass === "necromancer" ? BLOCK_FRAMES_NECROMANCER
+      : this.selectedClass === "amazon" ? BLOCK_FRAMES_AMAZON
+      : this.selectedClass === "barbarian" ? BLOCK_FRAMES_BARBARIAN
+      : this.selectedClass === "druid" ? BLOCK_FRAMES_DRUID
+      : this.selectedClass === "assassin" ? BLOCK_FRAMES_ASSASSIN
+      : this.selectedClass === "paladin"
+        ? (this.holyShieldRemaining > 0 ? BLOCK_FRAMES_PALADIN_HOLY_SHIELD : BLOCK_FRAMES_PALADIN)
+        : BLOCK_FRAMES_SORCERESS;
+    const fbr = Math.max(0, this.equipmentStatTotal("fasterBlockRatePercent"));
+    let steps = 0;
+    for (const threshold of FBR_BREAKPOINTS) if (fbr >= threshold) steps += 1;
+    return Math.max(1, base - Math.max(0, steps - 1));
+  }
+
+  /** A blocked blow still costs the block animation, and that is a lockout. */
+  private applyHeroBlock(frames: number): void {
+    this.playerBlockRemaining = Math.max(this.playerBlockRemaining, frames / 25);
+    this.playerMoveX = 0;
+    this.playerMoveY = 0;
+    this.isPlayerMoving = false;
+    this.clearClickMoveCommands();
+    this.cancelAttackAnimation();
+    // A new command may cancel the sidestep early, as D2R Patch 2.4 allows,
+    // but the lockout itself still runs to the end of the animation.
+  }
+
   private get clawMasteryDamagePercent(): number {
     if (this.selectedClass !== "assassin" || !this.isClawWeapon(this.equipment.weapon)) return 0;
     const rank = this.skillLevels["Claw Mastery"] ?? 0;
@@ -31407,7 +32430,8 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (moving) return roll("Evade", EVADE_CHANCE_BY_RANK);
     if (kind === "melee") return roll("Dodge", DODGE_CHANCE_BY_RANK);
     if (kind === "missile") return roll("Avoid", AVOID_CHANCE_BY_RANK);
-    return roll("Evade", EVADE_CHANCE_BY_RANK);
+    // Area damage has no attack to sidestep: no D/A/E layer applies to it.
+    return null;
   }
 
   /** Inner Sight lights a monster up and lowers its Defense (read as crit weight). */
@@ -33808,12 +34832,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
   private speakGheedVoice(): void {
     const line = randomGheedVoiceLine();
     if (!line) return;
-    if (this.gheedSpeechTimer !== null) window.clearTimeout(this.gheedSpeechTimer);
+    // The greeting is part of the shop page, not a subtitle: it stays in the
+    // corner until the player leaves the stand instead of timing out.
     this.gheedSpeech = line.text;
-    this.gheedSpeechTimer = window.setTimeout(() => {
-      this.gheedSpeech = null;
-      this.gheedSpeechTimer = null;
-    }, GHEED_SPEECH_SECONDS * 1000);
     // The menu's Sound switch mutes Gheed too; his line still shows.
     if (!this.menuSoundPreferred) return;
     const audio = this.gheedVoiceAudio ??= new Audio();
@@ -33825,10 +34846,6 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   /** Cuts Gheed off when his shop closes. */
   private stopGheedVoice(): void {
-    if (this.gheedSpeechTimer !== null) {
-      window.clearTimeout(this.gheedSpeechTimer);
-      this.gheedSpeechTimer = null;
-    }
     this.gheedSpeech = null;
     this.gheedVoiceAudio?.pause();
   }
@@ -33877,6 +34894,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.actPortalOpen = false;
     this.zonePortalOpen = false;
     this.enemies = [];
+    this.lastAttackedTarget = null;
     this.maggotEggs.length = 0;
     this.heldBeltPotionSlot = null;
     this.clearMobileBeltPress();
@@ -34206,6 +35224,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   // ---- Co-op: players sharing a zone ---------------------------------------
 
+  /**
+   * The D2R portrait of a class, framed exactly as the party panel frames it.
+   * The extract keeps one 120x120 portrait per class beside the hireling
+   * icons; an unknown class still gets the Amazon's face rather than a gap.
+   */
+  coopPortraitPath(classId: string): string {
+    const known = this.classes.some((characterClass) => characterClass.id === classId);
+    return `assets/d2survivors/ui/portraits/${known ? classId : "amazon"}.webp`;
+  }
+
+  /** A neighbour's class as their party frame names it. */
+  coopPlayerClassName(classId: string): string {
+    return this.classes.find((characterClass) => characterClass.id === classId)?.name ?? "Hero";
+  }
+
+  /** A neighbour's life, kept inside its bar however stale the report is. */
+  coopPlayerLifeFill(player: CoopPlayerView): number {
+    return Math.max(0, Math.min(1, player.hpFraction));
+  }
+
+  trackByCoopPlayer(_index: number, player: CoopPlayerView): string {
+    return player.connectionId;
+  }
+
   /** The hub groups heroes by act and area, so one zone is one session. */
   private coopZoneId(): string {
     return `A${this.currentAct}:${this.currentArea.name}`;
@@ -34224,6 +35266,10 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       facingY: this.playerFacingY,
       hpFraction: this.effectivePlayerMaxHp > 0 ? Math.max(0, this.playerHp / this.effectivePlayerMaxHp) : 1,
       animation: "idle",
+      // Enough of the worn gear for another client to dress the model.
+      look: this.coopLookPayload(),
+      // The servants this hero has raised, so neighbours see them too.
+      summons: this.coopOwnSummons(),
       sentAt: Date.now(),
     };
   }
@@ -34239,6 +35285,11 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private leaveCoopSession(): void {
     if (!this.coopZone) return;
+    for (const connectionId of [...this.remoteHeroes.keys()]) this.removeRemoteHero(connectionId);
+    this.coopMonsterMirror.clear();
+    this.remoteSummons.clear();
+    this.remoteSummonMirrors.clear();
+    this.coopSentShots.clear();
     this.coopZone = null;
     this.coopPlayers = [];
     this.coopAnnouncedMonsters.clear();
@@ -34258,12 +35309,30 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         }
         const player: CoopPlayerView = { ...event.player, seenAt: Date.now() };
         const index = this.coopPlayers.findIndex((other) => other.connectionId === player.connectionId);
+        const target = this.coopPlayerTargets.get(player.connectionId);
+        if (!target) {
+          // First sighting: the hero appears exactly where the hub says it is.
+          this.coopPlayerTargets.set(player.connectionId, { x: player.x, y: player.y });
+        } else {
+          target.x = player.x;
+          target.y = player.y;
+          // Keep showing the interpolated spot; the authoritative one is above.
+          const shown = index >= 0 ? this.coopPlayers[index] : undefined;
+          if (shown) {
+            player.x = shown.x;
+            player.y = shown.y;
+          }
+        }
         if (index >= 0) this.coopPlayers[index] = player;
         else this.coopPlayers.push(player);
+        // Their servants come with their presence; an empty list clears them.
+        this.coopApplyPlayerSummons(player.connectionId, event.player.summons ?? []);
         break;
       }
       case "left":
+        this.coopPlayerTargets.delete(event.connectionId);
         this.coopPlayers = this.coopPlayers.filter((other) => other.connectionId !== event.connectionId);
+        this.removeRemoteSummons(event.connectionId);
         break;
       case "host":
         this.coopIsHost = this.coopService.isHost;
@@ -34273,12 +35342,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
         // Whatever was tracked before the snapshot no longer applies.
         this.coopAnnouncedMonsters.clear();
         this.coopAnnouncedLoot.clear();
+        this.coopMonsterMirror.clear();
         break;
       case "monstersSpawned":
         this.coopApplyMonsterSpawns(event.monsters);
         break;
-      case "monsterStates":
-        this.coopApplyMonsterStates(event.states);
+      case "monsterPoses":
+        this.coopApplyMonsterPoses(event.poses);
+        break;
+      case "resyncRequested":
+        this.coopHandleResyncRequest();
         break;
       case "monstersRemoved":
         this.coopApplyMonsterRemovals(event.ids);
@@ -34298,6 +35371,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       case "lootDropped":
         this.coopApplyRemoteLoot([event.drop]);
         break;
+      case "castShots":
+        this.coopApplyCastShots(event.shots);
+        break;
     }
   }
 
@@ -34311,6 +35387,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     // A hero that stopped reporting closed the tab or lost the hub.
     const now = Date.now();
     this.coopPlayers = this.coopPlayers.filter((player) => now - player.seenAt < 6000);
+    this.syncRemoteHeroes();
 
     this.coopSendAcc += dt;
     if (this.coopSendAcc >= 100) {
@@ -34319,30 +35396,34 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     }
 
     this.coopSyncAcc += dt;
-    if (this.coopSyncAcc >= 150) {
+    if (this.coopSyncAcc >= 100) {
       this.coopSyncAcc = 0;
       this.coopAnnounceMonsters();
       this.coopAnnounceLoot();
+      this.coopAnnounceCastShots();
     }
   }
 
-  /** Host: tell the guests about monsters that appeared, moved or died. */
+  /** Host: report the zone's monsters to the hub, which hands them to everyone. */
   private coopAnnounceMonsters(): void {
     if (!this.coopIsHost || !this.coopZone) return;
     const live = new Set<number>();
     const spawned: CoopMonsterSpawn[] = [];
-    const states: CoopMonsterState[] = [];
+    const poses: CoopMonsterPose[] = [];
     for (const enemy of this.enemies) {
       if (enemy.summonType) continue;
       if (enemy.coopId === undefined) enemy.coopId = this.coopNextMonsterId++;
       live.add(enemy.coopId);
-      states.push({
+      poses.push({
         id: enemy.coopId,
         hp: enemy.hp,
         maxHp: enemy.maxHp,
         x: enemy.x,
         y: enemy.y,
         animation: enemy.animationState ?? "idle",
+        facingX: enemy.facingX ?? 0,
+        facingY: enemy.facingY ?? 1,
+        attack: enemy.attackAnimationTime ?? 0,
       });
       if (this.coopAnnouncedMonsters.has(enemy.coopId)) continue;
       this.coopAnnouncedMonsters.add(enemy.coopId);
@@ -34363,7 +35444,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     const removed = [...this.coopAnnouncedMonsters].filter((id) => !live.has(id));
     for (const id of removed) this.coopAnnouncedMonsters.delete(id);
     if (spawned.length) this.coopService.monsterSpawned(this.coopZone, spawned);
-    if (states.length) this.coopService.monsterStates(this.coopZone, states);
+    if (poses.length) this.coopService.monsterPoses(this.coopZone, poses);
     if (removed.length) this.coopService.monsterRemoved(this.coopZone, removed);
   }
 
@@ -34384,7 +35465,225 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     if (removed.length) this.coopService.lootRemoved(this.coopZone, removed);
   }
 
-  /** Guest: build the host's monster. Position and AI stay local, health is shared. */
+  /** Every living servant this hero has raised, as neighbours need to draw it. */
+  private coopOwnSummons(): CoopSummonState[] {
+    const list: CoopSummonState[] = [];
+    let index = 0;
+    for (const enemy of this.enemies) {
+      if (!enemy.summonType || enemy.hp <= 0) continue;
+      list.push({
+        key: index,
+        species: enemy.species,
+        skill: enemy.summonSkill ?? null,
+        element: enemy.summonElement ?? null,
+        name: enemy.customName ?? null,
+        x: enemy.x,
+        y: enemy.y,
+        hp: enemy.hp,
+        maxHp: enemy.maxHp,
+        r: enemy.r,
+        facingX: enemy.facingX ?? 0,
+        facingY: enemy.facingY ?? 1,
+        animation: enemy.animationState ?? "idle",
+        attack: enemy.attackAnimationTime ?? 0,
+      });
+      index += 1;
+    }
+    return list;
+  }
+
+  /** The servant family, which decides how the sprite is sized and labelled. */
+  private coopSummonKind(skill: string | null | undefined): "skeleton" | "golem" | "druid" | "hydra" {
+    if (skill === "Hydra") return "hydra";
+    if (skill && /golem/i.test(skill)) return "golem";
+    if (skill && /raven|spirit|wolf|bear|vines|creeper|oak|barb/i.test(skill)) return "druid";
+    return "skeleton";
+  }
+
+  /**
+   * Someone else's servants. They are copies for the picture: they stand where
+   * their owner has them, play the owner's clip, and are never part of this
+   * client's enemy list, so nothing here can target, hit or block them.
+   */
+  private coopApplyPlayerSummons(ownerId: string, summons: CoopSummonState[]): void {
+    const now = performance.now();
+    const seen = new Set<string>();
+    for (const state of summons) {
+      const key = `${ownerId}:${state.key}`;
+      seen.add(key);
+      let enemy = this.remoteSummons.get(key);
+      if (enemy && enemy.species !== state.species) {
+        // The slot now holds a different servant; build the new one instead.
+        this.remoteSummons.delete(key);
+        this.remoteSummonMirrors.delete(key);
+        enemy = undefined;
+      }
+      if (!enemy) {
+        enemy = this.makeEnemy("normal", false, state.species as unknown as EnemySpecies);
+        enemy.summonType = this.coopSummonKind(state.skill);
+        enemy.r = state.r;
+        enemy.x = state.x;
+        enemy.y = state.y;
+        enemy.hp = state.hp;
+        enemy.maxHp = state.maxHp;
+        this.remoteSummons.set(key, enemy);
+      }
+      if (state.skill) enemy.summonSkill = state.skill;
+      if (state.element) enemy.summonElement = state.element as SkeletalMageElement;
+      if (state.name) enemy.customName = state.name;
+      this.remoteSummonMirrors.set(key, {
+        x: state.x,
+        y: state.y,
+        hp: state.hp,
+        maxHp: state.maxHp,
+        animation: state.animation,
+        facingX: state.facingX,
+        facingY: state.facingY,
+        attack: state.attack,
+        at: now,
+      });
+    }
+    for (const key of [...this.remoteSummons.keys()]) {
+      if (!key.startsWith(`${ownerId}:`) || seen.has(key)) continue;
+      this.remoteSummons.delete(key);
+      this.remoteSummonMirrors.delete(key);
+    }
+  }
+
+  /** A hero left the zone: their servants leave with them. */
+  private removeRemoteSummons(ownerId: string): void {
+    for (const key of [...this.remoteSummons.keys()]) {
+      if (!key.startsWith(`${ownerId}:`)) continue;
+      this.remoteSummons.delete(key);
+      this.remoteSummonMirrors.delete(key);
+    }
+  }
+
+  /** Walks each neighbour's servant into its reported place and poses it. */
+  private updateRemoteSummons(dt: number): void {
+    if (!this.remoteSummons.size) return;
+    const seconds = dt / 1000;
+    const blend = 1 - Math.exp(-seconds * 14);
+    const now = performance.now();
+    for (const [key, enemy] of this.remoteSummons) {
+      const mirror = this.remoteSummonMirrors.get(key);
+      if (!mirror) continue;
+      const dx = mirror.x - enemy.x;
+      const dy = mirror.y - enemy.y;
+      if (Math.hypot(dx, dy) < 240) {
+        enemy.x += dx * blend;
+        enemy.y += dy * blend;
+      } else {
+        enemy.x = mirror.x;
+        enemy.y = mirror.y;
+      }
+      enemy.hp = mirror.hp;
+      enemy.maxHp = mirror.maxHp;
+      enemy.animationState = mirror.animation as Enemy["animationState"];
+      enemy.facingX = mirror.facingX;
+      enemy.facingY = mirror.facingY;
+      enemy.attackAnimationTime = Math.max(0, mirror.attack - (now - mirror.at) / 1000);
+    }
+  }
+
+  /**
+   * Every hero, host or guest, announces the casts it launches so the others
+   * can watch them fly. Only projectiles that are a plain flight are shared:
+   * see coopShareableShot.
+   */
+  private coopAnnounceCastShots(): void {
+    if (!this.coopZone) return;
+    const live = new Set(this.attackProjectiles);
+    for (const seen of this.coopSentShots) if (!live.has(seen)) this.coopSentShots.delete(seen);
+    const shots: CoopCastShot[] = [];
+    for (const projectile of this.attackProjectiles) {
+      if (this.coopSentShots.has(projectile)) continue;
+      this.coopSentShots.add(projectile);
+      if (!this.coopShareableShot(projectile)) continue;
+      shots.push({
+        x: projectile.x,
+        y: projectile.y,
+        startX: projectile.startX,
+        startY: projectile.startY,
+        targetX: projectile.targetX,
+        targetY: projectile.targetY,
+        missileId: projectile.missileId ?? null,
+        skill: projectile.skill ?? null,
+        kind: projectile.kind,
+        color: projectile.color,
+        speed: projectile.speed,
+        life: projectile.life,
+        age: projectile.age,
+        radius: projectile.radius,
+        artScale: projectile.artScale ?? null,
+        sourceOnlyArt: !!projectile.sourceOnlyArt,
+        cold: !!projectile.cold,
+        damageType: projectile.damageType ?? null,
+        impactRadius: projectile.impactRadius ?? null,
+        impactX: projectile.impactPoint?.x ?? null,
+        impactY: projectile.impactPoint?.y ?? null,
+        impactDuration: projectile.impactDuration ?? null,
+      });
+      if (shots.length >= 40) break;
+    }
+    if (shots.length) this.coopService.castShots(this.coopZone, shots);
+  }
+
+  /**
+   * A shared cast is a flying picture. Stationary conjurations (walls, traps,
+   * prisons), orbiters and thrown weapons carry their own bespoke state, so
+   * they stay on the caster's screen until each has its own replica.
+   */
+  private coopShareableShot(projectile: AttackProjectile): boolean {
+    if (projectile.coopVisual || projectile.cosmeticTrail) return false;
+    if (projectile.source || projectile.targetPlayer) return false;
+    if (projectile.fireWall || projectile.boneWall || projectile.bonePrison) return false;
+    if (projectile.blessedHammer || projectile.boulder || projectile.frozenOrb) return false;
+    if (projectile.teethFan !== undefined || projectile.thrownWeapon) return false;
+    if (projectile.wakeOfFireTrap || projectile.wakeOfInfernoTrap
+      || projectile.chargedSentryTrap || projectile.lightningSentryTrap
+      || projectile.deathSentryTrap) return false;
+    if (projectile.kind === "melee") return false;
+    return Number.isFinite(projectile.speed) && Number.isFinite(projectile.life)
+      && Number.isFinite(projectile.x) && Number.isFinite(projectile.y);
+  }
+
+  /** Replays a neighbour's cast: the same missile, flown with no damage at all. */
+  private coopApplyCastShots(shots: CoopCastShot[]): void {
+    for (const shot of shots) {
+      if (!Number.isFinite(shot.speed) || !Number.isFinite(shot.life)) continue;
+      const hasImpact = shot.impactRadius !== null && shot.impactRadius !== undefined
+        && shot.impactX !== null && shot.impactX !== undefined
+        && shot.impactY !== null && shot.impactY !== undefined;
+      this.attackProjectiles.push({
+        x: shot.x,
+        y: shot.y,
+        startX: shot.startX,
+        startY: shot.startY,
+        targetX: shot.targetX,
+        targetY: shot.targetY,
+        missileId: shot.missileId ?? undefined,
+        skill: shot.skill ?? undefined,
+        speed: shot.speed,
+        damage: 0,
+        life: Math.min(shot.life, 6),
+        age: shot.age,
+        radius: shot.radius,
+        color: shot.color,
+        kind: shot.kind as AttackProjectile["kind"],
+        artScale: shot.artScale ?? undefined,
+        sourceOnlyArt: shot.sourceOnlyArt,
+        cold: shot.cold,
+        damageType: (shot.damageType ?? undefined) as EnemyDamageType | undefined,
+        impactPoint: hasImpact ? { x: shot.impactX as number, y: shot.impactY as number } : undefined,
+        impactRadius: shot.impactRadius ?? undefined,
+        impactDuration: shot.impactDuration ?? undefined,
+        coopVisual: true,
+      });
+    }
+  }
+
+  /** Guest: build the zone's monster where the hub's roster places it. */
   private coopApplyMonsterSpawns(monsters: CoopMonsterSpawn[]): void {
     if (this.coopIsHost) return;
     for (const spawn of monsters) {
@@ -34406,26 +35705,191 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       enemy.hp = spawn.hp;
       enemy.maxHp = spawn.maxHp;
       if (spawn.championType) enemy.championType = spawn.championType as unknown as ChampionType;
+      // Stand still where the roster put it until the first pose arrives.
+      this.coopMonsterMirror.set(spawn.id, {
+        fromX: spawn.x, fromY: spawn.y, toX: spawn.x, toY: spawn.y,
+        vx: 0, vy: 0, interval: 100, sampledAt: performance.now(),
+        hp: spawn.hp, maxHp: spawn.maxHp,
+        animation: "idle", facingX: 0, facingY: 1, attack: 0,
+      });
       this.enemies.push(enemy);
     }
   }
 
-  /** Guest: take the host's health so a monster dies on both screens at once. */
-  private coopApplyMonsterStates(states: CoopMonsterState[]): void {
+  /**
+   * Guest: the hub's poses are the real ones. Each report is kept with the
+   * velocity the one before it implies, which is how the next frame puts the
+   * monster where it actually is rather than a tick behind it.
+   */
+  private coopApplyMonsterPoses(poses: CoopMonsterPose[]): void {
     if (this.coopIsHost) return;
+    const now = performance.now();
     const byId = new Map<number, Enemy>();
     for (const enemy of this.enemies) if (enemy.coopId !== undefined) byId.set(enemy.coopId, enemy);
-    for (const state of states) {
-      const enemy = byId.get(state.id);
+    for (const pose of poses) {
+      const previous = this.coopMonsterMirror.get(pose.id);
+      // Reports arrive on a steady tick; a gap is clamped so one lost report
+      // cannot turn a monster's velocity into a leap across the arena.
+      const interval = previous ? Math.min(400, Math.max(20, now - previous.sampledAt)) : 100;
+      const fromX = previous ? previous.toX : pose.x;
+      const fromY = previous ? previous.toY : pose.y;
+      const stepX = pose.x - fromX;
+      const stepY = pose.y - fromY;
+      // A teleport, a respawn or a fresh area is not a walk: stand it there.
+      const teleported = Math.hypot(stepX, stepY) > 240;
+      this.coopMonsterMirror.set(pose.id, {
+        fromX, fromY,
+        toX: pose.x, toY: pose.y,
+        vx: teleported ? 0 : stepX / interval,
+        vy: teleported ? 0 : stepY / interval,
+        interval,
+        sampledAt: now,
+        hp: pose.hp, maxHp: pose.maxHp,
+        animation: pose.animation,
+        facingX: pose.facingX,
+        facingY: pose.facingY,
+        attack: pose.attack,
+      });
+      const enemy = byId.get(pose.id);
       if (!enemy) continue;
-      enemy.hp = Math.min(enemy.hp, state.hp);
-      enemy.maxHp = state.maxHp;
+      // Local blows land immediately for feedback; the zone can only lower
+      // this figure, and its kill is what removes the monster everywhere.
+      enemy.hp = Math.min(enemy.hp, pose.hp);
+      enemy.maxHp = pose.maxHp;
     }
+  }
+
+  /**
+   * Walk one remote body onto its authoritative spot. D2R's renderer smooths
+   * between server ticks and gives up once the two disagree badly, which is
+   * the same tolerance rule the client uses when it reconciles with the server.
+   * Returns true when the position had to be snapped.
+   */
+  private reconcileRemotePosition(
+    current: { x: number; y: number },
+    targetX: number,
+    targetY: number,
+    seconds: number,
+    blendRate = COOP_PLAYER_BLEND_RATE,
+    snapDistance = COOP_PLAYER_SNAP_DISTANCE,
+  ): boolean {
+    const dx = targetX - current.x;
+    const dy = targetY - current.y;
+    if (Math.hypot(dx, dy) > snapDistance) {
+      current.x = targetX;
+      current.y = targetY;
+      return true;
+    }
+    const blend = 1 - Math.exp(-seconds * blendRate);
+    current.x += dx * blend;
+    current.y += dy * blend;
+    return false;
+  }
+
+  /** D2R-style interpolation for neighbours, whose snapshots arrive far slower
+   *  than the frame rate. */
+  private updateCoopPlayerInterpolation(dt: number): void {
+    if (!this.coopZone || !this.coopPlayers.length) return;
+    const seconds = dt / 1000;
+    for (const player of this.coopPlayers) {
+      const target = this.coopPlayerTargets.get(player.connectionId);
+      if (!target) continue;
+      this.reconcileRemotePosition(player, target.x, target.y, seconds);
+    }
+  }
+
+  /**
+   * Guest: place, face and animate every monster from the zone's authoritative
+   * reports. A monster walks at a steady speed between two of them, so the
+   * newest report carried forward by the one before it is where it stands now:
+   * every screen shows the same spot instead of its own guess at the motion.
+   */
+  private updateGuestMonsters(dt: number): void {
+    if (this.coopIsHost || !this.coopZone) return;
+    const now = performance.now();
+    for (const enemy of this.enemies) {
+      if (enemy.summonType || enemy.coopId === undefined) continue;
+      const mirror = this.coopMonsterMirror.get(enemy.coopId);
+      if (!mirror) continue;
+      const age = Math.max(0, now - mirror.sampledAt) / 1000;
+      // Half a report past the newest one covers the gap until the next lands;
+      // beyond that the next report is overdue and the last one stands.
+      const ahead = Math.min(age, (mirror.interval / 1000) * 1.5);
+      enemy.x = Math.max(enemy.r, Math.min(this.arenaW - enemy.r, mirror.toX + mirror.vx * ahead));
+      enemy.y = Math.max(enemy.r, Math.min(this.arenaH - enemy.r, mirror.toY + mirror.vy * ahead));
+      enemy.hp = Math.min(enemy.hp, mirror.hp);
+      enemy.maxHp = mirror.maxHp;
+      enemy.animationState = mirror.animation as Enemy["animationState"];
+      enemy.facingX = mirror.facingX;
+      enemy.facingY = mirror.facingY;
+      // The swing keeps its own clock from the moment the report landed.
+      enemy.attackAnimationTime = Math.max(0, mirror.attack - age);
+    }
+  }
+
+  /**
+   * D2's manual resync. A drifted picture is thrown away: every remote body is
+   * put back on its last authoritative sub-tile, and the host is asked for a
+   * fresh dump rather than the next scheduled tick.
+   */
+  coopForceResync(): boolean {
+    if (!this.coopZone) return false;
+    const snapped = this.coopSnapToAuthoritative();
+    this.coopService.requestResync(this.coopZone);
+    this.floatingTexts.push({
+      x: this.playerX,
+      y: this.playerY - 32,
+      text: snapped > 0 ? "RESYNC" : "SYNC OK",
+      color: snapped > 0 ? "#ffd27a" : "#9fe8a0",
+      life: 1.2,
+    });
+    return true;
+  }
+
+  /** Snap every mirrored body onto its authoritative spot; returns how many
+   *  were out of place, which is how far the picture had drifted. */
+  private coopSnapToAuthoritative(): number {
+    let snapped = 0;
+    for (const enemy of this.enemies) {
+      if (enemy.summonType || enemy.coopId === undefined) continue;
+      const mirror = this.coopMonsterMirror.get(enemy.coopId);
+      if (!mirror) continue;
+      if (Math.hypot(mirror.toX - enemy.x, mirror.toY - enemy.y) > 1) snapped += 1;
+      enemy.x = mirror.toX;
+      enemy.y = mirror.toY;
+      enemy.hp = Math.min(enemy.hp, mirror.hp);
+      enemy.maxHp = mirror.maxHp;
+      enemy.facingX = mirror.facingX;
+      enemy.facingY = mirror.facingY;
+      enemy.animationState = mirror.animation as Enemy["animationState"];
+    }
+    for (const player of this.coopPlayers) {
+      const target = this.coopPlayerTargets.get(player.connectionId);
+      if (!target) continue;
+      if (Math.hypot(target.x - player.x, target.y - player.y) > 1) snapped += 1;
+      player.x = target.x;
+      player.y = target.y;
+    }
+    return snapped;
+  }
+
+  /** Host: a neighbour's screen drifted. Re-announce the whole roster and every
+   *  position immediately; guests apply the spawns idempotently. */
+  private coopHandleResyncRequest(): void {
+    if (!this.coopIsHost || !this.coopZone) return;
+    this.coopAnnouncedMonsters.clear();
+    this.coopAnnounceMonsters();
   }
 
   private coopApplyMonsterRemovals(ids: number[]): void {
     if (this.coopIsHost) return;
     const gone = new Set(ids);
+    for (const id of ids) this.coopMonsterMirror.delete(id);
+    for (const enemy of this.enemies) {
+      if (enemy.summonType && enemy.coopId !== undefined && gone.has(enemy.coopId)) {
+        this.recordSummonDeath(enemy);
+      }
+    }
     this.enemies = this.enemies.filter((enemy) => enemy.coopId === undefined || !gone.has(enemy.coopId));
   }
 
@@ -34472,6 +35936,216 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     this.itemDrops = this.itemDrops.filter((drop) => !gone.has(drop.item.id));
   }
 
+  /** The gear neighbours need to dress this hero, as a small JSON payload. */
+  private coopLookPayload(): string {
+    const describe = (item: D2InventoryItem | null | undefined) => item ? {
+      id: item.id,
+      name: item.name,
+      baseName: item.baseName ?? item.name,
+      slot: item.slot,
+    } : null;
+    return JSON.stringify({
+      weapon: describe(this.equipment.weapon),
+      helmet: describe(this.equipment.helmet),
+      shield: describe(this.equipment.shield),
+      body: describe(this.equipment.body),
+    });
+  }
+
+  /**
+   * Loads one class model for all the heroes of that class: the original GLTF,
+   * its class textures, normalized to hero height. Each hero clones it, because
+   * a skinned mesh needs its own skeleton to be posed independently.
+   */
+  private remoteClassSource(classId: string): Promise<THREE.Group | null> {
+    const cached = this.remoteClassSources.get(classId);
+    if (cached) return cached;
+    const definition = CLASS_MODEL[classId];
+    const promise = (async (): Promise<THREE.Group | null> => {
+      if (!definition) return null;
+      try {
+        const gltf = await new GLTFLoader().loadAsync(definition.model);
+        const model = gltf.scene;
+        await this.applyClassTextures(model, classId);
+        this.normalizeCharacterModel(model, PLAYER_MODEL_HEIGHT);
+        // Every hero carries the weapon they actually wear, so the class's
+        // stock pike, staff or bow is put away.
+        model.traverse((object) => {
+          const mesh = object as THREE.Mesh;
+          if (!mesh.isMesh) return;
+          if (/pike|polearm|spear|staff|bow|crossbow|javelin|weapon/i.test(`${mesh.name} ${mesh.parent?.name ?? ""}`)) {
+            mesh.visible = false;
+            mesh.userData["d2sHiddenByWeapon"] = true;
+          }
+        });
+        return model;
+      } catch (error) {
+        console.error(`Could not load the ${classId} co-op character model`, error);
+        return null;
+      }
+    })();
+    this.remoteClassSources.set(classId, promise);
+    return promise;
+  }
+
+  /** Adds models for new heroes, dresses changes, and drops the ones who left. */
+  private syncRemoteHeroes(): void {
+    for (const player of this.coopPlayers) {
+      const hero = this.remoteHeroes.get(player.connectionId);
+      const look = player.look ?? "";
+      if (hero) {
+        if (hero.look === look && hero.classId === player.classId) continue;
+        this.removeRemoteHero(player.connectionId);
+      }
+      void this.spawnRemoteHero(player, look);
+    }
+    for (const connectionId of [...this.remoteHeroes.keys()]) {
+      if (!this.coopPlayers.some((player) => player.connectionId === connectionId)) {
+        this.removeRemoteHero(connectionId);
+      }
+    }
+  }
+
+  /** Builds one hero's own skeleton, helmets and weapon from the shared source. */
+  private async spawnRemoteHero(player: CoopPlayerView, look: string): Promise<void> {
+    if (this.remoteHeroPending.has(player.connectionId)) return;
+    this.remoteHeroPending.add(player.connectionId);
+    try {
+      await this.buildRemoteHero(player, look);
+    } finally {
+      this.remoteHeroPending.delete(player.connectionId);
+    }
+  }
+
+  private async buildRemoteHero(player: CoopPlayerView, look: string): Promise<void> {
+    const source = await this.remoteClassSource(player.classId);
+    if (!source || !this.characterScene) return;
+    // The hero may have left or re-dressed while the model was loading.
+    if (this.remoteHeroes.has(player.connectionId)) return;
+    if (!this.coopPlayers.some((other) => other.connectionId === player.connectionId)) return;
+
+    const model = cloneSkinnedModel(source) as THREE.Group;
+    let worn: { weapon?: unknown; helmet?: unknown; shield?: unknown; body?: unknown } = {};
+    try {
+      worn = JSON.parse(look || "{}") as typeof worn;
+    } catch {
+      worn = {};
+    }
+    // The payload comes from another client, so only the fields the visuals
+    // need are read, and nothing is trusted beyond them.
+    const toItem = (raw: unknown): D2InventoryItem | null => {
+      const entry = raw as { id?: unknown; name?: unknown; baseName?: unknown; slot?: unknown } | null;
+      if (!entry || typeof entry.name !== "string" || !entry.name) return null;
+      return {
+        id: typeof entry.id === "string" ? entry.id : entry.name,
+        name: entry.name,
+        baseName: typeof entry.baseName === "string" ? entry.baseName : entry.name,
+        slot: entry.slot === "helmet" || entry.slot === "shield" || entry.slot === "body" ? entry.slot : "weapon",
+      } as D2InventoryItem;
+    };
+    const weapon = toItem(worn.weapon);
+    const helmet = toItem(worn.helmet);
+    const shieldItem = toItem(worn.shield);
+    const bodyItem = toItem(worn.body);
+
+    const rig = buildCharacterRig(model, player.classId);
+    // The armor set is the piece the player is actually wearing: its tier and
+    // material decide the body meshes, exactly as on the local hero.
+    this.configureClassArmor(model, player.classId, true, bodyItem);
+    this.configureEquippedHelmet(model, player.classId, rig, {
+      weapon: null, helmet, body: null, shield: null, belt: null,
+      gloves: null, boots: null, amulet: null, ringLeft: null, ringRight: null,
+    });
+    const hand = model.getObjectByName("R_weapon_attach")
+      ?? model.getObjectByName("R_Wrist")
+      ?? model.getObjectByName("R_hand_bind_jnt")
+      ?? model.getObjectByName("R_Wrist_JNT")
+      ?? model.getObjectByName("R_ForeArm")
+      ?? model.getObjectByName("R_lwr_arm_bind_jnt");
+    if (weapon && hand) this.createEquippedWeaponVisual(weapon, hand, "weapon");
+    const shieldAnchor = model.getObjectByName("shield_attach")
+      ?? model.getObjectByName("L_weapon_attach")
+      ?? model.getObjectByName("L_hand_bind_jnt")
+      ?? model.getObjectByName("L_Wrist")
+      ?? model.getObjectByName("wrist_L_JNT")
+      ?? model.getObjectByName("L_lwr_arm_bind_jnt");
+    if (shieldItem && shieldAnchor) {
+      const shield = new THREE.Group();
+      shield.name = `equipped_shield_${getEquipmentType(shieldItem)}`;
+      shield.scale.setScalar(1.15);
+      shieldAnchor.add(shield);
+      this.attachHeldItemArt(shield, shieldItem, "shield");
+    }
+
+    const group = new THREE.Group();
+    group.add(model);
+    group.visible = this.runActive;
+    this.characterScene.add(group);
+    this.remoteHeroes.set(player.connectionId, {
+      connectionId: player.connectionId,
+      classId: player.classId,
+      look,
+      group,
+      rig,
+      time: Math.random() * 4,
+      walkPhase: 0,
+      walk: 0,
+      lastX: player.x,
+      lastY: player.y,
+      yaw: Math.atan2(player.facingX, player.facingY),
+    });
+  }
+
+  /** Poses every remote hero from the presence data, once per rendered frame. */
+  private updateRemoteHeroes(dt: number): void {
+    if (!this.remoteHeroes.size) return;
+    const seconds = dt / 1000;
+    for (const player of this.coopPlayers) {
+      const hero = this.remoteHeroes.get(player.connectionId);
+      if (!hero) continue;
+      const moved = Math.hypot(player.x - hero.lastX, player.y - hero.lastY);
+      hero.lastX = player.x;
+      hero.lastY = player.y;
+      hero.time += seconds;
+      // The walk blend follows whether the position actually changed, so a
+      // standing neighbour breathes instead of marching in place.
+      hero.walk = Math.min(1, Math.max(0, hero.walk + (moved > 0.05 ? seconds * 6 : -seconds * 6)));
+      hero.walkPhase += moved * 0.22;
+      poseCharacterRig(hero.rig, {
+        time: hero.time,
+        walkPhase: hero.walkPhase,
+        walk: hero.walk,
+        attackTime: 0,
+        attackSide: 1,
+        gait: gaitForClass(hero.classId),
+        weaponless: false,
+        offhandHeld: false,
+        motionScale: 1,
+      });
+      hero.group.position.set(
+        (player.x - this.arenaW / 2) / this.worldZoom,
+        0,
+        (player.y - this.arenaH / 2) / this.worldZoom,
+      );
+      hero.group.scale.setScalar(this.playerWorldScale);
+      const target = Math.atan2(player.facingX, player.facingY);
+      const delta = Math.atan2(Math.sin(target - hero.yaw), Math.cos(target - hero.yaw));
+      hero.yaw += delta * (1 - Math.exp(-seconds * 10));
+      hero.group.rotation.y = hero.yaw;
+      hero.group.visible = this.runActive;
+    }
+  }
+
+  /** Detaches a neighbour's model. Geometry and materials are shared with the
+   *  class source, so they are only unparented, never disposed here. */
+  private removeRemoteHero(connectionId: string): void {
+    const hero = this.remoteHeroes.get(connectionId);
+    if (!hero) return;
+    this.remoteHeroes.delete(connectionId);
+    hero.group.removeFromParent();
+    hero.group.clear();
+  }
+
   /**
    * Other heroes in the zone. They are drawn, never targeted: the game gives a
    * player no way to damage another player, so no hero is a combat target.
@@ -34481,21 +36155,16 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
     for (const player of this.coopPlayers) {
       const point = this.projectArenaPoint(player.x, player.y);
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
-      const radius = 16 * this.worldZoom;
+            const radius = 16 * this.worldZoom;
       ctx.save();
-      ctx.globalAlpha = 0.4;
+      // The model stands on this shadow; the body itself is the 3D hero.
+      ctx.globalAlpha = 0.35;
       ctx.fillStyle = "#000";
       ctx.beginPath();
       ctx.ellipse(point.x, point.y + radius * 0.45, radius * 0.85, radius * 0.36, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-      ctx.fillStyle = this.coopClassColor(player.classId);
-      ctx.beginPath();
-      ctx.ellipse(point.x, point.y - radius * 0.55, radius * 0.5, radius * 0.78, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "rgba(243,231,200,0.85)";
-      ctx.lineWidth = Math.max(1, 1.4 * this.worldZoom);
-      ctx.stroke();
+
       // Health under the name, over the hero's head.
       const barWidth = radius * 2.1;
       const barY = point.y - radius * 1.95;
@@ -35071,6 +36740,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
       drawOrder.push({ depth: point.y, draw: () => this.drawEnemy(ctx, entity) });
     }
+    // Other heroes' servants stand in the same sorted pass as the monsters.
+    for (const entity of this.remoteSummons.values()) {
+      const point = this.projectArenaPoint(entity.x, entity.y);
+      if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
+      drawOrder.push({ depth: point.y, draw: () => this.drawEnemy(ctx, entity) });
+    }
     for (const egg of this.maggotEggs) {
       const point = this.projectArenaPoint(egg.x, egg.y);
       if (!this.isArenaPointOnScreen(point, DRAW_CULL_MARGIN)) continue;
@@ -35284,6 +36959,9 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterRenderer.setClearColor(0x000000, 0);
       this.characterRenderer.outputColorSpace = THREE.SRGBColorSpace;
       this.characterScene = new THREE.Scene();
+      // Models lived in the old scene, so the next frame rebuilds them there.
+      this.remoteHeroes.clear();
+      this.remoteHeroPending.clear();
       this.characterCamera = new THREE.OrthographicCamera(-400, 400, 250, -250, 0.1, 2000);
       this.characterCamera.position.set(600, 490, 600);
       this.characterCamera.lookAt(0, 0, 0);
@@ -36643,6 +38321,7 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
       this.characterModel.scale.setScalar(this.playerWorldScale);
       this.characterModel.visible = !this.druidForm;
     }
+    this.updateRemoteHeroes(this.playerAnimationDelta);
     this.characterRenderer.render(this.characterScene, this.characterCamera);
     this.renderTristramDepthLayer();
   }
@@ -37697,11 +39376,12 @@ export class D2SurvivorsComponent extends ChildComponent implements OnInit, Afte
 
   private summonAttack(summon: Enemy, target: Enemy): void {
     if (SUPPORT_SPIRIT_SKILLS.has(summon.summonSkill ?? "")) return;
-    summon.summonAttackCooldown = summon.summonType === "golem" ? 0.9
-      : summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25
+    // Melee servants swing on the guide's 11-frame animation and then stand in
+    // their AI Delay; casters keep the longer cadence their missiles need.
+    summon.summonAttackCooldown = summon.summonSkill === "Skeletal Mage" || summon.summonSkill === "Raven" ? 1.25
       : summon.summonSkill === "Poison Creeper" ? 1.05
-      : summon.summonSkill === "Raise Skeleton" ? 0.72
-      : 0.72;
+      : SUMMON_ATTACK_ANIMATION_SECONDS;
+    summon.summonAiDelayRemaining = SUMMON_AI_DELAY_SECONDS;
     // Raised skeletons close to melee; mages and ravens cast at range.
     const duration = summon.summonType === "golem" || summon.summonSkill === "Werewolf" ? 0.38
       : summon.summonSkill === "Raise Skeleton" ? 0.32
@@ -39995,6 +41675,8 @@ interface AttackProjectile {
   /** Element carried by the hit; absent shots infer it from `kind`. */
   damageType?: EnemyDamageType;
   pathHitEnemies?: Enemy[];
+  /** Arrows of one volley may never double up on a single monster. */
+  volleyId?: number;
   targetPlayer?: boolean;
   speed: number;
   damage: number;
@@ -40072,6 +41754,8 @@ interface AttackProjectile {
   thrownWeapon?: ThrownWeaponKind;
   /** A paladin weapon shot: the offensive auras' attack damage lands with it. */
   carriesAuraAttack?: boolean;
+  /** A neighbour's cast replayed for its picture: it flies, but never strikes. */
+  coopVisual?: boolean;
 }
 
 interface BlazeFirePatch {
@@ -40276,6 +41960,10 @@ interface Enemy {
   /** The elemental palette and damage of a raised Skeletal Mage. */
   summonElement?: SkeletalMageElement;
   summonAttackCooldown?: number;
+  /** Frames of AI Delay left before this servant decides on its next action. */
+  summonAiDelayRemaining?: number;
+  /** The monster this servant has locked onto until it dies or breaks leash. */
+  summonLockedTarget?: Enemy;
   /** Seconds before this servant's next skill cast, and how many she has thrown. */
   summonSkillCooldown?: number;
   summonSkillCasts?: number;
@@ -40310,6 +41998,11 @@ interface Enemy {
   curseName?: NecromancerCurseName;
   curseRemaining?: number;
   stunRemaining?: number;
+  /** D2's awareness flag: false until the monster is roused by a nearby unit. */
+  awake?: boolean;
+  /** Seconds left in a damage-forced Hit Recovery, and the NextDelay deadline. */
+  hitRecoveryRemaining?: number;
+  nextDelayUntil?: number;
   /** Seconds of Howl-induced fear remaining; the monster flees from the hero. */
   fearRemaining?: number;
   /** A planted decoy takes the blows but never moves or attacks. */
@@ -40390,6 +42083,8 @@ interface Corpse {
   tint?: string;
   /** On-screen body height when it fell, so the corpse matches its monster. */
   height?: number;
+  /** False for a servant's body, which Corpse Explosion may not spend. */
+  explodable?: boolean;
 }
 
 interface MaggotEgg {
@@ -40425,8 +42120,24 @@ interface CoopPlayerView {
   facingY: number;
   hpFraction: number;
   animation: string;
+  /** The hero's worn gear, as JSON, so their model can be dressed. */
+  look?: string;
   /** Local clock of the last report, so a closed tab stops being drawn. */
   seenAt: number;
+}
+
+interface RemoteHero {
+  connectionId: string;
+  classId: string;
+  look: string;
+  group: THREE.Group;
+  rig: CharacterRig;
+  time: number;
+  walkPhase: number;
+  walk: number;
+  lastX: number;
+  lastY: number;
+  yaw: number;
 }
 
 interface PotionDrop {

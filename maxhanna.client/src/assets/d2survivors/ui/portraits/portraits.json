@@ -1,0 +1,37 @@
+{
+  "amazon": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/amazonicon.sprite",
+    "width": 120
+  },
+  "assassin": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/assassinicon.sprite",
+    "width": 120
+  },
+  "barbarian": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/barbarianicon.sprite",
+    "width": 120
+  },
+  "druid": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/druidicon.sprite",
+    "width": 120
+  },
+  "necromancer": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/necromancericon.sprite",
+    "width": 120
+  },
+  "paladin": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/paladinicon.sprite",
+    "width": 120
+  },
+  "sorceress": {
+    "height": 120,
+    "source": "hd/global/ui/hireables/sorceressicon.sprite",
+    "width": 120
+  }
+}

@@ -14,12 +14,12 @@ export interface GheedVoiceLine {
 }
 
 export const GHEED_VOICE_LINES: GheedVoiceLine[] = [
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_greetings.flac", text: "Greetings." },
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_letsdeal.flac", text: "Let's deal, my friend." },
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_mayihelpyou.flac", text: "May I help you?" },
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodmorning.flac", text: "Good morning." },
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodday.flac", text: "Good day." },
-  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodevening.flac", text: "Good evening." },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_greetings.ogg", text: "Greetings." },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_letsdeal.ogg", text: "Let's deal, my friend." },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_mayihelpyou.ogg", text: "May I help you?" },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodmorning.ogg", text: "Good morning." },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodday.ogg", text: "Good day." },
+  { path: "assets/d2survivors/audio/voice/gheed/ghe_goodevening.ogg", text: "Good evening." },
 ];
 
 /** A greeting for the shop's opening, chosen at random. */

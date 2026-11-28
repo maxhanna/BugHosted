@@ -28,18 +28,13 @@
   overflow: hidden;
   box-shadow: 0 0 90px rgba(0, 0, 0, 0.85);
 }
+/* One step per loaded chunk: the gate opens as the track fills, never loops. */
 .d2s-loading-strip {
   display: block;
   height: 100%;
   width: auto;
   max-width: none;
   image-rendering: pixelated;
-  animation-name: d2s-loading-frames;
-  animation-iteration-count: infinite;
-}
-@keyframes d2s-loading-frames {
-  from { transform: translateX(0); }
-  to { transform: translateX(-100%); }
 }
 .d2s-loading-track {
   position: relative;
@@ -119,7 +114,10 @@
   color: #c9b98f;
   font: 15px/1.4 Georgia, serif;
 }
-.d2s-class-description p { margin: 0 0 4px; }
+/* A longer blurb used to wrap onto a second line, stretch the character-select
+   row and reshape the 3D preview beside it, so the barbarian's frame came out a
+   different shape from the rest. Two lines are always reserved. */
+.d2s-class-description p { min-height: 2.8em; margin: 0 0 4px; }
 .d2s-class-description small { color: #997f5a; font-size: 10px; letter-spacing: 0.14em; }
 .d2s-hero-stats {
   display: grid;
@@ -1328,13 +1326,24 @@
   font: 11px/1.3 Georgia, serif;
   letter-spacing: 0.03em;
 }
-.d2s-act-banner {
+/* The top-left column: the act plaque and, under it, the heroes sharing this
+   area. One stack keeps the party frames from ever landing on the plaque, whose
+   height follows the area's message. */
+.d2s-top-left {
   position: absolute;
   z-index: 5;
   top: 14px;
   left: 16px;
   display: grid;
   width: min(225px, 44%);
+  gap: 8px;
+  justify-items: stretch;
+  pointer-events: none;
+}
+.d2s-act-banner {
+  position: relative;
+  display: grid;
+  width: 100%;
   gap: 4px;
   padding: 10px 12px;
   border: 1px solid #927147;
@@ -1350,6 +1359,61 @@
 .d2s-act-banner > .d2s-campaign-area-name { color: #c1a77c; font-size: 8px; letter-spacing: .08em; }
 .d2s-act-progress { display: block; height: 4px; overflow: hidden; border: 1px solid #665033; background: #080808; }
 .d2s-act-progress i { display: block; height: 100%; background: linear-gradient(90deg, #8a301c, #e6ad58); transition: width 200ms linear; }
+/* Co-op: the heroes standing in this area, worn at the top left the way D2R's
+   party panel wears them. Each portrait arrives already inside its blue frame. */
+.d2s-party-frames {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+.d2s-party-frame {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid #3c5f7e;
+  background: linear-gradient(110deg, #0a1016ef, #0d141bd9 60%, #080c11d4);
+  box-shadow: inset 0 0 0 1px #04070a, 0 2px 9px #000b;
+}
+.d2s-party-portrait { position: relative; display: block; width: 46px; height: 46px; }
+.d2s-party-portrait img { display: block; width: 100%; height: 100%; }
+.d2s-party-life {
+  position: absolute;
+  right: 13%;
+  bottom: 12%;
+  left: 13%;
+  height: 3px;
+  overflow: hidden;
+  background: #23090a;
+  box-shadow: 0 0 0 1px #000a;
+}
+.d2s-party-life i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #8b1d12, #d8442c);
+  transform-origin: left center;
+  transition: transform 140ms linear;
+}
+.d2s-party-name { display: grid; min-width: 0; gap: 2px; }
+.d2s-party-name strong {
+  overflow: hidden;
+  color: #f0d6a0;
+  font: 13px/1.2 Georgia, serif;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px #000;
+  white-space: nowrap;
+}
+.d2s-party-name small {
+  overflow: hidden;
+  color: #9fb8cc;
+  font: 10px/1.2 Georgia, serif;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 .d2s-act-transition,
 .d2s-campaign-victory {
   position: absolute;
@@ -2199,7 +2263,12 @@
   .d2s-skill-tree,
   .d2s-escape-menu { inset: 0; }
   .d2s-touch-menu { top: 12px; right: 12px; }
-  .d2s-act-banner { top: 12px; left: 12px; width: min(176px, 45%); padding: 7px 8px; }
+  .d2s-top-left { top: 12px; left: 12px; width: min(176px, 45%); gap: 6px; }
+  .d2s-act-banner { padding: 7px 8px; }
+  .d2s-party-frames { gap: 4px; }
+  .d2s-party-portrait { width: 38px; height: 38px; }
+  .d2s-party-name strong { font-size: 11px; }
+  .d2s-party-name small { font-size: 9px; }
   .d2s-enemy-hover-card { top: 10px; width: min(210px, 52vw); padding: 6px 9px; font-size: 13px; }
   .d2s-act-banner > strong { font-size: 12px; }
   .d2s-orb {
@@ -2448,39 +2517,61 @@
 }
 .d2s-stats-block small.d2s-stat-preview.negative { color: #ef7474; }
 .d2s-stat-line > span { white-space: nowrap; }
+/* The art draws each attribute as a long name field and a small value field;
+   the row now spans both so the number sits in its own box, as D2 shows it. */
 .d2s-attribute-stats .d2s-stat-line {
   left: 7.2%;
-  width: 26.6%; 
+  width: 30.2%;
+  z-index: 3;
+  box-sizing: border-box;
   transform: translateY(0.22em);
+}
+.d2s-attribute-stats .d2s-stat-line > b {
+  /* Right-aligned inside the small value field, clear of its border. */
+  padding-right: 0.35em;
 }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(1) { top: 25.75%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(2) { top: 42.73%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(3) { top: 59.79%; height: 4.38%; }
 .d2s-attribute-stats .d2s-stat-line:nth-of-type(4) { top: 70.47%; height: 4.38%; }
+/* D2's red square to the right of the row, on the bare stone past the value
+   field: a real target rather than the old 1.2em chip that straddled the border. */
 .d2s-attribute-stats .d2s-attribute-spend {
   position: absolute;
+  z-index: 4;
   top: 50%;
-  right: -1.5em;
-  transform: translateY(-50%);
-  width: 1.2em;
-  height: 1.2em;
+  left: calc(100% + 2px);
+  display: grid;
+  place-items: center;
+  width: clamp(26px, 5.2cqw, 42px);
+  height: clamp(26px, 5.2cqw, 42px);
   padding: 0;
-  color: #ffe9b0;
-  border: 1px solid #6d5730;
+  transform: translateY(-50%);
+  color: #ffd23f;
+  border: 1px solid #2b0a05;
   border-radius: 2px;
-  background: #14100bde;
-  font: bold 0.85em/1 var(--d2s-ui-font);
+  background: linear-gradient(#a8210f, #5d0f08);
+  box-shadow: inset 0 0 0 1px #c8552a, 0 2px 6px #000b;
+  font: 700 clamp(20px, 4.4cqw, 36px) / 1 var(--d2s-ui-font);
+  line-height: 1;
   text-align: center;
   text-shadow: none;
+  pointer-events: auto;
+  touch-action: manipulation;
   cursor: pointer;
 }
 .d2s-attribute-stats .d2s-attribute-spend:hover,
 .d2s-attribute-stats .d2s-attribute-spend:focus-visible {
-  color: #fff6cf;
-  border-color: #c9a65a;
-  background: #3a2c14;
+  color: #fff4b8;
+  border-color: #e0a34a;
+  background: linear-gradient(#c9351a, #7a1409);
+  box-shadow: inset 0 0 0 1px #e0743c, 0 0 10px #ff5a2a66, 0 2px 6px #000b;
   outline: none;
 }
+.d2s-attribute-stats .d2s-attribute-spend:active {
+  transform: translateY(-50%) scale(0.94);
+}
+.d2s-attribute-stats { z-index: 1; }
 .d2s-character-stats > .d2s-stats-level .d2s-attribute-points {
   color: #ffd98a;
   letter-spacing: 0.06em;

@@ -2,15 +2,18 @@
 
 The D2R extract keeps each player class's voice line as a FLAC under
 ``data/local/sfx/act<N>/<class>/`` and its subtitle text under the same key in
-``data/local/lng/strings/vo.json``. This copies the class files this game can
-trigger into the client assets as ``audio/voice/<class>/<key>.flac`` and writes
-``d2-hero-voice.ts`` with the matching text.
+``data/local/lng/strings/vo.json``. Each class file this game can trigger is
+re-encoded to the client's small mono Ogg/Opus format (``d2r_voice_encode.py``)
+and written to ``audio/voice/<class>/<key>.ogg``, and ``d2-hero-voice.ts``
+carries the matching text.
 """
 
 import json
 import os
 import re
-import shutil
+from pathlib import Path
+
+from d2r_voice_encode import ENCODED_SUFFIX, build_take, drop_stale_flacs
 
 EXTRACT = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "d2", "d2r extract", "data", "local")
 EXTRACT = os.path.abspath(EXTRACT)
@@ -34,6 +37,12 @@ PREFIX = {
 # Triggered lines whose subtitle text is missing from the shipped string table:
 # the voice file is authentic, so the line plays without a subtitle.
 TEXT_LESS_KEYS = {"sor_act3_complete_beneathcity"}
+
+# The "not enough mana" bark is not an act line: D2 keeps one per class in the
+# shared common set and says it whenever a spell cannot be paid for.
+MANA_KEY = "notenoughmana"
+MANA_TEXT = "Not enough mana."
+
 
 FALLBACK_TEXT = {
     "bar_act3_complete_beneathcity": "Maybe now the world will have peace.",
@@ -77,16 +86,33 @@ def main():
                     continue
                 target_dir = os.path.join(VOICE_DIR, class_name)
                 os.makedirs(target_dir, exist_ok=True)
-                shutil.copyfile(os.path.join(folder, name), os.path.join(target_dir, name))
+                encoded_name = key + ENCODED_SUFFIX
+                build_take(Path(folder) / name, Path(target_dir) / encoded_name)
                 copied += 1
                 # The table is keyed by the event (the file name without the
                 # class prefix) so every class answers to the same event key.
                 prefix = PREFIX[class_name] + "_"
                 event_key = key[len(prefix):] if key.startswith(prefix) else key
                 lines[event_key] = {
-                    "path": "assets/d2survivors/audio/voice/%s/%s" % (class_name, name),
+                    "path": "assets/d2survivors/audio/voice/%s/%s" % (class_name, encoded_name),
                     "text": text,
                 }
+        # The mana refusal is spoken outside the act script, from the common set.
+        mana_name = "%s_%s.flac" % (PREFIX[class_name], MANA_KEY)
+        mana_file = os.path.join(EXTRACT, "sfx", "common", class_name, mana_name)
+        if os.path.isfile(mana_file):
+            text = clean(strings.get(mana_name[: -len(".flac")], "")) or MANA_TEXT
+            target_dir = os.path.join(VOICE_DIR, class_name)
+            os.makedirs(target_dir, exist_ok=True)
+            encoded_name = MANA_KEY + ENCODED_SUFFIX
+            build_take(Path(mana_file), Path(target_dir) / encoded_name)
+            copied += 1
+            lines[MANA_KEY] = {
+                "path": "assets/d2survivors/audio/voice/%s/%s" % (class_name, encoded_name),
+                "text": text,
+            }
+        else:
+            skipped.append("%s_%s" % (PREFIX[class_name], MANA_KEY))
         table[class_name] = lines
 
     body = []
@@ -173,7 +199,10 @@ export function heroVoiceLine(classId: string, eventKey: string | undefined | nu
     with open(OUT_FILE, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(source)
 
-    print("copied", copied, "files")
+    removed = drop_stale_flacs(Path(VOICE_DIR))
+    if removed:
+        print("removed", removed, "lossless leftover(s)")
+    print("encoded", copied, "files")
     print("classes", {name: len(lines) for name, lines in table.items()})
     print("skipped without text", len(skipped))
     print("skipped sample", skipped[:12])
